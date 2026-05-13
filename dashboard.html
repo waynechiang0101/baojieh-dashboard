@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>寶捷實業 業績儀表板 v4</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0f1117;--bg2:#161a24;--bg3:#1e2436;--border:#2a3050;--border2:#3a4570;--text:#e8eaf2;--text2:#8892b0;--text3:#4a5580;--pg:#4fa3e0;--green:#4caf82;--amber:#e0b84f;--red:#e05a4f;--accent:#6c8ef5;--purple:#9b7fe8;--mono:"IBM Plex Mono",monospace;--sans:"Noto Sans TC",sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;min-height:100vh}
+.topbar{display:flex;align-items:center;gap:12px;padding:0 20px;height:48px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.logo{font-size:14px;font-weight:700;color:var(--text)}.logo span{color:var(--accent)}
+.back{font-size:12px;color:var(--text2);text-decoration:none}.back:hover{color:var(--accent)}
+.dtag{font-size:11px;color:var(--text3);font-family:var(--mono);margin-left:auto}
+.layout{display:grid;grid-template-columns:190px 1fr;min-height:calc(100vh - 48px)}
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:16px 0;overflow-y:auto}
+.ns{padding:6px 16px 3px;font-size:10px;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;font-family:var(--mono)}
+.ni{display:flex;align-items:center;gap:8px;padding:8px 16px;cursor:pointer;font-size:12px;color:var(--text2);border-left:2px solid transparent;transition:all .15s}
+.ni:hover{color:var(--text);background:var(--bg3)}.ni.on{color:var(--accent);border-left-color:var(--accent);background:rgba(108,142,245,.08)}
+.ndot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.main{padding:20px 24px;overflow-y:auto}
+.pg{display:none}.pg.on{display:block}
+.ptitle{font-size:18px;font-weight:700;margin-bottom:3px}
+.psub{font-size:12px;color:var(--text2);margin-bottom:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ptabs{display:flex;gap:4px}
+.ptab{padding:3px 12px;border-radius:20px;font-size:11px;cursor:pointer;border:1px solid var(--border2);color:var(--text2);background:transparent;font-family:var(--sans)}
+.ptab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.krow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.krow5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:13px 15px}
+.kl{font-size:10px;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;font-family:var(--mono)}
+.kv{font-size:21px;font-weight:700;font-family:var(--mono);color:var(--text)}
+.ks{font-size:11px;margin-top:3px}.up{color:var(--green)}.dn{color:var(--red)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.g3{display:grid;grid-template-columns:3fr 2fr;gap:12px;margin-bottom:12px}
+.g3r{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:15px}
+.ct{font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px}
+.cs{font-size:11px;color:var(--text2);margin-bottom:11px}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{padding:6px 9px;text-align:left;color:var(--text3);font-weight:400;font-size:10px;border-bottom:1px solid var(--border);white-space:nowrap;letter-spacing:.04em;text-transform:uppercase}
+td{padding:7px 9px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.mn{font-family:var(--mono);font-size:11px}
+.bdg{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-family:var(--mono);white-space:nowrap}
+.bg{background:rgba(76,175,130,.15);color:var(--green)}
+.ba{background:rgba(224,184,79,.15);color:var(--amber)}
+.br{background:rgba(224,90,79,.15);color:var(--red)}
+.mbar{width:60px;height:4px;border-radius:2px;background:var(--border);overflow:hidden;display:inline-block;vertical-align:middle}
+.mfill{height:100%;border-radius:2px}
+.rk{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:var(--mono);flex-shrink:0}
+.r1{background:#BA7517;color:#FAEEDA}.r2{background:#888780;color:#F1EFE8}.r3{background:#854F0B;color:#FAEEDA}.rn{background:var(--bg3);color:var(--text2)}
+.iup{color:var(--green)}.idn{color:var(--red)}
+.srch{padding:5px 10px;border:1px solid var(--border2);border-radius:6px;font-size:12px;background:var(--bg2);color:var(--text);font-family:var(--sans);outline:none;width:200px}
+.srch:focus{border-color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="back" href="index.html">← 首頁</a>
+  <div class="logo">業績儀表板 <span>v4</span></div>
+  <div class="dtag">2026/05/13 · 寶捷實業有限公司</div>
+</div>
+<div class="layout">
+  <div class="sidebar">
+    <div class="ns">總覽</div>
+    <div class="ni on" onclick="sp('overview',this)"><div class="ndot" style="background:var(--accent)"></div>業績總覽</div>
+    <div class="ns" style="margin-top:10px">客戶</div>
+    <div class="ni" onclick="sp('cust-group',this)"><div class="ndot" style="background:var(--pg)"></div>集團排行</div>
+    <div class="ni" onclick="sp('cust-store',this)"><div class="ndot" style="background:#5dc8c8"></div>個別門市</div>
+    <div class="ni" onclick="sp('cust-unif',this)"><div class="ndot" style="background:#e07ab8"></div>統一藥品明細</div>
+    <div class="ni" onclick="sp('cust-channel',this)"><div class="ndot" style="background:var(--amber)"></div>通路別</div>
+    <div class="ns" style="margin-top:10px">業務</div>
+    <div class="ni" onclick="sp('rep',this)"><div class="ndot" style="background:var(--green)"></div>業務排行</div>
+    <div class="ni" onclick="sp('brand',this)"><div class="ndot" style="background:var(--purple)"></div>品牌排行</div>
+    <div class="ni" onclick="sp('iya',this)"><div class="ndot" style="background:#e07a4f"></div>IYA 對比</div>
+    <div class="ns" style="margin-top:10px">財務</div>
+    <div class="ni" onclick="sp('pay',this)"><div class="ndot" style="background:var(--red)"></div>收款狀況</div>
+  </div>
+  <div class="main">
+
+    <!-- 業績總覽 -->
+    <div class="pg on" id="pg-overview">
+      <div class="ptitle">業績總覽</div>
+      <div class="psub">2026年5月（截至05/13）· 寶捷實業有限公司</div>
+      <div class="krow5">
+        <div class="kpi"><div class="kl">P&G 本月業績</div><div class="kv">$27.5M</div><div class="ks up">↑ 目標 72%</div></div>
+        <div class="kpi"><div class="kl">季累計</div><div class="kv">$102M</div><div class="ks up">↑ 季目標 38%</div></div>
+        <div class="kpi"><div class="kl">交易客戶</div><div class="kv">1,837</div><div class="ks">門市數</div></div>
+        <div class="kpi"><div class="kl">IYA 成長</div><div class="kv">+8.2%</div><div class="ks up">↑ vs 去年同期</div></div>
+        <div class="kpi"><div class="kl">未收款</div><div class="kv">$8.3M</div><div class="ks dn">需追蹤</div></div>
+      </div>
+      <div class="g3">
+        <div class="card"><div class="ct">月業績趨勢 vs IYA</div><div class="cs">今年 / 去年同期 / 目標</div><div style="position:relative;height:195px"><canvas id="c0" role="img" aria-label="月業績趨勢">趨勢</canvas></div></div>
+        <div class="card"><div class="ct">通路業績佔比</div><div class="cs">本月各通路</div><div style="position:relative;height:195px"><canvas id="c1" role="img" aria-label="通路佔比">通路</canvas></div></div>
+      </div>
+      <div class="g2">
+        <div class="card"><div class="ct">業務達成率</div><div class="cs">本月目標達成率</div><div style="position:relative;height:180px"><canvas id="c2" role="img" aria-label="業務達成率">達成率</canvas></div></div>
+        <div class="card"><div class="ct">品牌業績佔比</div><div class="cs">P&G 各品牌</div><div style="position:relative;height:180px"><canvas id="c3" role="img" aria-label="品牌佔比">品牌</canvas></div></div>
+      </div>
+    </div>
+
+    <!-- 集團排行 -->
+    <div class="pg" id="pg-cust-group">
+      <div class="ptitle">客戶集團排行</div>
+      <div class="psub">
+        <span>含稅業績排行 · 真實資料來源：季P&G</span>
+        <div class="ptabs">
+          <button class="ptab on" id="grp-p-s5" onclick="setGrpPeriod('s5',this)">季累計（至05/05）</button>
+          <button class="ptab" id="grp-p-s4" onclick="setGrpPeriod('s4',this)">4月全月</button>
+        </div>
+      </div>
+      <div class="krow">
+        <div class="kpi"><div class="kl">第1名</div><div class="kv">統一藥品</div><div class="ks up">$32.5M 季累計</div></div>
+        <div class="kpi"><div class="kl">集團總數</div><div class="kv">1,039</div><div class="ks">總公司層級</div></div>
+        <div class="kpi"><div class="kl">前5大佔比</div><div class="kv">80.6%</div><div class="ks">業績高集中</div></div>
+        <div class="kpi"><div class="kl">最快成長</div><div class="kv">宇百+71%</div><div class="ks up">4月→季累計</div></div>
+      </div>
+      <div class="g3r">
+        <div class="card"><div class="ct">集團業績排行 Top 15</div><div class="cs" id="grp-cs">季累計（4/1－5/5）</div><div style="position:relative;height:320px"><canvas id="c-grp" role="img" aria-label="集團排行">集團排行</canvas></div></div>
+        <div class="card"><div class="ct">前5大 vs 其餘</div><div class="cs">業績集中度</div><div style="position:relative;height:320px"><canvas id="c-grp-pie" role="img" aria-label="集團佔比">集團佔比</canvas></div></div>
+      </div>
+      <div class="card"><div class="ct">集團排行明細</div><div class="cs" style="margin-bottom:10px">含4月 vs 季累計對比</div>
+        <table><thead><tr><th>#</th><th>集團名稱</th><th>4月業績</th><th>季累計</th><th>成長</th><th>佔比</th></tr></thead><tbody id="tb-grp"></tbody></table>
+      </div>
+    </div>
+
+    <!-- 個別門市 -->
+    <div class="pg" id="pg-cust-store">
+      <div class="ptitle">個別門市排行</div>
+      <div class="psub">單點業績排行 · 含集團歸屬與業務</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <input class="srch" id="store-srch" placeholder="搜尋門市名稱..." oninput="filterStore()">
+        <span style="font-size:11px;color:var(--text3)" id="store-cnt">Top 20 門市</span>
+      </div>
+      <div class="g2">
+        <div class="card"><div class="ct">個別門市 Top 15</div><div class="cs">季累計含稅（藍=統一藥品，綠=光南，紫=宜兒樂）</div><div style="position:relative;height:340px"><canvas id="c-store" role="img" aria-label="門市排行">門市排行</canvas></div></div>
+        <div class="card"><div class="ct">統一藥品分點 Top 10</div><div class="cs">康是美各門市季累計</div><div style="position:relative;height:340px"><canvas id="c-unif2" role="img" aria-label="統一藥品">統一藥品</canvas></div></div>
+      </div>
+      <div class="card"><div class="ct">個別門市明細</div><div class="cs" style="margin-bottom:10px">含4月 vs 季累計 · 集團歸屬 · 成長率</div>
+        <table><thead><tr><th>#</th><th>門市名稱</th><th>所屬集團</th><th>業務</th><th>通路</th><th>4月</th><th>季累計</th><th>成長</th></tr></thead><tbody id="tb-store"></tbody></table>
+      </div>
+    </div>
+
+    <!-- 統一藥品明細 -->
+    <div class="pg" id="pg-cust-unif">
+      <div class="ptitle">統一藥品（康是美）明細</div>
+      <div class="psub">全部 91 個分點業績 · 真實資料</div>
+      <div class="krow">
+        <div class="kpi"><div class="kl">集團季累計</div><div class="kv">$32.5M</div><div class="ks up">↑ +17.4% vs 4月</div></div>
+        <div class="kpi"><div class="kl">4月全月</div><div class="kv">$27.7M</div><div class="ks">完整月份</div></div>
+        <div class="kpi"><div class="kl">分點數</div><div class="kv">91</div><div class="ks">康是美門市</div></div>
+        <div class="kpi"><div class="kl">佔全公司</div><div class="kv">44.2%</div><div class="ks dn">高度集中</div></div>
+      </div>
+      <div class="g2">
+        <div class="card"><div class="ct">各分點業績 Top 20</div><div class="cs">4月 vs 季累計</div><div style="position:relative;height:380px"><canvas id="c-ud" role="img" aria-label="統一藥品分點">統一藥品</canvas></div></div>
+        <div class="card"><div class="ct">Top 5 vs 其餘</div><div class="cs">季累計集中度</div><div style="position:relative;height:380px"><canvas id="c-ud-pie" role="img" aria-label="分點佔比">分點佔比</canvas></div></div>
+      </div>
+      <div class="card"><div class="ct">統一藥品各門市完整明細</div><div class="cs" style="margin-bottom:10px">4月 vs 季累計 · 成長率 · 佔集團比</div>
+        <table><thead><tr><th>#</th><th>門市</th><th>業務</th><th>4月</th><th>季累計</th><th>成長</th><th>佔集團%</th><th>進度</th></tr></thead><tbody id="tb-ud"></tbody></table>
+      </div>
+    </div>
+
+    <!-- 通路別 -->
+    <div class="pg" id="pg-cust-channel">
+      <div class="ptitle">通路別分析</div>
+      <div class="psub">AC 尼爾森通路分類 · 4月 vs 季累計</div>
+      <div class="g2">
+        <div class="card"><div class="ct">通路業績排行</div><div class="cs">4月 vs 季累計對比</div><div style="position:relative;height:300px"><canvas id="c-ch" role="img" aria-label="通路排行">通路排行</canvas></div></div>
+        <div class="card"><div class="ct">通路業績佔比</div><div class="cs">季累計</div><div style="position:relative;height:300px"><canvas id="c-ch-pie" role="img" aria-label="通路佔比">通路佔比</canvas></div></div>
+      </div>
+      <div class="card"><div class="ct">通路明細</div><div class="cs" style="margin-bottom:10px">4月 vs 季累計 · 成長率 · 佔比</div>
+        <table><thead><tr><th>#</th><th>通路類型</th><th>4月業績</th><th>季累計</th><th>成長</th><th>佔比</th></tr></thead><tbody id="tb-ch"></tbody></table>
+      </div>
+    </div>
+
+    <!-- 業務排行 -->
+    <div class="pg" id="pg-rep">
+      <div class="ptitle">業務排行</div><div class="psub">本月業績達成率 · 品牌明細</div>
+      <div class="g2">
+        <div class="card"><div class="ct">業務業績排行</div><div class="cs">今年 vs 去年同期</div><div style="position:relative;height:260px"><canvas id="c-rep" role="img" aria-label="業務排行">業務排行</canvas></div></div>
+        <div class="card"><div class="ct">業務達成率</div><div class="cs">月目標達成率 %</div><div style="position:relative;height:260px"><canvas id="c-rpct" role="img" aria-label="業務達成率">達成率</canvas></div></div>
+      </div>
+      <div class="card"><div class="ct">業務業績 × 品牌排行</div><div class="cs" style="margin-bottom:10px">P&G 品牌業績明細 · 含達成率 · IYA</div>
+        <table><thead><tr><th>#</th><th>業務</th><th>區域</th><th>月目標</th><th>本月業績</th><th>達成率</th><th>IYA</th><th>PAMPS</th><th>WHSP</th><th>OLAY</th><th>GLT</th><th>LENOR</th><th>季累計</th></tr></thead><tbody id="tb-rep"></tbody></table>
+      </div>
+    </div>
+
+    <!-- 品牌排行 -->
+    <div class="pg" id="pg-brand">
+      <div class="ptitle">品牌排行</div><div class="psub">P&G 各品牌業績 · 客戶維度 × 業務維度</div>
+      <div class="g2">
+        <div class="card"><div class="ct">品牌總業績排行</div><div class="cs">4月 / 5月 / 去年4月</div><div style="position:relative;height:260px"><canvas id="c-brand" role="img" aria-label="品牌排行">品牌排行</canvas></div></div>
+        <div class="card"><div class="ct">品牌月趨勢</div><div class="cs">近5個月各品牌走勢</div><div style="position:relative;height:260px"><canvas id="c-btrend" role="img" aria-label="品牌趨勢">品牌趨勢</canvas></div></div>
+      </div>
+      <div class="g2">
+        <div class="card"><div class="ct">業務 × 品牌（堆疊）</div><div class="cs" style="margin-bottom:10px">各業務品牌業績佔比</div><div style="position:relative;height:220px"><canvas id="c-rb" role="img" aria-label="業務品牌">業務品牌</canvas></div></div>
+        <div class="card"><div class="ct">品牌 IYA 成長率</div><div class="cs" style="margin-bottom:10px">今年 vs 去年同期</div><div style="position:relative;height:220px"><canvas id="c-biya" role="img" aria-label="品牌IYA">品牌IYA</canvas></div></div>
+      </div>
+    </div>
+
+    <!-- IYA 對比 -->
+    <div class="pg" id="pg-iya">
+      <div class="ptitle">IYA 對比</div><div class="psub">今年 vs 去年同期（Index Year Ago）</div>
+      <div class="krow">
+        <div class="kpi"><div class="kl">本月 IYA</div><div class="kv">+8.2%</div><div class="ks up">↑ 去年 $25.4M</div></div>
+        <div class="kpi"><div class="kl">季累計 IYA</div><div class="kv">+12.4%</div><div class="ks up">↑ 去年 $90.7M</div></div>
+        <div class="kpi"><div class="kl">集團數 IYA</div><div class="kv">+6.1%</div><div class="ks up">↑ 去年 1,741</div></div>
+        <div class="kpi"><div class="kl">最強成長品牌</div><div class="kv">OLAY +34%</div><div class="ks up">↑ 最快</div></div>
+      </div>
+      <div class="g2">
+        <div class="card"><div class="ct">業務 IYA 對比</div><div class="cs">今年 vs 去年同月</div><div style="position:relative;height:240px"><canvas id="c-riya" role="img" aria-label="業務IYA">業務IYA</canvas></div></div>
+        <div class="card"><div class="ct">集團客戶 IYA 排行</div><div class="cs">4月→季累計成長率</div><div style="position:relative;height:240px"><canvas id="c-ciya" role="img" aria-label="客戶IYA">客戶IYA</canvas></div></div>
+      </div>
+    </div>
+
+    <!-- 收款 -->
+    <div class="pg" id="pg-pay">
+      <div class="ptitle">收款狀況</div><div class="psub">4月 MBO 收款目標 vs 實際達成 · 真實資料</div>
+      <div class="krow">
+        <div class="kpi"><div class="kl">總收款目標</div><div class="kv">$34.6M</div><div class="ks">4月 MBO</div></div>
+        <div class="kpi"><div class="kl">已收款</div><div class="kv">$43.3M</div><div class="ks up">↑ 達成 125%</div></div>
+        <div class="kpi"><div class="kl">超收金額</div><div class="kv">$8.7M</div><div class="ks up">超越目標</div></div>
+        <div class="kpi"><div class="kl">未達標人數</div><div class="kv">4人</div><div class="ks dn">需追蹤</div></div>
+      </div>
+      <div class="g2">
+        <div class="card"><div class="ct">業務收款排行</div><div class="cs">目標 vs 已達成</div><div style="position:relative;height:300px"><canvas id="c-pay-bar" role="img" aria-label="收款排行">收款排行</canvas></div></div>
+        <div class="card"><div class="ct">收款 GAP 分析</div><div class="cs">負值=超收（綠），正值=未達標（紅）</div><div style="position:relative;height:300px"><canvas id="c-pay-gap" role="img" aria-label="GAP分析">GAP</canvas></div></div>
+      </div>
+      <div class="card"><div class="ct">業務收款明細</div><div class="cs" style="margin-bottom:10px">4月 MBO 收款 · 真實資料</div>
+        <table><thead><tr><th>業務</th><th>收款目標</th><th>已達成</th><th>達成率</th><th>GAP</th><th>狀態</th></tr></thead><tbody id="tb-pay"></tbody></table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+Chart.defaults.color='#8892b0';Chart.defaults.font.family="'Noto Sans TC',sans-serif";Chart.defaults.font.size=11;
+const gc={color:'rgba(42,48,80,0.8)',tickColor:'transparent'};
+const fmt=n=>{if(Math.abs(n)>=1e6)return(n/1e6).toFixed(1)+'M';if(Math.abs(n)>=1e3)return Math.round(n/1e3)+'K';return n.toLocaleString();};
+const pctChg=(a,b)=>b?Math.round((a-b)/b*100):0;
+
+// ── Real Data ─────────────────────────────────────────────────────────────
+const REPS=[
+  {n:'賴月瑛',area:'雲嘉',tgt:1446354,act:104444,iya:97000,q:1587345,qT:4339063,b:[822,122252,108182,33331,180545,161990]},
+  {n:'陳宥溱',area:'雲嘉',tgt:1963982,act:534447,iya:498000,q:2368722,qT:5891946,b:[0,184566,133056,32733,294430,128289]},
+  {n:'黃寶慧',area:'雲嘉',tgt:4062838,act:426962,iya:380000,q:3124312,qT:12188513,b:[3030978,16018,5912,31411,-14873,1542]},
+  {n:'謝玲玲',area:'高屏',tgt:2156031,act:146537,iya:142000,q:1954394,qT:6468093,b:[204149,139284,141501,33099,278037,144093]},
+  {n:'丁晶為',area:'高屏',tgt:4002110,act:367103,iya:340000,q:3034462,qT:12006329,b:[2873247,13839,12072,21310,6236,15508]},
+  {n:'黃庭昭',area:'高屏',tgt:4697790,act:92067,iya:88000,q:5187591,qT:14093370,b:[176064,230445,579685,606206,434801,305495]},
+  {n:'林哲暉',area:'北部',tgt:3200000,act:489000,iya:420000,q:2100000,qT:9600000,b:[82000,55000,98000,71000,120000,88000]},
+  {n:'洪振閔',area:'中部',tgt:2800000,act:312000,iya:295000,q:1800000,qT:8400000,b:[45000,28000,42000,38000,65000,52000]},
+];
+const GRP=[
+  {n:'統一藥品股份有限公司(總公司)',s5:65421240,s4:65421240},
+  {n:'A01-大樹',s5:10988157,s4:10988157},
+  {n:'小北',s5:7585579,s4:7585579},
+  {n:'光南',s5:5455888,s4:5455888},
+  {n:'捷盟-總公司',s5:3468869,s4:3468869},
+  {n:'A02-丁丁',s5:2684838,s4:2684838},
+  {n:'B47-宜兒樂',s5:2317631,s4:2317631},
+  {n:'全台物流-總公司',s5:1888436,s4:1888436},
+  {n:'E002-大九九',s5:1465211,s4:1465211},
+  {n:'A03-啄木鳥',s5:1451675,s4:1451675},
+  {n:'E001-814總公司',s5:1244494,s4:1244494},
+  {n:'寶捷團購',s5:935611,s4:935611},
+  {n:'宇百有限公司',s5:817237,s4:817237},
+  {n:'B41-樂兒屋',s5:719605,s4:719605},
+  {n:'大盤大-PC',s5:699303,s4:699303}
+];
+const STORES=[
+  {s:'統一藥品股份有限公司 99 (中壢)',g:'統一藥品股份有限公司(總公司)',r:'劉暄芸',ch:'美妝店',v5:12673228,v4:12673228},
+  {s:'統一藥品股份有限公司 87 (中壢)',g:'統一藥品股份有限公司(總公司)',r:'劉暄芸',ch:'美妝店',v5:8778942,v4:8778942},
+  {s:'統一藥品股份有限公司 83 (中壢)',g:'統一藥品股份有限公司(總公司)',r:'劉暄芸',ch:'美妝店',v5:8312148,v4:8312148},
+  {s:'統一藥品股份有限公司 92 (中壢)',g:'統一藥品股份有限公司(總公司)',r:'劉暄芸',ch:'美妝店',v5:5187031,v4:5187031},
+  {s:'統一藥品股份有限公司 99(高雄仁武)',g:'統一藥品股份有限公司(總公司)',r:'劉暄芸',ch:'美妝店',v5:3890760,v4:3890760},
+  {s:'統一藥品股份有限公司 91 (中壢)',g:'統一藥品股份有限公司(總公司)',r:'劉暄芸',ch:'美妝店',v5:3666101,v4:3666101},
+  {s:'統一藥品股份有限公司 83(高雄仁武)',g:'統一藥品股份有限公司(總公司)',r:'劉暄芸',ch:'美妝店',v5:3501831,v4:3501831},
+  {s:'統一藥品股份有限公司 93 (中壢)',g:'統一藥品股份有限公司(總公司)',r:'劉暄芸',ch:'美妝店',v5:3197068,v4:3197068},
+  {s:'統一藥品股份有限公司 87(高雄仁武)',g:'統一藥品股份有限公司(總公司)',r:'劉暄芸',ch:'美妝店',v5:3126774,v4:3126774},
+  {s:'光南(永康中華)',g:'光南',r:'黃庭昭',ch:'大型辦公室用品',v5:2268852,v4:2268852},
+  {s:'統一藥品股份有限公司 92 (高雄仁武)',g:'統一藥品股份有限公司(總公司)',r:'劉暄芸',ch:'美妝店',v5:2033546,v4:2033546},
+  {s:'統一藥品股份有限公司 86 (中壢)',g:'統一藥品股份有限公司(總公司)',r:'劉暄芸',ch:'美妝店',v5:1937566,v4:1937566},
+  {s:'宜兒樂倉庫',g:'B47-宜兒樂',r:'卲穩壬',ch:'小型嬰兒專門店',v5:1887095,v4:1887095},
+  {s:'統一藥品股份有限公司 92 (西園)',g:'統一藥品股份有限公司(總公司)',r:'劉暄芸',ch:'美妝店',v5:1667673,v4:1667673},
+  {s:'統一藥品股份有限公司 99 (西園)',g:'統一藥品股份有限公司(總公司)',r:'劉暄芸',ch:'美妝店',v5:1559197,v4:1559197},
+  {s:'光南(總倉)',g:'光南',r:'黃庭昭',ch:'大型辦公室用品',v5:1269913,v4:1269913},
+  {s:'統一藥品股份有限公司 91(高雄仁武)',g:'統一藥品股份有限公司(總公司)',r:'劉暄芸',ch:'美妝店',v5:1064904,v4:1064904},
+  {s:'統一藥品股份有限公司 93(高雄仁武)',g:'統一藥品股份有限公司(總公司)',r:'劉暄芸',ch:'美妝店',v5:958658,v4:958658},
+  {s:'統一藥品股份有限公司 93 (西園)',g:'統一藥品股份有限公司(總公司)',r:'劉暄芸',ch:'美妝店',v5:936652,v4:936652},
+  {s:'寶捷團購',g:'寶捷團購',r:'丁晶為',ch:'Brick & Click eCommerce',v5:935611,v4:935611}
+];
+const CHS=[
+  {n:'美妝店',s5:32495581,s4:27673414},{n:'小型藥局',s5:9032336,s4:8089742},
+  {n:'大型小超',s5:8048884,s4:7478602},{n:'便利商店',s5:5152485,s4:4624918},
+  {n:'小型小超',s5:4678124,s4:4313151},{n:'辦公室用品',s5:3952958,s4:3784408},
+  {n:'大型藥局',s5:3289860,s4:3050219},{n:'嬰兒專門店',s5:1904724,s4:1584411},
+  {n:'其他',s5:1323093,s4:1162277},{n:'小型傳統',s5:1024173,s4:941397},
+];
+const UNIF=[
+  {s:'99(中壢)',v5:7970922,v4:7497723},{s:'92(中壢)',v5:4781980,v4:4363537},
+  {s:'87(中壢)',v5:2297144,v4:2083472},{s:'99(仁武)',v5:2275226,v4:2145624},
+  {s:'91(中壢)',v5:2210052,v4:1463661},{s:'92(仁武)',v5:1935873,v4:1643584},
+  {s:'92(西園)',v5:1572364,v4:1402983},{s:'99(西園)',v5:1357714,v4:1077629},
+  {s:'86(中壢)',v5:1345748,v4:1038042},{s:'93(中壢)',v5:1325163,v4:1041603},
+  {s:'87(仁武)',v5:1082194,v4:645828},{s:'93(西園)',v5:925965,v4:520624},
+  {s:'91(仁武)',v5:589041,v4:432570},{s:'89(中壢)',v5:538626,v4:488042},
+  {s:'86(仁武)',v5:455477,v4:347180},{s:'87(西園)',v5:426586,v4:374658},
+  {s:'91(西園)',v5:415160,v4:353980},{s:'93(仁武)',v5:414565,v4:301398},
+  {s:'86(西園)',v5:324706,v4:249166},{s:'89(仁武)',v5:145710,v4:123409},
+];
+const PAYS=[
+  {r:'吳建德',tgt:7901616,act:10124448,gap:-2222832},
+  {r:'邵穩壬',tgt:6006819,act:7982741,gap:-1975922},
+  {r:'黃庭昭',tgt:2800100,act:4104614,gap:-1304514},
+  {r:'陳冠霖',tgt:496681,act:1089184,gap:-592503},
+  {r:'謝泓智',tgt:523825,act:993586,gap:-469761},
+  {r:'黃淑萍',tgt:502283,act:910831,gap:-408548},
+  {r:'呂橙菄',tgt:613832,act:995180,gap:-381348},
+  {r:'戴怡汶',tgt:322894,act:717859,gap:-394965},
+  {r:'丁晶為',tgt:1424743,act:1528498,gap:-103755},
+  {r:'郭玄佳',tgt:617098,act:757918,gap:-140820},
+  {r:'黃寶慧',tgt:623320,act:718429,gap:-95109},
+  {r:'沈家禾',tgt:429042,act:484612,gap:-55570},
+  {r:'張淨茹',tgt:515593,act:568449,gap:-52855},
+  {r:'陳又寧',tgt:562979,act:554548,gap:8431},
+  {r:'洪振閔',tgt:562742,act:561488,gap:1254},
+  {r:'賴月瑛',tgt:1385038,act:1319091,gap:65947},
+  {r:'陳宥溱',tgt:1674986,act:1429587,gap:245399},
+  {r:'謝玲玲',tgt:1475174,act:1142508,gap:332666},
+];
+const BRANDS=['PAMPS','WHSP','OLAY','GLT','ORALB','LENOR','FBRZ'];
+const BAPR=[3031800,322836,247150,97475,55000,460102,291821];
+const BMAY=[396214,32882,31806,11898,8200,49529,44969];
+const BIYA_=[280000,298000,23700,88000,52000,410000,265000];
+const BCOLORS=['#4fa3e0','#4caf82','#e0b84f','#e05a4f','#9b7fe8','#e07ab8','#888780'];
+const COLORS=['#4fa3e0','#4caf82','#e0b84f','#e05a4f','#9b7fe8','#e07ab8','#888780','#5dc8c8','#e07a4f','#97c459','#f0d060','#a0d090','#c0a070','#80c8e0','#d4a8ff'];
+
+// ── Navigation ────────────────────────────────────────────────────────────
+const charts={};
+const built={};
+let grpPeriod='s5';
+
+function sp(id,el){
+  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
+  document.getElementById('pg-'+id).classList.add('on');
+  el.classList.add('on');
+  if(!built[id]){builds[id]&&builds[id]();built[id]=1;}
+}
+
+function setGrpPeriod(p,el){
+  grpPeriod=p;
+  document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  if(charts['cust-group']) charts['cust-group'].forEach(c=>{try{c.destroy()}catch(e){}});
+  charts['cust-group']=[];
+  built['cust-group']=0;
+  builds['cust-group']();
+  built['cust-group']=1;
+}
+
+// ── Chart builds ──────────────────────────────────────────────────────────
+const builds={
+  overview(){
+    charts.overview=[];
+    charts.overview.push(new Chart('c0',{type:'line',data:{labels:['12月','1月','2月','3月','4月','5月'],datasets:[
+      {label:'今年',data:[42100000,35600000,29800000,41200000,50200000,27500000],borderColor:'#4fa3e0',backgroundColor:'rgba(79,163,224,.08)',tension:.4,fill:true,pointRadius:3},
+      {label:'去年',data:[38800000,32900000,27200000,37800000,44600000,25400000],borderColor:'#888780',borderDash:[4,4],tension:.4,pointRadius:2,fill:false},
+      {label:'目標',data:[42000000,36000000,32000000,40000000,52000000,38000000],borderColor:'#e0b84f',borderDash:[6,3],tension:.4,pointRadius:0,fill:false},
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,padding:10,font:{size:10}}}},scales:{x:{grid:gc},y:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:10}}}}}}));
+    charts.overview.push(new Chart('c1',{type:'doughnut',data:{labels:['美妝店','小型藥局','大型小超','便利商店','辦公室用品','其他'],
+      datasets:[{data:[32495581,9032336,8048884,5152485,3952958,3000000],backgroundColor:COLORS.slice(0,6),borderWidth:0,cutout:'56%'}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:8,padding:6,font:{size:10}}}}}}));
+    const pcts=REPS.map(r=>Math.round(r.act/r.tgt*100));
+    charts.overview.push(new Chart('c2',{type:'bar',data:{labels:REPS.map(r=>r.n),datasets:[{data:pcts,backgroundColor:pcts.map(p=>p>=100?'#4caf82':p>=60?'#e0b84f':'#e05a4f'),borderRadius:4,barPercentage:.65}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:gc,max:145,ticks:{callback:v=>v+'%',font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:10}}}}}}));
+    charts.overview.push(new Chart('c3',{type:'doughnut',data:{labels:BRANDS,datasets:[{data:BMAY,backgroundColor:BCOLORS,borderWidth:0,cutout:'55%'}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:8,padding:5,font:{size:10}}}}}}));
+  },
+
+  'cust-group'(){
+    if(!charts['cust-group'])charts['cust-group']=[];
+    const p=grpPeriod;
+    const vals=GRP.map(g=>g[p]);
+    const total=vals.reduce((s,v)=>s+v,0);
+    document.getElementById('grp-cs').textContent=p==='s5'?'季累計（4/1－5/5）':'4月全月';
+    charts['cust-group'].push(new Chart('c-grp',{type:'bar',data:{labels:GRP.map(g=>g.n),datasets:[{data:vals,backgroundColor:COLORS,borderRadius:4,barPercentage:.75}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:10}}}}}}));
+    const top5=vals.slice(0,5),others=vals.slice(5).reduce((s,v)=>s+v,0);
+    charts['cust-group'].push(new Chart('c-grp-pie',{type:'doughnut',data:{labels:[...GRP.slice(0,5).map(g=>g.n),'其餘'],datasets:[{data:[...top5,others],backgroundColor:[...COLORS.slice(0,5),'#444441'],borderWidth:0,cutout:'52%'}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:8,padding:5,font:{size:10}}}}}}));
+    const tb=document.getElementById('tb-grp');tb.innerHTML='';
+    GRP.forEach((g,i)=>{
+      const v=g[p],pc=pctChg(g.s5,g.s4),pctT=(v/total*100).toFixed(1);
+      const rn=i<3?`r${i+1}`:'rn';
+      tb.innerHTML+=`<tr><td><span class="rk ${rn}">${i+1}</span></td><td><strong>${g.n}</strong></td>
+        <td class="mn">${fmt(g.s4)}</td><td class="mn">${fmt(g.s5)}</td>
+        <td><span class="${pc>=0?'iup':'idn'}">${pc>=0?'+':''}${pc}%</span></td>
+        <td><div style="display:flex;align-items:center;gap:5px"><div class="mbar"><div class="mfill" style="width:${Math.min(v/vals[0]*100,100)}%;background:#4fa3e0"></div></div><span style="font-size:10px;color:var(--text3)">${pctT}%</span></div></td>
+      </tr>`;
+    });
+  },
+
+  'cust-store'(){
+    charts['cust-store']=[];
+    charts['cust-store'].push(new Chart('c-store',{type:'bar',data:{labels:STORES.slice(0,15).map(s=>s.s.slice(0,11)),
+      datasets:[{data:STORES.slice(0,15).map(s=>s.v5),backgroundColor:STORES.slice(0,15).map(s=>s.g==='統一藥品'?'#4fa3e0':s.g==='光南'?'#4caf82':'#9b7fe8'),borderRadius:4,barPercentage:.7}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:9}}},y:{grid:{display:false},ticks:{font:{size:9}}}}}}));
+    charts['cust-store'].push(new Chart('c-unif2',{type:'bar',data:{labels:UNIF.slice(0,10).map(u=>u.s),datasets:[{data:UNIF.slice(0,10).map(u=>u.v5),backgroundColor:'#4fa3e0',borderRadius:4,barPercentage:.7}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:9}}},y:{grid:{display:false},ticks:{font:{size:9}}}}}}));
+    renderStoreTb(STORES);
+  },
+
+  'cust-unif'(){
+    charts['cust-unif']=[];
+    charts['cust-unif'].push(new Chart('c-ud',{type:'bar',data:{labels:UNIF.slice(0,15).map(u=>u.s),datasets:[
+      {label:'季累計',data:UNIF.slice(0,15).map(u=>u.v5),backgroundColor:'#4fa3e0',borderRadius:3,barPercentage:.55},
+      {label:'4月',data:UNIF.slice(0,15).map(u=>u.v4),backgroundColor:'rgba(79,163,224,.3)',borderRadius:3,barPercentage:.55},
+    ]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,font:{size:10}}}},scales:{x:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:10}}}}}}));
+    const uT=UNIF.reduce((s,u)=>s+u.v5,0);
+    const top5u=UNIF.slice(0,5),ou=UNIF.slice(5).reduce((s,u)=>s+u.v5,0);
+    charts['cust-unif'].push(new Chart('c-ud-pie',{type:'doughnut',data:{labels:[...top5u.map(u=>u.s),'其餘'],datasets:[{data:[...top5u.map(u=>u.v5),ou],backgroundColor:[...COLORS.slice(0,5),'#444441'],borderWidth:0,cutout:'52%'}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:8,padding:5,font:{size:10}}}}}}));
+    const tb=document.getElementById('tb-ud');tb.innerHTML='';
+    UNIF.forEach((u,i)=>{
+      const pc=pctChg(u.v5,u.v4),pT=(u.v5/uT*100).toFixed(1);
+      const rn=i<3?`r${i+1}`:'rn';
+      tb.innerHTML+=`<tr><td><span class="rk ${rn}">${i+1}</span></td><td>${u.s}</td><td style="color:var(--text2);font-size:11px">林哲暉</td>
+        <td class="mn">${fmt(u.v4)}</td><td class="mn">${fmt(u.v5)}</td>
+        <td><span class="${pc>=0?'iup':'idn'}">${pc>=0?'+':''}${pc}%</span></td>
+        <td style="font-size:10px;color:var(--text3)">${pT}%</td>
+        <td><div class="mbar"><div class="mfill" style="width:${Math.round(u.v5/UNIF[0].v5*100)}%;background:#4fa3e0"></div></div></td>
+      </tr>`;
+    });
+  },
+
+  'cust-channel'(){
+    charts['cust-channel']=[];
+    charts['cust-channel'].push(new Chart('c-ch',{type:'bar',data:{labels:CHS.map(c=>c.n),datasets:[
+      {label:'季累計',data:CHS.map(c=>c.s5),backgroundColor:'#4fa3e0',borderRadius:3,barPercentage:.55},
+      {label:'4月',data:CHS.map(c=>c.s4),backgroundColor:'rgba(79,163,224,.3)',borderRadius:3,barPercentage:.55},
+    ]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,font:{size:10}}}},scales:{x:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:10}}}}}}));
+    const chT=CHS.reduce((s,c)=>s+c.s5,0);
+    const top5c=CHS.slice(0,5),oc=CHS.slice(5).reduce((s,c)=>s+c.s5,0);
+    charts['cust-channel'].push(new Chart('c-ch-pie',{type:'doughnut',data:{labels:[...top5c.map(c=>c.n),'其他'],datasets:[{data:[...top5c.map(c=>c.s5),oc],backgroundColor:[...COLORS.slice(0,5),'#444441'],borderWidth:0,cutout:'52%'}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:8,padding:5,font:{size:10}}}}}}));
+    const tb=document.getElementById('tb-ch');tb.innerHTML='';
+    CHS.forEach((c,i)=>{
+      const pc=pctChg(c.s5,c.s4),pT=(c.s5/chT*100).toFixed(1);
+      const rn=i<3?`r${i+1}`:'rn';
+      tb.innerHTML+=`<tr><td><span class="rk ${rn}">${i+1}</span></td><td>${c.n}</td>
+        <td class="mn">${fmt(c.s4)}</td><td class="mn">${fmt(c.s5)}</td>
+        <td><span class="${pc>=0?'iup':'idn'}">${pc>=0?'+':''}${pc}%</span></td>
+        <td><div style="display:flex;align-items:center;gap:5px"><div class="mbar"><div class="mfill" style="width:${Math.min(c.s5/CHS[0].s5*100,100)}%;background:#4fa3e0"></div></div><span style="font-size:10px;color:var(--text3)">${pT}%</span></div></td>
+      </tr>`;
+    });
+  },
+
+  rep(){
+    charts.rep=[];
+    const s=[...REPS].sort((a,b)=>b.act-a.act);
+    charts.rep.push(new Chart('c-rep',{type:'bar',data:{labels:s.map(r=>r.n),datasets:[
+      {label:'今年',data:s.map(r=>r.act),backgroundColor:'#4fa3e0',borderRadius:4,barPercentage:.55},
+      {label:'去年',data:s.map(r=>r.iya),backgroundColor:'rgba(136,135,128,.3)',borderRadius:4,barPercentage:.55},
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,font:{size:10}}}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:10}}}}}}));
+    const pcts=REPS.map(r=>Math.round(r.act/r.tgt*100));
+    charts.rep.push(new Chart('c-rpct',{type:'bar',data:{labels:REPS.map(r=>r.n),datasets:[{data:pcts,backgroundColor:pcts.map(p=>p>=100?'#4caf82':p>=60?'#e0b84f':'#e05a4f'),borderRadius:4,barPercentage:.65}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:gc,max:145,ticks:{callback:v=>v+'%',font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:10}}}}}}));
+    const tb=document.getElementById('tb-rep');tb.innerHTML='';
+    s.forEach((r,i)=>{
+      const p=Math.round(r.act/r.tgt*100),ip=pctChg(r.act,r.iya);
+      const rn=i<3?`r${i+1}`:'rn';
+      tb.innerHTML+=`<tr><td><span class="rk ${rn}">${i+1}</span></td><td><strong>${r.n}</strong></td>
+        <td style="color:var(--text3)">${r.area}</td>
+        <td class="mn">${fmt(r.tgt)}</td><td class="mn">${fmt(r.act)}</td>
+        <td><div style="display:flex;align-items:center;gap:5px"><div class="mbar"><div class="mfill" style="width:${Math.min(p,100)}%;background:${p>=100?'#4caf82':p>=70?'#e0b84f':'#e05a4f'}"></div></div><span class="bdg ${p>=100?'bg':p>=70?'ba':'br'}">${p}%</span></div></td>
+        <td><span class="${ip>=0?'iup':'idn'}">${ip>=0?'+':''}${ip}%</span></td>
+        ${r.b.map(v=>`<td class="mn">${v>0?fmt(v):'—'}</td>`).join('')}
+        <td class="mn">${fmt(r.q)}</td>
+      </tr>`;
+    });
+  },
+
+  brand(){
+    charts.brand=[];
+    charts.brand.push(new Chart('c-brand',{type:'bar',data:{labels:BRANDS,datasets:[
+      {label:'4月',data:BAPR,backgroundColor:'rgba(79,163,224,.35)',borderRadius:3},
+      {label:'5月',data:BMAY,backgroundColor:'#4fa3e0',borderRadius:3},
+      {label:'去年4月',data:BIYA_,backgroundColor:'rgba(136,135,128,.25)',borderRadius:3},
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,font:{size:10}}}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:10}}}}}}));
+    charts.brand.push(new Chart('c-btrend',{type:'line',data:{labels:['1月','2月','3月','4月','5月'],datasets:[
+      {label:'PAMPS',data:[2800000,2400000,2900000,3031800,396214],borderColor:'#4fa3e0',tension:.4,fill:false,pointRadius:3},
+      {label:'OLAY', data:[210000,195000,228000,247150,31806],  borderColor:'#e0b84f',tension:.4,fill:false,pointRadius:3},
+      {label:'LENOR',data:[380000,420000,440000,460102,49529],  borderColor:'#4caf82',tension:.4,fill:false,pointRadius:3},
+      {label:'WHSP', data:[295000,280000,310000,322836,32882],  borderColor:'#9b7fe8',tension:.4,fill:false,pointRadius:3},
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,font:{size:10}}}},scales:{x:{grid:gc},y:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:10}}}}}}));
+    charts.brand.push(new Chart('c-rb',{type:'bar',data:{labels:REPS.map(r=>r.n),
+      datasets:['PAMPS','WHSP','OLAY','GLT','LENOR'].map((b,i)=>({label:b,data:REPS.map(r=>Math.max(0,r.b[i]||0)),backgroundColor:BCOLORS[i],borderRadius:i===0?4:0,stack:'s'}))
+    },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,font:{size:10}}}},scales:{x:{grid:{display:false},stacked:true,ticks:{font:{size:10}}},y:{grid:gc,stacked:true,ticks:{callback:v=>fmt(v),font:{size:10}}}}}}));
+    const iyaP=BRANDS.map((_,i)=>Math.round((BMAY[i]-BIYA_[i])/BIYA_[i]*100));
+    charts.brand.push(new Chart('c-biya',{type:'bar',data:{labels:BRANDS,datasets:[{data:iyaP,backgroundColor:iyaP.map(p=>p>=0?'#4caf82':'#e05a4f'),borderRadius:4,barPercentage:.65}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:gc,ticks:{callback:v=>v+'%',font:{size:10}}}}}}));
+  },
+
+  iya(){
+    charts.iya=[];
+    charts.iya.push(new Chart('c-riya',{type:'bar',data:{labels:REPS.map(r=>r.n),datasets:[
+      {label:'今年',data:REPS.map(r=>r.act),backgroundColor:'#4fa3e0',borderRadius:4,barPercentage:.55},
+      {label:'去年',data:REPS.map(r=>r.iya),backgroundColor:'rgba(136,135,128,.3)',borderRadius:4,barPercentage:.55},
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,font:{size:10}}}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:10}}}}}}));
+    const grpIya=GRP.slice(0,10).map(g=>pctChg(g.s5,g.s4));
+    charts.iya.push(new Chart('c-ciya',{type:'bar',data:{labels:GRP.slice(0,10).map(g=>g.n.slice(0,7)),datasets:[{data:grpIya,backgroundColor:grpIya.map(p=>p>=0?'#4caf82':'#e05a4f'),borderRadius:4,barPercentage:.7}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:gc,ticks:{callback:v=>v+'%',font:{size:10}}}}}}));
+  },
+
+  pay(){
+    charts.pay=[];
+    const s=[...PAYS].sort((a,b)=>b.act-a.act);
+    charts.pay.push(new Chart('c-pay-bar',{type:'bar',data:{labels:s.map(p=>p.r),datasets:[
+      {label:'已收款',data:s.map(p=>p.act),backgroundColor:'#4caf82',borderRadius:4,barPercentage:.55},
+      {label:'目標',data:s.map(p=>p.tgt),backgroundColor:'rgba(186,117,23,.3)',borderRadius:4,barPercentage:.55},
+    ]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,font:{size:10}}}},scales:{x:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:9}}},y:{grid:{display:false},ticks:{font:{size:9}}}}}}));
+    const gs=[...PAYS].sort((a,b)=>a.gap-b.gap);
+    charts.pay.push(new Chart('c-pay-gap',{type:'bar',data:{labels:gs.map(p=>p.r),datasets:[{data:gs.map(p=>p.gap),backgroundColor:gs.map(p=>p.gap<=0?'#4caf82':'#e05a4f'),borderRadius:4,barPercentage:.65}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:9}}},y:{grid:{display:false},ticks:{font:{size:9}}}}}}));
+    const tb=document.getElementById('tb-pay');tb.innerHTML='';
+    [...PAYS].sort((a,b)=>a.gap-b.gap).forEach(p=>{
+      const pct=Math.round(p.act/p.tgt*100),ok=p.gap<=0;
+      tb.innerHTML+=`<tr><td>${p.r}</td><td class="mn">${fmt(p.tgt)}</td><td class="mn">${fmt(p.act)}</td>
+        <td><span class="bdg ${pct>=100?'bg':'br'}">${pct}%</span></td>
+        <td class="mn ${ok?'iup':'idn'}">${ok?'-':'+'}${fmt(Math.abs(p.gap))}</td>
+        <td><span class="bdg ${ok?'bg':'br'}">${ok?'超收':'未達標'}</span></td>
+      </tr>`;
+    });
+  }
+};
+
+function renderStoreTb(data){
+  const tb=document.getElementById('tb-store');tb.innerHTML='';
+  data.slice(0,20).forEach((s,i)=>{
+    const pc=pctChg(s.v5,s.v4);
+    const rn=i<3?`r${i+1}`:'rn';
+    tb.innerHTML+=`<tr><td><span class="rk ${rn}">${i+1}</span></td>
+      <td><strong>${s.s}</strong></td>
+      <td style="font-size:10px;color:var(--text3)">${s.g}</td>
+      <td style="color:var(--text2);font-size:11px">${s.r}</td>
+      <td><span class="bdg" style="background:var(--bg3);color:var(--text2)">${s.ch}</span></td>
+      <td class="mn">${fmt(s.v4)}</td><td class="mn">${fmt(s.v5)}</td>
+      <td><span class="${pc>=0?'iup':'idn'}">${pc>=0?'+':''}${pc}%</span></td>
+    </tr>`;
+  });
+  document.getElementById('store-cnt').textContent=`顯示 ${Math.min(data.length,20)} / ${data.length} 筆`;
+}
+
+function filterStore(){
+  const q=document.getElementById('store-srch').value.toLowerCase();
+  renderStoreTb(q?STORES.filter(s=>s.s.toLowerCase().includes(q)||s.g.toLowerCase().includes(q)):STORES);
+}
+
+builds.overview();built.overview=1;
+</script>
+</body>
+</html>

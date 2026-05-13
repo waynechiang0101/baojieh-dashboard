@@ -1,0 +1,42 @@
+name: 每日更新看板
+
+on:
+  schedule:
+    - cron: '0 9 * * 1-5'   # 台灣時間 17:00（UTC+8），週一到週五
+  workflow_dispatch:          # 手動觸發按鈕
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 設定 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 安裝套件
+        run: |
+          pip install requests xlrd openpyxl playwright
+          playwright install chromium --with-deps
+
+      - name: 執行更新腳本
+        env:
+          DERP_USER: ${{ secrets.DERP_USER }}
+          DERP_PASS: ${{ secrets.DERP_PASS }}
+          CI: true
+        run: python scripts/derp_fetch.py
+
+      - name: 提交更新
+        run: |
+          git config user.name "Dashboard Bot"
+          git config user.email "bot@bjworks.com"
+          git add dashboard.html
+          git diff --cached --quiet || git commit -m "📊 自動更新看板 $(date +'%Y-%m-%d %H:%M')"
+          git push
