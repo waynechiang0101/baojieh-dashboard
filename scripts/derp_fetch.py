@@ -44,9 +44,9 @@ AREA_MAP = {
 
 BRAND_NAMES = {
     'PAMPS':'幫寶適','WHSP':'好自在','HS':'海倫仙度絲','PNTN':'潘婷',
-    'HR':'赫本','OLAY':'玉蘭油','FBRZ':'風倒','ORALB':'歐樂B',
-    'GLT':'吉列','LENOR':'蘭諾','ARIEL':'碧浪','PERT':'飛柔',
-    'BRAUN':'百靈','CREST':'Crest','BOLD':'潮','TIDE':'汰漬',
+    'HR':'髮的食譜','OLAY':'歐蕾','FBRZ':'風倍清','ORALB':'歐樂B',
+    'GLT':'吉列','LENOR':'蘭諾','ARIEL':'ARIEL','PERT':'飛柔',
+    'BRAUN':'百靈','CREST':'Crest','BOLD':'BOLD','TIDE':'汰漬',
     'VS':'沙宣','JOY':'Joy','FAIRY':'Fairy','SARASA':'Sarasa',
 }
 SKIP_INV_BRANDS = {'SAMPLE','POSM','OTHER','GIFT','DISPLAY',''}
