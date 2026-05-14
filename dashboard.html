@@ -396,12 +396,12 @@ const builds={
   overview(){
     charts.overview=[];
     charts.overview.push(new Chart('c0',{type:'line',data:{labels:['12月','1月','2月','3月','4月','5月'],datasets:[
-      {label:'今年',data:[42100000,35600000,29800000,41200000,50200000,27500000],borderColor:'#4fa3e0',backgroundColor:'rgba(79,163,224,.08)',tension:.4,fill:true,pointRadius:3},
-      {label:'去年',data:[38800000,32900000,27200000,37800000,44600000,25400000],borderColor:'#888780',borderDash:[4,4],tension:.4,pointRadius:2,fill:false},
+      {label:'今年',data:[42100000,35600000,29800000,41200000,66885676,56030299],borderColor:'#4fa3e0',backgroundColor:'rgba(79,163,224,.08)',tension:.4,fill:true,pointRadius:3},
+      {label:'去年',data:[38800000,32900000,27200000,37800000,97530046,45022036],borderColor:'#888780',borderDash:[4,4],tension:.4,pointRadius:2,fill:false},
       {label:'目標',data:[42000000,36000000,32000000,40000000,52000000,38000000],borderColor:'#e0b84f',borderDash:[6,3],tension:.4,pointRadius:0,fill:false},
     ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,padding:10,font:{size:10}}}},scales:{x:{grid:gc},y:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:10}}}}}}));
     charts.overview.push(new Chart('c1',{type:'doughnut',data:{labels:['美妝店','小型藥局','大型小超','便利商店','辦公室用品','其他'],
-      datasets:[{data:[32495581,9032336,8048884,5152485,3952958,3000000],backgroundColor:COLORS.slice(0,6),borderWidth:0,cutout:'56%'}]},
+      datasets:[{data:[65526070,12999123,10265346,6131633,5994065,21498772],backgroundColor:COLORS.slice(0,6),borderWidth:0,cutout:'56%'}]},
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:8,padding:6,font:{size:10}}}}}}));
     const pcts=REPS.map(r=>Math.round(r.act/r.tgt*100));
     charts.overview.push(new Chart('c2',{type:'bar',data:{labels:REPS.map(r=>r.n),datasets:[{data:pcts,backgroundColor:pcts.map(p=>p>=100?'#4caf82':p>=60?'#e0b84f':'#e05a4f'),borderRadius:4,barPercentage:.65}]},

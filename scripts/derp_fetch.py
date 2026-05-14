@@ -357,6 +357,44 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pay_data):
             html = re.sub(r'const PAYS=\[[\s\S]*?\];',
                           'const PAYS=[\n'+',\n'.join(pay_lines)+'\n];', html)
 
+    # ── 月業績趨勢（c0）：更新 4月 和 本月 資料點 ──
+    apr_total = sum(m.get('grp',{}).values())    # 4月全月
+    iya_apr   = sum(iya_q.get('grp',{}).values()) * (apr_total / total_q) if total_q else 0
+    # 今年 data[4]=4月全月, data[5]=本月
+    html = re.sub(
+        r"(label:'今年',data:\[)([^\]]+)(\])",
+        lambda mm: (
+            mm.group(1) +
+            ','.join(mm.group(2).split(',')[:-2] +
+                     [str(int(apr_total)), str(int(total_mo))]) +
+            mm.group(3)
+        ), html)
+    # 去年 data[4]=去年4月, data[5]=去年本月
+    iya_apr_total  = sum(iya_q.get('grp',{}).values()) - sum(iya_mo.get('grp',{}).values()) if iya_q else 0
+    iya_mo_total   = sum(iya_mo.get('grp',{}).values()) if iya_mo else 0
+    html = re.sub(
+        r"(label:'去年',data:\[)([^\]]+)(\])",
+        lambda mm: (
+            mm.group(1) +
+            ','.join(mm.group(2).split(',')[:-2] +
+                     [str(int(iya_apr_total)), str(int(iya_mo_total))]) +
+            mm.group(3)
+        ), html)
+
+    # ── 通路圓餅（c1 overview）：更新成實際 CHS 資料 ──
+    top6_ch = sorted(ch_q.items(), key=lambda x:-x[1])[:5]
+    others  = sum(v for n,v in sorted(ch_q.items(), key=lambda x:-x[1])[5:])
+    ch_labels = str([n for n,_ in top6_ch] + ['其他']).replace('"',"'")
+    ch_data   = [int(v) for _,v in top6_ch] + [int(others)]
+    html = re.sub(
+        r"(labels:\[(?:'[^']*',?\s*){3,8}\],\s*\n?\s*datasets:\[{data:\[)[\d,\s]+(])",
+        lambda mm: mm.group(1) + ','.join(str(x) for x in ch_data) + mm.group(2),
+        html, count=1)
+
+    # ── REPS：只保留有目標的業務在達成率圖 ──
+    # 劉暄芸等沒有 tgt 的業務改放最後，tgt 為 0 的在 JS 端以 'N/A' 顯示
+    # （JS 層 Math.round(NaN) = NaN → Chart.js 自動略過，不會顯示錯誤 bar）
+
     # ── 日期 ──
     td = _today.strftime("%Y/%m/%d")
     mo_lbl = _today.strftime("%m/%d")
