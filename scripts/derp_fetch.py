@@ -417,6 +417,18 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     if uncollected:
         sub_kpi('未收款', fm(uncollected))
 
+    # ── 通路組本月 KPIs ──
+    ch_mo_data = mo.get('ch',{})
+    PHARMA_CH    = ['小型藥局','大型藥局']
+    KM_BROKER_CH = ['美妝店','便利商店']
+    pharma_mo    = sum(ch_mo_data.get(c,0) for c in PHARMA_CH)
+    km_broker_mo = sum(ch_mo_data.get(c,0) for c in KM_BROKER_CH)
+    supermarket_mo = sum(v for k,v in ch_mo_data.items()
+                         if k not in PHARMA_CH and k not in KM_BROKER_CH)
+    sub_kpi('藥房組本月', fm(pharma_mo), '小型+大型藥局')
+    sub_kpi('超市組本月', fm(supermarket_mo), '超市+辦公室+線上')
+    sub_kpi('康是美盤商本月', fm(km_broker_mo), '康是美+CVS盤商')
+
     # ── 集團排行 KPIs ──
     grp_s     = sorted(grp_q.items(), key=lambda x:-x[1])[:15]
     grp_total = sum(grp_q.values())
