@@ -115,7 +115,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="psub">
         <span>含稅業績排行 · 真實資料來源：季P&G</span>
         <div class="ptabs">
-          <button class="ptab on" id="grp-p-s5" onclick="setGrpPeriod('s5',this)">季累計（至05/14）</button>
+          <button class="ptab on" id="grp-p-s3" onclick="setGrpPeriod('s3',this)">本月業績</button>
+          <button class="ptab" id="grp-p-s5" onclick="setGrpPeriod('s5',this)">季累計</button>
           <button class="ptab" id="grp-p-s4" onclick="setGrpPeriod('s4',this)">4月全月</button>
         </div>
       </div>
@@ -130,7 +131,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="card"><div class="ct">前5大 vs 其餘</div><div class="cs">業績集中度</div><div style="position:relative;height:320px"><canvas id="c-grp-pie" role="img" aria-label="集團佔比">集團佔比</canvas></div></div>
       </div>
       <div class="card"><div class="ct">集團排行明細</div><div class="cs" style="margin-bottom:10px">含4月 vs 季累計對比</div>
-        <table><thead><tr><th>#</th><th>集團名稱</th><th>4月業績</th><th>季累計</th><th>成長</th><th>佔比</th></tr></thead><tbody id="tb-grp"></tbody></table>
+        <table><thead><tr><th>#</th><th>集團名稱</th><th>4月業績</th><th>本月業績</th><th>季累計</th><th>IYA vs 去年</th><th>成長（4月→季）</th><th>佔比</th></tr></thead><tbody id="tb-grp"></tbody></table>
       </div>
     </div>
 
@@ -691,22 +692,29 @@ const builds={
   'cust-group'(){
     if(!charts['cust-group'])charts['cust-group']=[];
     const p=grpPeriod;
-    const vals=GRP.map(g=>g[p]);
+    const vals=GRP.map(g=>g[p]||0);
     const total=vals.reduce((s,v)=>s+v,0);
-    document.getElementById('grp-cs').textContent=p==='s5'?'季累計（4/1－05/14）':'4月全月';
-    charts['cust-group'].push(new Chart('c-grp',{type:'bar',data:{labels:GRP.map(g=>g.n.replace('股份有限公司(總公司)','').replace('有限公司','').replace(/^[A-Z]\d+-/,'')),datasets:[{data:vals,backgroundColor:COLORS,borderRadius:4,barPercentage:.75}]},
+    const lbl={'s3':'本月業績','s5':'季累計（4/1至今）','s4':'4月全月'};
+    document.getElementById('grp-cs').textContent=lbl[p]||p;
+    const shortName=n=>n.replace('股份有限公司(總公司)','').replace('有限公司','').replace(/^[A-Z]\d+-/,'');
+    charts['cust-group'].push(new Chart('c-grp',{type:'bar',data:{labels:GRP.map(g=>shortName(g.n)),datasets:[{data:vals,backgroundColor:COLORS,borderRadius:4,barPercentage:.75}]},
       options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:10}}}}}}));
     const top5=vals.slice(0,5),others=vals.slice(5).reduce((s,v)=>s+v,0);
-    charts['cust-group'].push(new Chart('c-grp-pie',{type:'doughnut',data:{labels:[...GRP.slice(0,5).map(g=>g.n.replace('股份有限公司(總公司)','').replace('有限公司','')),'其餘'],datasets:[{data:[...top5,others],backgroundColor:[...COLORS.slice(0,5),'#444441'],borderWidth:0,cutout:'52%'}]},
+    charts['cust-group'].push(new Chart('c-grp-pie',{type:'doughnut',data:{labels:[...GRP.slice(0,5).map(g=>shortName(g.n)),'其餘'],datasets:[{data:[...top5,others],backgroundColor:[...COLORS.slice(0,5),'#444441'],borderWidth:0,cutout:'52%'}]},
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:8,padding:5,font:{size:10}}}}}}));
     const tb=document.getElementById('tb-grp');tb.innerHTML='';
     GRP.forEach((g,i)=>{
-      const v=g[p],pc=pctChg(g.s5,g.s4),pctT=(v/total*100).toFixed(1);
+      const v=g[p]||0,pc45=pctChg(g.s5,g.s4),pctT=(total>0?(v/total*100).toFixed(1):'0');
+      const iyaPc=g.iya>0?pctChg(g.s5,g.iya):null;
+      const iyaCell=iyaPc!==null?`<span class="${iyaPc>=0?'iup':'idn'}">${iyaPc>=0?'+':''}${iyaPc}%</span>`:`<span style="color:var(--text3)">—</span>`;
       const rn=i<3?`r${i+1}`:'rn';
-      tb.innerHTML+=`<tr><td><span class="rk ${rn}">${i+1}</span></td><td><strong>${g.n.replace('股份有限公司(總公司)','').replace('有限公司','')}</strong></td>
-        <td class="mn">${fmt(g.s4)}</td><td class="mn">${fmt(g.s5)}</td>
-        <td><span class="${pc>=0?'iup':'idn'}">${pc>=0?'+':''}${pc}%</span></td>
-        <td><div style="display:flex;align-items:center;gap:5px"><div class="mbar"><div class="mfill" style="width:${Math.min(v/vals[0]*100,100)}%;background:#4fa3e0"></div></div><span style="font-size:10px;color:var(--text3)">${pctT}%</span></div></td>
+      tb.innerHTML+=`<tr><td><span class="rk ${rn}">${i+1}</span></td><td><strong>${shortName(g.n)}</strong></td>
+        <td class="mn">${fmt(g.s4)}</td>
+        <td class="mn">${g.s3>0?fmt(g.s3):'—'}</td>
+        <td class="mn">${fmt(g.s5)}</td>
+        <td>${iyaCell}</td>
+        <td><span class="${pc45>=0?'iup':'idn'}">${pc45>=0?'+':''}${pc45}%</span></td>
+        <td><div style="display:flex;align-items:center;gap:5px"><div class="mbar"><div class="mfill" style="width:${Math.min(v/Math.max(vals[0],1)*100,100)}%;background:#4fa3e0"></div></div><span style="font-size:10px;color:var(--text3)">${pctT}%</span></div></td>
       </tr>`;
     });
   },

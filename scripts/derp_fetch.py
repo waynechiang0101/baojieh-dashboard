@@ -472,8 +472,11 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         sub_kpi('最強成長品牌', f'{best_brand_name} {sign}{best_brand_pct}%', '↑ 最快')
 
     # ── GRP ──
-    lines = [f"  {{n:'{esc(n)}',s5:{int(s5)},s4:{int(grp_m.get(n,int(s5*.85)))}}}"
-             for n,s5 in grp_s]
+    iya_grp_data = iya_q.get('grp',{}) if iya_q else {}
+    lines = [
+        f"  {{n:'{esc(n)}',s5:{int(s5)},s4:{int(grp_m.get(n,int(s5*.85)))},"
+        f"s3:{int(grp_mo.get(n,0))},iya:{int(iya_grp_data.get(n,0))}}}"
+        for n,s5 in grp_s]
     html = re.sub(r'const GRP=\[[\s\S]*?\];',
                   'const GRP=[\n'+',\n'.join(lines)+'\n];', html)
 
