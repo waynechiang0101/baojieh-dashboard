@@ -64,8 +64,7 @@ def _wh_group(wh):
 def get_session():
     user = os.environ.get("DERP_USER", "user34")
     pwd  = os.environ.get("DERP_PASS", "user34")
-    if os.environ.get("CI"):
-        return _login_playwright(user, pwd)
+    # Try agent-browser cookie first, validate with actual XLS download
     try:
         import subprocess
         r = subprocess.run(
@@ -74,12 +73,43 @@ def get_session():
         m = re.search(r'JSESSIONID=([A-F0-9]+)', r.stdout)
         if m:
             s = _make_session(m.group(1))
-            rr = s.get(f"{BASE_URL}/6.BR/derp-610-82.jsp", verify=False, timeout=10)
-            if "Sell" in rr.text or "610" in rr.text:
+            # Validate by trying a real XLS download (not just a JSP page)
+            rr = s.get(f"{BASE_URL}/BizPlan/dsrDailySales",
+                       params={"*transDateStart":"2026/05/01","*transDateEnd":"2026/05/01",
+                               "*pageCmd":"dsrDailySales","closedType":"closedNot",
+                               "dsrNoCredit":"O","reportRange":"S","reportRangeSelect":"S",
+                               "*keySelected":f"{ACCOUNT_ID},","*rowsPerPage":"20",
+                               "*itemNoStart":"","*itemNoEnd":"","*soldToCode":"","*soldToCodeMerge":"",
+                               "*customerNo":"","customerNo":"","*customerNoMerge":"",
+                               "*dsrNoStart":"","*dsrNoStartName":"","*dsrNoEnd":"","*dsrNoEndName":"",
+                               "*brandCodeStart":"","*brandCodeEnd":"","*acChannelCode":"","*pgChannelCode":"",
+                               "*maxKeyValue":"","*minKeyValue":"","*indexSelected":""},
+                       verify=False, timeout=30)
+            if rr.content[:4] == b'\xd0\xcf\x11\xe0':  # valid XLS magic bytes
                 print(f"✓ Session ({m.group(1)[:8]}...)")
                 return s
+            print(f"  agent-browser session expired, using POST login")
     except: pass
-    return _login_playwright(user, pwd)
+    # Fallback: POST login (most reliable)
+    return _post_login(user, pwd)
+
+def _post_login(user, pwd):
+    print(f"  POST 登入 ({user})...")
+    s = requests.Session()
+    s.headers.update({'User-Agent':'Mozilla/5.0'})
+    s.post(f'{BASE_URL}/CCderp.jsp', verify=False, timeout=30, data={
+        '*userID': user, '*password': pwd,
+        '*accountID': ACCOUNT_ID,
+        '*dataOwner': 'CVS-7,CVS-HL,CVS-OK,CVS-FM,ETC,OMD,COSMED,DMC,CVS-7N',
+        '*requestURL': f'{BASE_URL}/PC.sys',
+        '*loginTemplate': 'Login.html', '*menuTemplate': 'indexBlank.html',
+        '*pageCmd': 'Login', 'execCode':'0','execMsg':'','actionCode':'0',
+        'focusField':'','urlAlter':'','urlYes':'','urlNo':''
+    })
+    s.headers.update({'Referer': f'{BASE_URL}/6.BR/derp-610-82.jsp'})
+    jsid = s.cookies.get('JSESSIONID','')
+    print(f"✓ POST 登入 ({jsid[:8]}...)")
+    return s
 
 def _login_playwright(user, pwd):
     from playwright.sync_api import sync_playwright
