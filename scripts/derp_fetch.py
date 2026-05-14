@@ -370,6 +370,44 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected):
         html = re.sub(r'const PAYS=\[[\s\S]*?\];',
                       'const PAYS=[\n'+',\n'.join(pay_lines)+'\n];', html)
 
+        # 收款狀況 KPI 區塊
+        total_tgt = sum(p['tgt'] for p in pays_list)
+        total_act = sum(p['act'] for p in pays_list)
+        achieve_pct = round(total_act / total_tgt * 100) if total_tgt else 0
+        over = max(0, total_act - total_tgt)
+        behind = sum(1 for p in pays_list if p['tgt'] > 0 and p['act'] < p['tgt'])
+        mo_label = f"{_today.month}月"
+
+        # 標題 subtitle
+        html = re.sub(r'(\d+)月 MBO 收款目標 vs 實際達成',
+                      f'{mo_label} MBO 收款目標 vs 實際達成', html)
+
+        # 總收款目標
+        html = re.sub(
+            r'(<div class="kl">總收款目標</div><div class="kv">)[^<]*(</div><div class="ks">)[^<]*(</div>)',
+            rf'\g<1>{fm(total_tgt)}\g<2>{mo_label} MBO\g<3>', html)
+        # 已收款
+        ach_cls = 'up' if achieve_pct >= 100 else 'dn' if achieve_pct < 50 else ''
+        html = re.sub(
+            r'(<div class="kl">已收款</div><div class="kv">)[^<]*(</div><div class="ks [^"]*">)[^<]*(</div>)',
+            rf'\g<1>{fm(total_act)}\g<2>{"↑" if achieve_pct>=100 else ""} 達成 {achieve_pct}%\g<3>', html)
+        # 超收金額 / 未達標
+        if over > 0:
+            html = re.sub(
+                r'(<div class="kl">超收金額</div><div class="kv">)[^<]*(</div><div class="ks [^"]*">)[^<]*(</div>)',
+                rf'\g<1>{fm(over)}\g<2>超越目標\g<3>', html)
+        else:
+            html = re.sub(
+                r'(<div class="kl">超收金額</div><div class="kv">)[^<]*(</div><div class="ks [^"]*">)[^<]*(</div>)',
+                rf'\g<1>{fm(total_tgt - total_act)}\g<2>尚未達標\g<3>', html)
+        # 未達標人數
+        html = re.sub(
+            r'(<div class="kl">未達標人數</div><div class="kv">)[^<]*(</div>)',
+            rf'\g<1>{behind}人\g<2>', html)
+        # 表格 subtitle
+        html = re.sub(r'(\d+)月 MBO 收款 · 真實資料',
+                      f'{mo_label} MBO 收款 · 真實資料', html)
+
     # ── 月業績趨勢（c0）：更新 4月 和 本月 資料點 ──
     apr_total = sum(m.get('grp',{}).values())    # 4月全月
     iya_apr   = sum(iya_q.get('grp',{}).values()) * (apr_total / total_q) if total_q else 0
