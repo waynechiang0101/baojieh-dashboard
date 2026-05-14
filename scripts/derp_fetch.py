@@ -24,12 +24,12 @@ ly_qstart = f"{_ly.year}/04/01"
 ly_mostart = f"{_ly.year}/{_ly.month:02d}/01"
 ly_mend   = f"{_ly.year}/04/30"
 
-# XLS 品牌欄位對照 (col → 品牌代號)
+# XLS 品牌金額欄位對照（col+1 才是含稅金額，col 本身是數量）
 BRAND_COLS = {
-    12:'PAMPS', 16:'WHSP', 20:'HS', 24:'PNTN', 28:'PERT', 32:'VS',
-    36:'HR', 40:'OLAY', 44:'TIDE', 48:'ARIEL', 52:'BOLD', 56:'LENOR',
-    60:'SARASA', 64:'FAIRY', 68:'FBRZ', 72:'JOY', 76:'GLT',
-    80:'ORALB', 84:'CREST', 88:'BRAUN'
+    13:'PAMPS', 17:'WHSP', 21:'HS', 25:'PNTN', 29:'PERT', 33:'VS',
+    37:'HR', 41:'OLAY', 45:'TIDE', 49:'ARIEL', 53:'BOLD', 57:'LENOR',
+    61:'SARASA', 65:'FAIRY', 69:'FBRZ', 73:'JOY', 77:'GLT',
+    81:'ORALB', 85:'CREST', 89:'BRAUN'
 }
 # 看板顯示品牌（b[] 順序 + 整體排行）
 REP_BRANDS  = ['PAMPS', 'WHSP', 'OLAY', 'GLT', 'LENOR', 'ORALB']
