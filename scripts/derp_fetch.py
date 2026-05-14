@@ -177,7 +177,7 @@ def update_dashboard(grp_q, grp_m, store_q, store_m, total_mo, total_q, cust_cou
     # ── KPI 頂部數字 ──
     # P&G 本月業績
     html = re.sub(
-        r'(<div class="kl">P&amp;G 本月業績</div><div class="kv">)[^<]*(</div>)',
+        r'(<div class="kl">P&G 本月業績</div><div class="kv">)[^<]*(</div>)',
         rf'\g<1>{fm(total_mo)}\g<2>', html)
     # 季累計
     html = re.sub(
