@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 DERP → Dashboard 全指標自動更新
-更新: GRP, STORES, CHS, UNIF, REPS, PAYS, BRANDS, KPIs, IYA
+更新: GRP, STORES, KM, CVS, XB, CHS, REPS, PAYS, BRANDS, KPIs, IYA
 """
 import os, re, sys, requests
 from datetime import date
@@ -24,18 +24,15 @@ ly_qstart = f"{_ly.year}/04/01"
 ly_mostart = f"{_ly.year}/{_ly.month:02d}/01"
 ly_mend   = f"{_ly.year}/04/30"
 
-# XLS 品牌金額欄位對照（col+1 才是含稅金額，col 本身是數量）
 BRAND_COLS = {
     13:'PAMPS', 17:'WHSP', 21:'HS', 25:'PNTN', 29:'PERT', 33:'VS',
     37:'HR', 41:'OLAY', 45:'TIDE', 49:'ARIEL', 53:'BOLD', 57:'LENOR',
     61:'SARASA', 65:'FAIRY', 69:'FBRZ', 73:'JOY', 77:'GLT',
     81:'ORALB', 85:'CREST', 89:'BRAUN'
 }
-# 看板顯示品牌（b[] 順序 + 整體排行）
 REP_BRANDS  = ['PAMPS', 'WHSP', 'OLAY', 'GLT', 'LENOR', 'ORALB']
 DASH_BRANDS = ['PAMPS', 'WHSP', 'OLAY', 'GLT', 'ORALB', 'LENOR', 'FBRZ']
 
-# 業務區域對照
 AREA_MAP = {
     'MS032':'雲嘉','MS033':'雲嘉','MS035':'雲嘉',
     'MS006':'高屏','MS009':'高屏','MS023':'高屏',
@@ -93,7 +90,7 @@ def _make_session(jsid):
     return s
 
 
-# ── 下載銷售日報（dsrDailySales）────────────────────────
+# ── 下載銷售日報 ──────────────────────────────────────────
 def dl_sales(s, d0, d1, label):
     print(f"  {label} {d0}~{d1}...")
     params = {
@@ -121,36 +118,12 @@ def dl_sales(s, d0, d1, label):
     return r.content
 
 
-# ── 下載應收帳款（收款狀況）────────────────────────────
-def dl_payment(s, d0, d1):
-    print(f"  收款報表 {d0}~{d1}...")
-    s.headers.update({"Referer":f"{BASE_URL}/4.FN/derp-421-00.jsp"})
-    params = {
-        "*customerNo":"","*customerName":"","*dsr":"","*dsrName":"",
-        "*territoryCode":"","*territoryCodeName":"",
-        "*customerNoMerge":"","*dsrNoMerge":"","*territoryMerge":"",
-        "*deliveryDate":d0,"*deliveryDateEnd":d1,
-        "offSetFlagSelect":"1","*offSetFlag":"1",
-        "*queryRows":"","*pageMax":"","*pageOffset":"",
-        "*rowsPerPage":"100","*pageIndex":"",
-        "*soldToCode":"","*soldToCodeMerge":"",
-        "*deliveryNo":"","*deliveryNoEnd":"",
-        "buttonDsrPrint":"業務別收款總表by Excel(E)",
-        "*pageCmd":"print",
-    }
-    r = s.get(f"{BASE_URL}/4.FN/derp-421-14-1.jsp",
-              params=params, verify=False, timeout=60)
-    print(f"    {'✓' if len(r.content)>5000 else '⚠'} {len(r.content)//1024}KB")
-    return r.content if len(r.content) > 5000 else None
-
-
-# ── 解析銷售 XLS（Binary）───────────────────────────────
+# ── 解析銷售 XLS ─────────────────────────────────────────
 def parse_xls(data):
     import xlrd
     wb = xlrd.open_workbook(file_contents=data)
     ws = wb.sheet_by_index(0)
 
-    # 找 header row
     hdr = None
     for i in range(ws.nrows):
         row = [str(ws.cell_value(i,j)).strip() for j in range(min(ws.ncols,20))]
@@ -179,7 +152,6 @@ def parse_xls(data):
         amt= n(ci['合計'])
         if not g or amt<=0: continue
 
-        # 品牌金額
         brands = {b: n(c) for c,b in BRAND_COLS.items()}
 
         grp[g] = grp.get(g,0) + amt
@@ -207,12 +179,8 @@ def parse_xls(data):
     return {'grp':grp,'store':store,'ch':ch,'rep':rep}
 
 
-# ── 讀取本地收款 Excel（115-05收款.xls 格式）──────────
+# ── 讀取本地收款 Excel ────────────────────────────────────
 def parse_local_payment_xls():
-    """
-    讀 Downloads 最新的 115-XX收款.xls，格式：
-    col0=業務代號.名稱, col1=MBO目標, col2=已達成, col5=GAP
-    """
     import glob, xlrd
     pattern = os.path.expanduser("~/Downloads/115-??收款.xls")
     files = sorted(glob.glob(pattern))
@@ -220,7 +188,7 @@ def parse_local_payment_xls():
         print("  ⚠ 找不到 115-XX收款.xls，跳過收款資料")
         return [], 0
 
-    path = files[-1]  # 最新的
+    path = files[-1]
     print(f"  讀取: {os.path.basename(path)}")
     wb = xlrd.open_workbook(path)
     ws = wb.sheet_by_index(0)
@@ -251,50 +219,156 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected):
     def esc(s): return s.replace("'","`")
     def fm(n): return f"${n/1e6:.1f}M"
 
-    grp_q  = q.get('grp',{})
-    grp_m  = m.get('grp',{})
-    grp_mo = mo.get('grp',{})
-    store_q= q.get('store',{})
-    store_m= m.get('store',{})
-    ch_q   = q.get('ch',{})
-    ch_m   = m.get('ch',{})
-    rep_q  = q.get('rep',{})
-    rep_mo = mo.get('rep',{})
-    rep_iya= iya_q.get('rep',{}) if iya_q else {}
-    iya_grp= iya_q.get('grp',{}) if iya_q else {}
+    grp_q   = q.get('grp',{})
+    grp_mo  = mo.get('grp',{})
+    grp_m   = m.get('grp',{})
+    store_q = q.get('store',{})
+    store_m = m.get('store',{})
+    ch_q    = q.get('ch',{})
+    ch_m    = m.get('ch',{})
+    rep_q   = q.get('rep',{})
+    rep_mo  = mo.get('rep',{})
+    rep_iya = iya_q.get('rep',{}) if iya_q else {}
+    iya_grp = iya_q.get('grp',{}) if iya_q else {}
     iya_mo_grp = iya_mo.get('grp',{}) if iya_mo else {}
 
-    total_q  = sum(grp_q.values())
-    total_mo = sum(grp_mo.values())
+    total_q      = sum(grp_q.values())
+    total_mo     = sum(grp_mo.values())
     total_iya_q  = sum(iya_grp.values()) if iya_grp else 0
     total_iya_mo = sum(iya_mo_grp.values()) if iya_mo_grp else 0
-    iya_pct  = round((total_q/total_iya_q-1)*100,1) if total_iya_q else 0
-    cust_cnt = len(store_q)
+    iya_pct      = round((total_q/total_iya_q-1)*100,1) if total_iya_q else 0
+    iya_mo_pct   = round((total_mo/total_iya_mo-1)*100,1) if total_iya_mo else 0
+    cust_cnt     = len(store_q)
 
-    # ── KPI HTML ──
-    def sub_kpi(label, val):
+    # ── 門市分組 ──
+    km_stores   = {n:d for n,d in store_q.items() if '統一藥品' in d.get('grp','')}
+    cvs_stores  = {n:d for n,d in store_q.items() if '便利商店' in d.get('ch','')}
+    xb_stores   = {n:d for n,d in store_q.items() if '小北' in d.get('grp','')}
+    other_stores = {n:d for n,d in store_q.items()
+                    if '統一藥品' not in d.get('grp','') and '便利商店' not in d.get('ch','')}
+
+    km_total  = sum(d['amt'] for d in km_stores.values())
+    km_apr    = sum(store_m.get(n,{}).get('amt',0) for n in km_stores)
+    km_cnt    = len(km_stores)
+    cvs_total = sum(d['amt'] for d in cvs_stores.values())
+    cvs_apr   = sum(store_m.get(n,{}).get('amt',0) for n in cvs_stores)
+    cvs_cnt   = len(cvs_stores)
+    xb_total  = sum(d['amt'] for d in xb_stores.values())
+    xb_apr    = sum(store_m.get(n,{}).get('amt',0) for n in xb_stores)
+    xb_cnt    = len(xb_stores)
+
+    # ── KPI 更新 helper ──
+    def sub_kpi(label, kv_val, ks_val=None):
         nonlocal html
-        html = re.sub(
-            rf'(<div class="kl">{re.escape(label)}</div><div class="kv">)[^<]*(</div>)',
-            rf'\g<1>{val}\g<2>', html)
+        if ks_val is not None:
+            html = re.sub(
+                rf'(<div class="kl">{re.escape(label)}</div><div class="kv">)[^<]*(</div><div class="ks[^"]*">)[^<]*(</div>)',
+                rf'\g<1>{kv_val}\g<2>{ks_val}\g<3>', html)
+        else:
+            html = re.sub(
+                rf'(<div class="kl">{re.escape(label)}</div><div class="kv">)[^<]*(</div>)',
+                rf'\g<1>{kv_val}\g<2>', html)
 
+    # ── Overview KPIs ──
     sub_kpi('P&G 本月業績', fm(total_mo))
     sub_kpi('季累計', fm(total_q))
     sub_kpi('交易客戶', f'{cust_cnt:,}')
-    if iya_pct:
-        sub_kpi('IYA 成長', f'+{iya_pct}%' if iya_pct>=0 else f'{iya_pct}%')
+    sub_kpi('IYA 成長', f'+{iya_pct}%' if iya_pct>=0 else f'{iya_pct}%')
     if uncollected:
         sub_kpi('未收款', fm(uncollected))
 
+    # ── 集團排行 KPIs ──
+    grp_s     = sorted(grp_q.items(), key=lambda x:-x[1])[:15]
+    grp_total = sum(grp_q.values())
+    grp_count = len(grp_q)
+    top5_sum  = sum(v for _,v in grp_s[:5])
+    top5_pct  = round(top5_sum/grp_total*100, 1) if grp_total else 0
+    top1_name = grp_s[0][0] if grp_s else ''
+    top1_amt  = grp_s[0][1] if grp_s else 0
+    top1_short = re.sub(r'股份有限公司.*|有限公司.*', '', top1_name).strip()[:8]
+
+    best_grp_name, best_grp_growth = '', -999
+    for gn, s5 in grp_q.items():
+        s4 = grp_m.get(gn, 0)
+        if s4 > 100000:
+            growth = round((s5/s4-1)*100)
+            if growth > best_grp_growth:
+                best_grp_growth = growth
+                best_grp_name = gn
+    best_short = re.sub(r'股份有限公司.*|有限公司.*|-PC$|^[A-Z]\d+-|^[A-Z]\d+-', '', best_grp_name).strip()[:5]
+
+    html = re.sub(
+        r'(<div class="kl">第1名</div><div class="kv">)[^<]*(</div><div class="ks[^"]*">)[^<]*(</div>)',
+        rf'\g<1>{esc(top1_short)}\g<2>{fm(top1_amt)} 季累計\g<3>', html)
+    sub_kpi('集團總數', f'{grp_count:,}')
+    sub_kpi('前5大佔比', f'{top5_pct}%')
+    html = re.sub(
+        r'(<div class="kl">最快成長</div><div class="kv">)[^<]*(</div><div class="ks[^"]*">)[^<]*(</div>)',
+        rf'\g<1>{esc(best_short)}+{best_grp_growth}%\g<2>4月→季累計\g<3>', html)
+
+    # ── 康是美 KPIs ──
+    km_pct = round(km_total/total_q*100, 1) if total_q else 0
+    km_chg = round((km_total/km_apr-1)*100, 1) if km_apr else 0
+    sub_kpi('康是美季累計', fm(km_total), f'↑ +{km_chg}% vs 4月' if km_chg >= 0 else f'↓ {km_chg}% vs 4月')
+    sub_kpi('康是美四月', fm(km_apr), '完整月份')
+    sub_kpi('康是美分點數', f'{km_cnt}', '康是美門市')
+    sub_kpi('康是美佔比', f'{km_pct}%', '高度集中' if km_pct > 40 else '佔全公司')
+
+    # ── CVS KPIs ──
+    cvs_pct = round(cvs_total/total_q*100, 1) if total_q else 0
+    cvs_chg = round((cvs_total/cvs_apr-1)*100, 1) if cvs_apr else 0
+    sub_kpi('CVS季累計', fm(cvs_total), f'↑ +{cvs_chg}% vs 4月' if cvs_chg >= 0 else f'↓ {cvs_chg}% vs 4月')
+    sub_kpi('CVS四月', fm(cvs_apr), '完整月份')
+    sub_kpi('CVS門市數', f'{cvs_cnt}', '便利商店')
+    sub_kpi('CVS佔比', f'{cvs_pct}%', '佔全公司')
+
+    # ── 小北 KPIs ──
+    xb_pct = round(xb_total/total_q*100, 1) if total_q else 0
+    xb_chg = round((xb_total/xb_apr-1)*100, 1) if xb_apr else 0
+    sub_kpi('小北季累計', fm(xb_total), f'↑ +{xb_chg}% vs 4月' if xb_chg >= 0 else f'↓ {xb_chg}% vs 4月')
+    sub_kpi('小北四月', fm(xb_apr), '完整月份')
+    sub_kpi('小北分點數', f'{xb_cnt}', '小北門市')
+    sub_kpi('小北佔比', f'{xb_pct}%', '佔全公司')
+
+    # ── IYA KPIs ──
+    iya_grp_cnt  = len(iya_grp)
+    this_grp_cnt = len(grp_q)
+    iya_grp_chg  = round((this_grp_cnt/iya_grp_cnt-1)*100,1) if iya_grp_cnt else 0
+
+    def brand_total(data_dict, brand):
+        return sum(d.get('brands',{}).get(brand,0) for d in data_dict.get('store',{}).values())
+
+    best_brand_name, best_brand_pct = '', -999
+    for bname in DASH_BRANDS:
+        this_amt = brand_total(mo, bname)
+        iya_amt  = brand_total(iya_q, bname) if iya_q else 0
+        if iya_amt > 0:
+            pct = round((this_amt/iya_amt-1)*100)
+            if pct > best_brand_pct:
+                best_brand_pct = pct
+                best_brand_name = bname
+
+    sub_kpi('本月 IYA',
+            f'+{iya_mo_pct}%' if iya_mo_pct>=0 else f'{iya_mo_pct}%',
+            f'去年 {fm(total_iya_mo)}')
+    sub_kpi('季累計 IYA',
+            f'+{iya_pct}%' if iya_pct>=0 else f'{iya_pct}%',
+            f'去年 {fm(total_iya_q)}')
+    sub_kpi('集團數 IYA',
+            f'+{iya_grp_chg}%' if iya_grp_chg>=0 else f'{iya_grp_chg}%',
+            f'去年 {iya_grp_cnt:,} 個集團')
+    if best_brand_name:
+        sign = '+' if best_brand_pct >= 0 else ''
+        sub_kpi('最強成長品牌', f'{best_brand_name} {sign}{best_brand_pct}%', '↑ 最快')
+
     # ── GRP ──
-    grp_s = sorted(grp_q.items(), key=lambda x:-x[1])[:15]
-    lines = [f"  {{n:'{esc(n)}',s5:{int(s5)},s4:{int(grp_m.get(n,s5*.85))}}}"
+    lines = [f"  {{n:'{esc(n)}',s5:{int(s5)},s4:{int(grp_m.get(n,int(s5*.85)))}}}"
              for n,s5 in grp_s]
     html = re.sub(r'const GRP=\[[\s\S]*?\];',
                   'const GRP=[\n'+',\n'.join(lines)+'\n];', html)
 
-    # ── STORES ──
-    st_s = sorted(store_q.items(), key=lambda x:-x[1]['amt'])[:20]
+    # ── STORES (排除 KM 和 CVS，Top 100) ──
+    st_s = sorted(other_stores.items(), key=lambda x:-x[1]['amt'])[:100]
     lines = [
         f"  {{s:'{esc(n)}',g:'{esc(d['grp'])}',r:'{esc(d['rep'])}',ch:'{esc(d['ch'])}',"
         f"v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',d['amt']*.85))}}}"
@@ -303,32 +377,45 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected):
     html = re.sub(r'const STORES=\[[\s\S]*?\];',
                   'const STORES=[\n'+',\n'.join(lines)+'\n];', html)
 
-    # ── CHS（通路別）──
+    # ── CHS ──
     ch_s = sorted(ch_q.items(), key=lambda x:-x[1])[:10]
     lines = [f"  {{n:'{esc(n)}',s5:{int(v)},s4:{int(ch_m.get(n,v*.85))}}}"
              for n,v in ch_s]
     html = re.sub(r'const CHS=\[[\s\S]*?\];',
                   'const CHS=[\n'+',\n'.join(lines)+'\n];', html)
 
-    # ── UNIF（統一藥品門市）──
-    unif_stores = {n:d for n,d in store_q.items() if '統一藥品' in d['grp']}
-    unif_s = sorted(unif_stores.items(), key=lambda x:-x[1]['amt'])[:20]
+    # ── UNIF (康是美分點，加 rep 欄位) ──
+    km_s = sorted(km_stores.items(), key=lambda x:-x[1]['amt'])[:50]
     def unif_label(name):
-        # "統一藥品股份有限公司 99 (中壢)" → "99(中壢)"
         m2 = re.search(r'(\d+)\s*[\(（]([^)\）]+)[\)）]', name)
-        return f"{m2.group(1)}({m2.group(2)})" if m2 else name
+        return f"{m2.group(1)}({m2.group(2)})" if m2 else name[:20]
     lines = [
-        f"  {{s:'{unif_label(n)}',v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',d['amt']*.85))}}}"
-        for n,d in unif_s
+        f"  {{s:'{unif_label(n)}',r:'{esc(d['rep'])}',v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',d['amt']*.85))}}}"
+        for n,d in km_s
     ]
     if lines:
         html = re.sub(r'const UNIF=\[[\s\S]*?\];',
                       'const UNIF=[\n'+',\n'.join(lines)+'\n];', html)
 
-    # ── BRANDS（品牌排行）──
-    def brand_total(data_dict, brand):
-        return sum(d.get('brands',{}).get(brand,0) for d in data_dict.get('store',{}).values())
+    # ── CVS_STORES ──
+    cvs_s = sorted(cvs_stores.items(), key=lambda x:-x[1]['amt'])[:50]
+    lines = [
+        f"  {{s:'{esc(n[:22])}',r:'{esc(d['rep'])}',v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',d['amt']*.85))}}}"
+        for n,d in cvs_s
+    ]
+    html = re.sub(r'const CVS_STORES=\[[\s\S]*?\];',
+                  'const CVS_STORES=[\n'+(',\n'.join(lines) if lines else '')+'\n];', html)
 
+    # ── XB_STORES (小北) ──
+    xb_s = sorted(xb_stores.items(), key=lambda x:-x[1]['amt'])[:50]
+    lines = [
+        f"  {{s:'{esc(n[:22])}',r:'{esc(d['rep'])}',v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',d['amt']*.85))}}}"
+        for n,d in xb_s
+    ]
+    html = re.sub(r'const XB_STORES=\[[\s\S]*?\];',
+                  'const XB_STORES=[\n'+(',\n'.join(lines) if lines else '')+'\n];', html)
+
+    # ── BRANDS ──
     bapr  = [int(brand_total(m,  b)) for b in DASH_BRANDS]
     bmay  = [int(brand_total(mo, b)) for b in DASH_BRANDS]
     biya  = [int(brand_total(iya_q, b)) for b in DASH_BRANDS] if iya_q else bapr
@@ -339,8 +426,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected):
     html = re.sub(r"const BRANDS=\[[^\]]*\];",
                   f"const BRANDS={[b for b in DASH_BRANDS]};", html)
 
-    # ── REPS（業務排行）──
-    # 保留現有 tgt / qT，只更新 act / iya / q / b[]
+    # ── REPS ──
     existing_tgts = {}
     for m2 in re.finditer(r"\{n:'([^']+)'[^}]*tgt:(\d+)[^}]*qT:(\d+)", html):
         existing_tgts[m2.group(1)] = (int(m2.group(2)), int(m2.group(3)))
@@ -361,7 +447,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected):
         html = re.sub(r'const REPS=\[[\s\S]*?\];',
                       'const REPS=[\n'+',\n'.join(rep_lines)+'\n];', html)
 
-    # ── PAYS（收款狀況，來自 115-XX收款.xls）──
+    # ── PAYS ──
     if pays_list:
         pay_lines = [
             f"  {{r:'{esc(p['r'])}',tgt:{p['tgt']},act:{p['act']},gap:{p['gap']}}}"
@@ -370,96 +456,74 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected):
         html = re.sub(r'const PAYS=\[[\s\S]*?\];',
                       'const PAYS=[\n'+',\n'.join(pay_lines)+'\n];', html)
 
-        # 收款狀況 KPI 區塊
-        total_tgt = sum(p['tgt'] for p in pays_list)
-        total_act = sum(p['act'] for p in pays_list)
+        total_tgt   = sum(p['tgt'] for p in pays_list)
+        total_act   = sum(p['act'] for p in pays_list)
         achieve_pct = round(total_act / total_tgt * 100) if total_tgt else 0
-        over = max(0, total_act - total_tgt)
-        behind = sum(1 for p in pays_list if p['tgt'] > 0 and p['act'] < p['tgt'])
-        mo_label = f"{_today.month}月"
+        over        = max(0, total_act - total_tgt)
+        behind      = sum(1 for p in pays_list if p['tgt'] > 0 and p['act'] < p['tgt'])
+        mo_label    = f"{_today.month}月"
 
-        # 標題 subtitle
         html = re.sub(r'(\d+)月 MBO 收款目標 vs 實際達成',
                       f'{mo_label} MBO 收款目標 vs 實際達成', html)
-
-        # 總收款目標
         html = re.sub(
             r'(<div class="kl">總收款目標</div><div class="kv">)[^<]*(</div><div class="ks">)[^<]*(</div>)',
             rf'\g<1>{fm(total_tgt)}\g<2>{mo_label} MBO\g<3>', html)
-        # 已收款
-        ach_cls = 'up' if achieve_pct >= 100 else 'dn' if achieve_pct < 50 else ''
         html = re.sub(
-            r'(<div class="kl">已收款</div><div class="kv">)[^<]*(</div><div class="ks [^"]*">)[^<]*(</div>)',
-            rf'\g<1>{fm(total_act)}\g<2>{"↑" if achieve_pct>=100 else ""} 達成 {achieve_pct}%\g<3>', html)
-        # 超收金額 / 未達標
+            r'(<div class="kl">已收款</div><div class="kv">)[^<]*(</div><div class="ks[^"]*">)[^<]*(</div>)',
+            rf'\g<1>{fm(total_act)}\g<2>{"↑ " if achieve_pct>=100 else ""}達成 {achieve_pct}%\g<3>', html)
         if over > 0:
             html = re.sub(
-                r'(<div class="kl">超收金額</div><div class="kv">)[^<]*(</div><div class="ks [^"]*">)[^<]*(</div>)',
+                r'(<div class="kl">超收金額</div><div class="kv">)[^<]*(</div><div class="ks[^"]*">)[^<]*(</div>)',
                 rf'\g<1>{fm(over)}\g<2>超越目標\g<3>', html)
         else:
             html = re.sub(
-                r'(<div class="kl">超收金額</div><div class="kv">)[^<]*(</div><div class="ks [^"]*">)[^<]*(</div>)',
+                r'(<div class="kl">超收金額</div><div class="kv">)[^<]*(</div><div class="ks[^"]*">)[^<]*(</div>)',
                 rf'\g<1>{fm(total_tgt - total_act)}\g<2>尚未達標\g<3>', html)
-        # 未達標人數
         html = re.sub(
             r'(<div class="kl">未達標人數</div><div class="kv">)[^<]*(</div>)',
             rf'\g<1>{behind}人\g<2>', html)
-        # 表格 subtitle
         html = re.sub(r'(\d+)月 MBO 收款 · 真實資料',
                       f'{mo_label} MBO 收款 · 真實資料', html)
 
-    # ── 月業績趨勢（c0）：更新 4月 和 本月 資料點 ──
-    apr_total = sum(m.get('grp',{}).values())    # 4月全月
-    iya_apr   = sum(iya_q.get('grp',{}).values()) * (apr_total / total_q) if total_q else 0
-    # 今年 data[4]=4月全月, data[5]=本月
+    # ── 月業績趨勢 ──
+    apr_total     = sum(m.get('grp',{}).values())
+    iya_apr_total = sum(iya_q.get('grp',{}).values()) - sum(iya_mo.get('grp',{}).values()) if iya_q else 0
+    iya_mo_total  = sum(iya_mo.get('grp',{}).values()) if iya_mo else 0
+
     html = re.sub(
         r"(label:'今年',data:\[)([^\]]+)(\])",
-        lambda mm: (
-            mm.group(1) +
-            ','.join(mm.group(2).split(',')[:-2] +
-                     [str(int(apr_total)), str(int(total_mo))]) +
-            mm.group(3)
-        ), html)
-    # 去年 data[4]=去年4月, data[5]=去年本月
-    iya_apr_total  = sum(iya_q.get('grp',{}).values()) - sum(iya_mo.get('grp',{}).values()) if iya_q else 0
-    iya_mo_total   = sum(iya_mo.get('grp',{}).values()) if iya_mo else 0
+        lambda mm: (mm.group(1) +
+            ','.join(mm.group(2).split(',')[:-2] + [str(int(apr_total)), str(int(total_mo))]) +
+            mm.group(3)), html)
     html = re.sub(
         r"(label:'去年',data:\[)([^\]]+)(\])",
-        lambda mm: (
-            mm.group(1) +
-            ','.join(mm.group(2).split(',')[:-2] +
-                     [str(int(iya_apr_total)), str(int(iya_mo_total))]) +
-            mm.group(3)
-        ), html)
+        lambda mm: (mm.group(1) +
+            ','.join(mm.group(2).split(',')[:-2] + [str(int(iya_apr_total)), str(int(iya_mo_total))]) +
+            mm.group(3)), html)
 
-    # ── 通路圓餅（c1 overview）：更新成實際 CHS 資料 ──
-    top6_ch = sorted(ch_q.items(), key=lambda x:-x[1])[:5]
-    others  = sum(v for n,v in sorted(ch_q.items(), key=lambda x:-x[1])[5:])
-    ch_labels = str([n for n,_ in top6_ch] + ['其他']).replace('"',"'")
-    ch_data   = [int(v) for _,v in top6_ch] + [int(others)]
+    # ── 通路圓餅 ──
+    top5_ch = sorted(ch_q.items(), key=lambda x:-x[1])[:5]
+    others  = sum(v for _,v in sorted(ch_q.items(), key=lambda x:-x[1])[5:])
+    ch_data = [int(v) for _,v in top5_ch] + [int(others)]
     html = re.sub(
         r"(labels:\[(?:'[^']*',?\s*){3,8}\],\s*\n?\s*datasets:\[{data:\[)[\d,\s]+(])",
         lambda mm: mm.group(1) + ','.join(str(x) for x in ch_data) + mm.group(2),
         html, count=1)
 
-    # ── REPS：只保留有目標的業務在達成率圖 ──
-    # 劉暄芸等沒有 tgt 的業務改放最後，tgt 為 0 的在 JS 端以 'N/A' 顯示
-    # （JS 層 Math.round(NaN) = NaN → Chart.js 自動略過，不會顯示錯誤 bar）
-
     # ── 日期 ──
-    td = _today.strftime("%Y/%m/%d")
+    td     = _today.strftime("%Y/%m/%d")
     mo_lbl = _today.strftime("%m/%d")
-    html = re.sub(r'\d{4}/\d{2}/\d{2} · 寶捷實業有限公司',
-                  f'{td} · 寶捷實業有限公司', html)
-    html = re.sub(r'\d{4}年\d+月（截至\d+/\d+）',
-                  f'{_today.year}年{_today.month}月（截至{mo_lbl}）', html)
+    html = re.sub(r'\d{4}/\d{2}/\d{2} · 寶捷實業有限公司', f'{td} · 寶捷實業有限公司', html)
+    html = re.sub(r'\d{4}年\d+月（截至\d+/\d+）', f'{_today.year}年{_today.month}月（截至{mo_lbl}）', html)
+    html = re.sub(r'季累計（至\d+/\d+）', f'季累計（至{mo_lbl}）', html)
+    html = re.sub(r"'季累計（4/1－[^']*）'", f"'季累計（4/1－{mo_lbl}）'", html)
 
     DASHBOARD.write_text(html, encoding='utf-8')
 
     print(f"\n✅ {td} 全指標更新完成")
-    print(f"   本月:{fm(total_mo)}  季累計:{fm(total_q)}  "
-          f"IYA:{iya_pct:+.1f}%  交易客戶:{cust_cnt:,}")
-    print(f"   通路:{len(ch_s)}種  統一藥品門市:{len(unif_s)}點  業務:{len(rep_lines)}人")
+    print(f"   本月:{fm(total_mo)}  季累計:{fm(total_q)}  IYA:{iya_pct:+.1f}%  交易客戶:{cust_cnt:,}")
+    print(f"   KM:{fm(km_total)}({km_cnt}點)  CVS:{fm(cvs_total)}({cvs_cnt}點)  小北:{fm(xb_total)}({xb_cnt}點)")
+    print(f"   通路:{len(ch_s)}種  業務:{len(rep_lines)}人")
 
 
 # ── Main ─────────────────────────────────────────────────
@@ -468,20 +532,20 @@ def main():
     s = get_session()
 
     print("[下載 本期]")
-    data_q  = dl_sales(s, q_start,  today,    "季累計")
-    data_mo = dl_sales(s, mo_start, today,    "本月")
-    data_m  = dl_sales(s, q_start,  m_end,    "4月全月")
+    data_q  = dl_sales(s, q_start,  today,  "季累計")
+    data_mo = dl_sales(s, mo_start, today,  "本月")
+    data_m  = dl_sales(s, q_start,  m_end,  "4月全月")
 
     print("\n[下載 去年同期 IYA]")
-    data_iya_q  = dl_sales(s, ly_qstart,  ly_today,  "去年季累計")
-    data_iya_mo = dl_sales(s, ly_mostart, ly_today,  "去年本月")
+    data_iya_q  = dl_sales(s, ly_qstart,  ly_today, "去年季累計")
+    data_iya_mo = dl_sales(s, ly_mostart, ly_today, "去年本月")
 
     print("\n[收款 Excel]")
 
     print("\n[解析]")
-    q   = parse_xls(data_q);   print(f"  季累計  → 集團:{len(q.get('grp',{}))} 門市:{len(q.get('store',{}))} 業務:{len(q.get('rep',{}))}")
-    mo  = parse_xls(data_mo);  print(f"  本月    → 集團:{len(mo.get('grp',{}))}")
-    m   = parse_xls(data_m);   print(f"  4月全月 → 集團:{len(m.get('grp',{}))}")
+    q      = parse_xls(data_q);      print(f"  季累計  → 集團:{len(q.get('grp',{}))} 門市:{len(q.get('store',{}))} 業務:{len(q.get('rep',{}))}")
+    mo     = parse_xls(data_mo);     print(f"  本月    → 集團:{len(mo.get('grp',{}))}")
+    m      = parse_xls(data_m);      print(f"  4月全月 → 集團:{len(m.get('grp',{}))}")
     iya_q  = parse_xls(data_iya_q);  print(f"  去年季  → 集團:{len(iya_q.get('grp',{}))}")
     iya_mo = parse_xls(data_iya_mo); print(f"  去年月  → 集團:{len(iya_mo.get('grp',{}))}")
     pays_list, uncollected = parse_local_payment_xls()
