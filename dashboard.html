@@ -83,6 +83,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="ni" onclick="sp('iya',this)"><div class="ndot" style="background:#e07a4f"></div>IYA 對比</div>
     <div class="ns" style="margin-top:10px">財務</div>
     <div class="ni" onclick="sp('pay',this)"><div class="ndot" style="background:var(--red)"></div>收款狀況</div>
+    <div class="ns" style="margin-top:10px">庫存</div>
+    <div class="ni" onclick="sp('inv',this)"><div class="ndot" style="background:#f0d060"></div>公司庫存</div>
   </div>
   <div class="main">
 
@@ -274,6 +276,38 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
       <div class="card"><div class="ct">業務收款明細</div><div class="cs" style="margin-bottom:10px">5月 MBO 收款 · 真實資料</div>
         <table><thead><tr><th>業務</th><th>收款目標</th><th>已達成</th><th>達成率</th><th>GAP</th><th>狀態</th></tr></thead><tbody id="tb-pay"></tbody></table>
+      </div>
+    </div>
+
+    <!-- 公司庫存 -->
+    <div class="pg" id="pg-inv">
+      <div class="ptitle">公司庫存總覽</div>
+      <div class="psub">327.DMC 庫存 · 排除零庫存 SKU · 依倉庫分：台南 / 高雄 / 桃園 / 康是美 / CVS</div>
+      <div class="krow5">
+        <div class="kpi"><div class="kl">總庫存金額</div><div class="kv">$160.0M</div><div class="ks">16 品牌</div></div>
+        <div class="kpi"><div class="kl">台南倉庫存</div><div class="kv">$56.7M</div><div class="ks">台南出貨倉</div></div>
+        <div class="kpi"><div class="kl">高雄倉庫存</div><div class="kv">$50.4M</div><div class="ks">高雄主貨倉</div></div>
+        <div class="kpi"><div class="kl">桃園倉庫存</div><div class="kv">$0.3M</div><div class="ks">TP主貨倉</div></div>
+        <div class="kpi"><div class="kl">康是美倉庫存</div><div class="kv">$47.9M</div><div class="ks">康是美寄倉</div></div>
+      </div>
+      <div class="g2">
+        <div class="card"><div class="ct">品牌庫存金額排行</div><div class="cs">未稅金額</div><div style="position:relative;height:300px"><canvas id="c-inv-brand" role="img" aria-label="品牌庫存">品牌庫存</canvas></div></div>
+        <div class="card"><div class="ct">倉庫分布（堆疊）</div><div class="cs">各品牌 × 倉庫（金額）</div><div style="position:relative;height:300px"><canvas id="c-inv-wh" role="img" aria-label="倉庫分布">倉庫分布</canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="ct">品牌 Top SKU 明細</div>
+        <div class="cs" style="margin-bottom:8px">各品牌最高庫存數量 / 金額 Top 5 SKU · 點選品牌切換</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="inv-brand-tabs"></div>
+        <div class="g2" style="margin-bottom:8px">
+          <div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:6px">▲ 數量 Top 5</div>
+            <table><thead><tr><th>#</th><th>SKU</th><th>品名</th><th>數量</th><th>金額(未稅)</th></tr></thead><tbody id="tb-inv-topq"></tbody></table>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:6px">▲ 金額 Top 5</div>
+            <table><thead><tr><th>#</th><th>SKU</th><th>品名</th><th>金額(未稅)</th><th>數量</th></tr></thead><tbody id="tb-inv-topa"></tbody></table>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -583,6 +617,31 @@ const BMAY=[8406473, 4614706, 13451301, 858089, 916813, 2852364, 2235016];
 const BIYA_=[26246322, 9734309, 21979048, 3785149, 5329520, 4328396, 6587243];
 const BCOLORS=['#4fa3e0','#4caf82','#e0b84f','#e05a4f','#9b7fe8','#e07ab8','#888780'];
 const COLORS=['#4fa3e0','#4caf82','#e0b84f','#e05a4f','#9b7fe8','#e07ab8','#888780','#5dc8c8','#e07a4f','#97c459','#f0d060','#a0d090','#c0a070','#80c8e0','#d4a8ff'];
+const INV_BRANDS=[
+  {code:'PAMPS',label:'幫寶適',qty:85932,amt:30458897,tainan:16784501,kaohsiung:13293210,tp:9546,km:371639,cvs:0,topQ:[{s:'80838271',n:'幫寶適清新幫拉拉褲 加大號XL38X4',q:10963,a:3646403},{s:'80838275',n:'幫寶適清新幫拉拉褲 加加大號26SX4',q:6413,a:2133027},{s:'80838270',n:'寶適清新幫拉拉褲 大號42SX4',q:5222,a:1736889},{s:'80838510',n:'幫寶適奢寵幫 中號38片裝',q:5137,a:2112437},{s:'80838272',n:'幫寶適清新幫拉拉褲 加加加大號22SX4',q:4856,a:1615154}],topA:[{s:'80838271',n:'幫寶適清新幫拉拉褲 加大號XL38X4',q:10963,a:3646403},{s:'80838275',n:'幫寶適清新幫拉拉褲 加加大號26SX4',q:6413,a:2133027},{s:'80838510',n:'幫寶適奢寵幫 中號38片裝',q:5137,a:2112437},{s:'80838270',n:'寶適清新幫拉拉褲 大號42SX4',q:5222,a:1736889},{s:'80838272',n:'幫寶適清新幫拉拉褲 加加加大號22SX4',q:4856,a:1615154}]},
+  {code:'HS',label:'海倫仙度絲',qty:110642,amt:22285607,tainan:12237901,kaohsiung:6641590,tp:106159,km:2538118,cvs:761838,topQ:[{s:'80840330',n:'海倫仙度絲去屑洗髮露 薄荷舒爽680G',q:14347,a:2882168},{s:'80853465',n:'海倫仙度絲去屑洗髮露 薄荷舒爽 680G',q:9967,a:2002270},{s:'80840324',n:'海倫仙度絲去屑洗髮露 清爽控油680G',q:9942,a:1997248},{s:'80829582',n:'海倫仙度絲去屑頭皮護理洗髮露控油蓬鬆350G',q:8515,a:1190311},{s:'80853480',n:'海倫仙度絲去屑洗髮露清爽控油680G',q:8255,a:1658346}],topA:[{s:'80840330',n:'海倫仙度絲去屑洗髮露 薄荷舒爽680G',q:14347,a:2882168},{s:'80853465',n:'海倫仙度絲去屑洗髮露 薄荷舒爽 680G',q:9967,a:2002270},{s:'80840324',n:'海倫仙度絲去屑洗髮露 清爽控油680G',q:9942,a:1997248},{s:'80853480',n:'海倫仙度絲去屑洗髮露清爽控油680G',q:8255,a:1658346},{s:'80840323',n:'海倫仙度絲舒緩去屑洗髮露 小蒼蘭680G',q:6906,a:1387346}]},
+  {code:'ARIEL',label:'碧浪',qty:91671,amt:17644197,tainan:6122418,kaohsiung:6404516,tp:6153,km:3856023,cvs:1255086,topQ:[{s:'80859031',n:'ARIEL 4D抗菌洗衣膠囊30顆袋裝-抗菌去漬X10',q:33760,a:7408632},{s:'80859032',n:'ARIEL 4D抗菌洗衣膠囊30顆袋裝-室內晾衣X10',q:23111,a:5071708},{s:'80870892',n:'ARIEL 4D抗菌洗衣膠囊11顆盒裝-室內晾衣X6',q:5987,a:627976},{s:'80870898',n:'ARIEL 4D抗菌洗衣膠囊11顆盒裝-抗菌去漬X6',q:5449,a:571545},{s:'80863067',n:'ARIEL抗菌洗衣精1690g袋裝-抗菌去漬X6',q:2844,a:589106}],topA:[{s:'80859031',n:'ARIEL 4D抗菌洗衣膠囊30顆袋裝-抗菌去漬X10',q:33760,a:7408632},{s:'80859032',n:'ARIEL 4D抗菌洗衣膠囊30顆袋裝-室內晾衣X10',q:23111,a:5071708},{s:'80870892',n:'ARIEL 4D抗菌洗衣膠囊11顆盒裝-室內晾衣X6',q:5987,a:627976},{s:'80863067',n:'ARIEL抗菌洗衣精1690g袋裝-抗菌去漬X6',q:2844,a:589106},{s:'80870898',n:'ARIEL 4D抗菌洗衣膠囊11顆盒裝-抗菌去漬X6',q:5449,a:571545}]},
+  {code:'PNTN',label:'潘婷',qty:92124,amt:14976514,tainan:4732806,kaohsiung:5437329,tp:6679,km:4747598,cvs:52100,topQ:[{s:'80695637',n:'潘婷乳液修護洗髮乳700G',q:13684,a:2387721},{s:'80773615',n:'潘婷3 MINUTE MIRACLE多效護髮精華70MLX1',q:3422,a:170278},{s:'80872192',n:'潘婷乳液修護洗髮露650G',q:3227,a:551687},{s:'80868678',n:'潘婷3 MINUTE MIRACLE茉莉山茶多效修護護髮精華',q:2961,a:328900},{s:'80874513',n:'潘婷PRO-V保濕髮膜 水潤修護型(12MLX2)X12',q:2460,a:129986}],topA:[{s:'80695637',n:'潘婷乳液修護洗髮乳700G',q:13684,a:2387721},{s:'80872192',n:'潘婷乳液修護洗髮露650G',q:3227,a:551687},{s:'80809585',n:'潘婷PRO-V高濃保濕髮膜 水潤修護型(12MLX8)X12',q:2278,a:521092},{s:'80872190',n:'潘婷絲質順滑洗髮露650G',q:2169,a:370812},{s:'80809588',n:'潘婷PRO-V高濃保濕髮膜 密集修護型(12MLX8)X12',q:1611,a:368516}]},
+  {code:'OLAY',label:'玉蘭油',qty:23861,amt:13473284,tainan:517296,kaohsiung:557884,tp:0,km:12398103,cvs:0,topQ:[{s:'80797978',n:'OLAY 3步水潤亮白組',q:2842,a:1872508},{s:'80765770',n:'OLAY 水感透白光曜精華30ML',q:2178,a:1435018},{s:'80867120',n:'OLAY胜肽專研緊緻精華30ML',q:2054,a:1970217},{s:'80722662',n:'OLAY新生高效緊緻護膚霜 50G',q:1636,a:986753},{s:'82330039',n:'OLAY多元修護晚霜 50G',q:1289,a:501085}],topA:[{s:'80867120',n:'OLAY胜肽專研緊緻精華30ML',q:2054,a:1970217},{s:'80797978',n:'OLAY 3步水潤亮白組',q:2842,a:1872508},{s:'80765770',n:'OLAY 水感透白光曜精華30ML',q:2178,a:1435018},{s:'80722662',n:'OLAY新生高效緊緻護膚霜 50G',q:1636,a:986753},{s:'80867123',n:'OLAY胜肽專研奢護眼霜15G',q:1200,a:970908}]},
+  {code:'FBRZ',label:'風倒',qty:69961,amt:9517794,tainan:3467382,kaohsiung:3718275,tp:117,km:2277814,cvs:54204,topQ:[{s:'80826210',n:'風倍清浴廁用抗菌消臭防臭劑清爽皂香 1入裝',q:8533,a:1002627},{s:'80826213',n:'風倍清浴廁用抗菌消臭防臭劑薄荷綠香 1入裝',q:8288,a:973840},{s:'80852163',n:'風倍清織物除菌消臭噴霧370ml(綠茶清香)',q:7656,a:919791},{s:'80852174',n:'風倍清織物除菌消臭噴霧370ml(高效除菌)',q:7031,a:844704},{s:'80825804',n:'風倍清浴廁用防霉防臭劑(清新柑橘)7mL',q:5696,a:759504}],topA:[{s:'80826210',n:'風倍清浴廁用抗菌消臭防臭劑清爽皂香 1入裝',q:8533,a:1002627},{s:'80826213',n:'風倍清浴廁用抗菌消臭防臭劑薄荷綠香 1入裝',q:8288,a:973840},{s:'80852163',n:'風倍清織物除菌消臭噴霧370ml(綠茶清香)',q:7656,a:919791},{s:'80852174',n:'風倍清織物除菌消臭噴霧370ml(高效除菌)',q:7031,a:844704},{s:'80825804',n:'風倍清浴廁用防霉防臭劑(清新柑橘)7mL',q:5696,a:759504}]},
+  {code:'ORALB',label:'歐樂B',qty:136986,amt:9127329,tainan:1951266,kaohsiung:2473550,tp:13810,km:4354024,cvs:334678,topQ:[{s:'80746543',n:'歐樂B 50M牙線薄荷微蠟',q:43606,a:2785115},{s:'80746542',n:'歐樂B 50M牙線無蠟',q:37611,a:2407480},{s:'80817233',n:'歐樂-B 經典型牙刷8入組',q:16740,a:1362301},{s:'82221109',n:'歐樂B名典型軟毛牙刷40*6送名典軟毛*2',q:10025,a:815834},{s:'82330208',n:'歐樂B 50公尺牙線薄荷微蠟',q:6464,a:412855}],topA:[{s:'80746543',n:'歐樂B 50M牙線薄荷微蠟',q:43606,a:2785115},{s:'80746542',n:'歐樂B 50M牙線無蠟',q:37611,a:2407480},{s:'80817233',n:'歐樂-B 經典型牙刷8入組',q:16740,a:1362301},{s:'82221109',n:'歐樂B名典型軟毛牙刷40*6送名典軟毛*2',q:10025,a:815834},{s:'82330208',n:'歐樂B 50公尺牙線薄荷微蠟',q:6464,a:412855}]},
+  {code:'WHSP',label:'好自在',qty:142382,amt:8842631,tainan:2446713,kaohsiung:2468541,tp:36578,km:2812384,cvs:1078414,topQ:[{s:'80845899',n:'好自在熊抱安睡褲L 2片',q:17763,a:798091},{s:'80845901',n:'好自在熊抱安睡褲XL 2片',q:16931,a:760709},{s:'80888193',n:'好自在熊抱安睡褲XL 2片',q:15910,a:714836},{s:'80845898',n:'好自在熊抱安睡褲M 2片',q:9363,a:420679},{s:'80888195',n:'好自在熊抱安睡褲L 2片',q:9254,a:415782}],topA:[{s:'80845899',n:'好自在熊抱安睡褲L 2片',q:17763,a:798091},{s:'80845901',n:'好自在熊抱安睡褲XL 2片',q:16931,a:760709},{s:'80888193',n:'好自在熊抱安睡褲XL 2片',q:15910,a:714836},{s:'80852633',n:'好自在經典款液體衛生棉27cm10片',q:6393,a:616540},{s:'80845898',n:'好自在熊抱安睡褲M 2片',q:9363,a:420679}]},
+  {code:'HR',label:'赫本',qty:32526,amt:8492995,tainan:148963,kaohsiung:714221,tp:9279,km:7620530,cvs:0,topQ:[{s:'80885107',n:'髮的食譜 玫瑰蜜香茶滋養修護洗髮露510G',q:3946,a:1015779},{s:'80885109',n:'髮的食譜 無花果白茶控油蓬鬆洗髮露80G',q:3552,a:182004},{s:'80885108',n:'髮的食譜 無花果白茶控油蓬鬆洗髮露510G',q:3125,a:803269},{s:'80885101',n:'髮的食譜 薑根清茶防斷豐盈洗髮露510G',q:2549,a:642725},{s:'80885103',n:'髮的食譜 柚子清茶蓬鬆水潤洗髮露510G',q:2509,a:622212}],topA:[{s:'80885107',n:'髮的食譜 玫瑰蜜香茶滋養修護洗髮露510G',q:3946,a:1015779},{s:'80885108',n:'髮的食譜 無花果白茶控油蓬鬆洗髮露510G',q:3125,a:803269},{s:'80885101',n:'髮的食譜 薑根清茶防斷豐盈洗髮露510G',q:2549,a:642725},{s:'80885098',n:'髮的食譜 玫瑰蜜香茶滋養修護護髮精華510G',q:2508,a:632605},{s:'80885103',n:'髮的食譜 柚子清茶蓬鬆水潤洗髮露510G',q:2509,a:622212}]},
+  {code:'LENOR',label:'蘭諾',qty:53092,amt:6787692,tainan:3312975,kaohsiung:2851019,tp:30888,km:399285,cvs:193523,topQ:[{s:'80815412',n:'蘭諾LENOR衣物芳香豆春暖晨露40ml',q:11944,a:164110},{s:'80798925',n:'蘭諾LENOR衣物芳香抗菌豆清爽海洋香180ml',q:6339,a:446138},{s:'80851961',n:'蘭諾LENOR衣物芳香豆甜花石榴香450ML',q:2770,a:482589},{s:'80842259',n:'蘭諾Lenor衣物芳香豆清晨草木440mL',q:2056,a:287058},{s:'80851964',n:'蘭諾LENOR衣物抗菌芳香豆運動衣物抗臭440ML',q:2029,a:353492}],topA:[{s:'80851961',n:'蘭諾LENOR衣物芳香豆甜花石榴香450ML',q:2770,a:482589},{s:'80798925',n:'蘭諾LENOR衣物芳香抗菌豆清爽海洋香180ml',q:6339,a:446138},{s:'80851964',n:'蘭諾LENOR衣物抗菌芳香豆運動衣物抗臭440ML',q:2029,a:353492},{s:'80851960',n:'蘭諾LENOR衣物芳香豆清晨草木450ML',q:1974,a:343910},{s:'80851959',n:'蘭諾LENOR衣物芳香豆雪松梔子花450ML',q:1896,a:330321}]},
+  {code:'GLT',label:'吉列',qty:34407,amt:6161490,tainan:1558264,kaohsiung:1809473,tp:70,km:2319464,cvs:474216,topQ:[{s:'80829664',n:'吉列服貼滑順輕便刀 3入裝',q:7865,a:277555},{s:'80829662',n:'吉列服貼滑順輕便刀 6入裝',q:7105,a:464667},{s:'80812702',n:'吉列ProGlide無感系列刮鬍刀頭(4刀頭)',q:2061,a:908859},{s:'80829663',n:'吉列服貼滑順輕便刀 10入裝',q:1749,a:145324},{s:'80726030',n:'吉列Fusion鋒隱系列刮鬍刀 (1刀架2刀頭)',q:1406,a:274479}],topA:[{s:'80812702',n:'吉列ProGlide無感系列刮鬍刀頭(4刀頭)',q:2061,a:908859},{s:'80829662',n:'吉列服貼滑順輕便刀 6入裝',q:7105,a:464667},{s:'80753944',n:'吉列NBA聯名無感刮鬍刀 (1刀架2刀頭1底座)',q:748,a:443668},{s:'80812701',n:'GLT FUS CRT 4X20X2 TW_吉列Fusion',q:928,a:324400},{s:'80764560',n:'吉列 Labs 極光系列刮鬍刀 1刀架2刀頭',q:512,a:303708}]},
+  {code:'PERT',label:'飛柔',qty:36711,amt:4362489,tainan:1731366,kaohsiung:1386303,tp:25037,km:681000,cvs:538780,topQ:[{s:'80831801',n:'飛柔控油去屑洗髮露400G',q:4599,a:388799},{s:'80721875',n:'飛柔控油止癢洗髮露 750G',q:4307,a:540614},{s:'80831804',n:'飛柔蓬鬆去屑洗髮露400G',q:3830,a:323788},{s:'80856270',n:'飛柔蓬鬆去屑洗髮露600G',q:2740,a:312003},{s:'80811156',n:'飛柔滋養修護免沖洗瞬效護髮精華380g',q:2120,a:396864}],topA:[{s:'80721875',n:'飛柔控油止癢洗髮露 750G',q:4307,a:540614},{s:'80811156',n:'飛柔滋養修護免沖洗瞬效護髮精華380g',q:2120,a:396864},{s:'80831801',n:'飛柔控油去屑洗髮露400G',q:4599,a:388799},{s:'80809032',n:'飛柔清爽修護瞬效柔順護髮精華 380G',q:1916,a:358675},{s:'80831804',n:'飛柔蓬鬆去屑洗髮露400G',q:3830,a:323788}]},
+  {code:'BRAUN',label:'百靈',qty:5401,amt:4286241,tainan:1045156,kaohsiung:1513037,tp:58652,km:1669394,cvs:0,topQ:[{s:'82332557',n:'歐樂B電動牙刷專業亮白拋光刷頭',q:1208,a:388057},{s:'82331706',n:'歐樂B兒童充電型電動牙刷1刷柄5刷頭',q:592,a:893428},{s:'80704500',n:'D85兒童階段型電動牙刷',q:432,a:179591},{s:'80792605',n:'德國百靈動感超潔電動牙刷D12013',q:416,a:266073},{s:'80822947',n:'EB60-4超細毛護齦X型刷頭(4入)',q:379,a:227494}],topA:[{s:'82331706',n:'歐樂B兒童充電型電動牙刷1刷柄5刷頭',q:592,a:893428},{s:'83916553',n:'Oral-B iO Series 2 充電電動牙刷(玫瑰粉)',q:264,a:469312},{s:'82332557',n:'歐樂B電動牙刷專業亮白拋光刷頭',q:1208,a:388057},{s:'80792605',n:'德國百靈動感超潔電動牙刷D12013',q:416,a:266073},{s:'82333214',n:'PRO 1 3D電動牙刷-白色',q:219,a:229257}]},
+  {code:'CREST',label:'Crest',qty:29457,amt:3287750,tainan:581191,kaohsiung:955666,tp:16223,km:1734669,cvs:0,topQ:[{s:'80749328',n:'Crest 極致鑽白牙膏-鑽亮炫白110g',q:6079,a:596653},{s:'80749329',n:'Crest 極致鑽白牙膏-鑽感薄荷110g',q:3994,a:392011},{s:'80891803',n:'Crest多效淨白牙膏 清爽薄荷120g',q:2738,a:175587},{s:'80749330',n:'Crest 極致鑽白牙膏-亮白防蛀110g',q:2683,a:263336},{s:'80841669',n:'CREST香氛鎖白牙膏-海洋薄荷',q:2154,a:216455}],topA:[{s:'80749328',n:'Crest 極致鑽白牙膏-鑽亮炫白110g',q:6079,a:596653},{s:'80749329',n:'Crest 極致鑽白牙膏-鑽感薄荷110g',q:3994,a:392011},{s:'82306069',n:'Crest鑽白音波電動牙刷 (白)',q:256,a:349468},{s:'80749330',n:'Crest 極致鑽白牙膏-亮白防蛀110g',q:2683,a:263336},{s:'80854480',n:'Crest ProWhite 極光白深層亮白牙膏90g',q:913,a:221612}]},
+  {code:'BOLD',label:'潮',qty:1495,amt:326945,tainan:77132,kaohsiung:115864,tp:212,km:104017,cvs:29719,topQ:[{s:'80861747',n:'BOLD日本四合一洗衣膠囊31顆袋裝(清淨花香)',q:533,a:113145},{s:'83907179',n:'BOLD日本四合一洗衣膠囊31顆袋裝(淡雅花香)',q:492,a:104441},{s:'80861743',n:'BOLD日本四合一洗衣膠囊31顆袋裝(淡雅花香)',q:343,a:72812},{s:'80829578',n:'BOLD日本四合一洗衣膠囊64顆袋裝(淡雅花香)',q:71,a:30135},{s:'80861745',n:'BOLD日本四合一洗衣膠囊11顆盒裝(清淨花香)',q:27,a:2832}],topA:[{s:'80861747',n:'BOLD日本四合一洗衣膠囊31顆袋裝(清淨花香)',q:533,a:113145},{s:'83907179',n:'BOLD日本四合一洗衣膠囊31顆袋裝(淡雅花香)',q:492,a:104441},{s:'80861743',n:'BOLD日本四合一洗衣膠囊31顆袋裝(淡雅花香)',q:343,a:72812},{s:'80829578',n:'BOLD日本四合一洗衣膠囊64顆袋裝(淡雅花香)',q:71,a:30135},{s:'80861745',n:'BOLD日本四合一洗衣膠囊11顆盒裝(清淨花香)',q:27,a:2832}]},
+  {code:'TIDE',label:'汰漬',qty:28,amt:16179,tainan:0,kaohsiung:16179,tp:0,km:0,cvs:0,topQ:[{s:'83901803',n:'汰漬2倍超濃縮洗衣精125oz/3.69L',q:28,a:16179}],topA:[{s:'83901803',n:'汰漬2倍超濃縮洗衣精125oz/3.69L',q:28,a:16179}]}
+];
+const INV_WH=[
+  {name:'台南',amt:56715330},
+  {name:'高雄',amt:50356657},
+  {name:'桃園',amt:319403},
+  {name:'康是美',amt:47884062},
+  {name:'CVS',amt:4772558}
+];
 
 // ── Navigation ────────────────────────────────────────────────────────────
 const charts={};
@@ -844,8 +903,64 @@ const builds={
         <td><span class="bdg ${ok?'bg':'br'}">${ok?'超收':'未達標'}</span></td>
       </tr>`;
     });
+  },
+
+  inv(){
+    charts.inv=[];
+    if(!INV_BRANDS.length){
+      document.getElementById('inv-brand-tabs').innerHTML='<span style="color:var(--text3);font-size:11px">庫存資料更新中，請執行腳本</span>';
+      return;
+    }
+    const WH_COLORS={'tainan':'#4fa3e0','kaohsiung':'#4caf82','tp':'#f0d060','km':'#e07ab8','cvs':'#97c459'};
+    const WH_LABELS={'tainan':'台南','kaohsiung':'高雄','tp':'桃園','km':'康是美','cvs':'CVS'};
+    const top12=INV_BRANDS.slice(0,12);
+
+    // Brand bar chart
+    charts.inv.push(new Chart('c-inv-brand',{type:'bar',data:{
+      labels:top12.map(b=>`${b.code}\n${b.label}`),
+      datasets:[{data:top12.map(b=>b.amt),backgroundColor:top12.map((_,i)=>COLORS[i%COLORS.length]),borderRadius:4,barPercentage:.75}]
+    },options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:9}}},y:{grid:{display:false},ticks:{font:{size:9}}}}}}));
+
+    // Stacked warehouse chart
+    const whKeys=['tainan','kaohsiung','tp','km','cvs'];
+    charts.inv.push(new Chart('c-inv-wh',{type:'bar',data:{
+      labels:top12.map(b=>b.code),
+      datasets:whKeys.map(k=>({
+        label:WH_LABELS[k],
+        data:top12.map(b=>b[k]),
+        backgroundColor:WH_COLORS[k],
+        stack:'s',borderRadius:k==='tainan'?4:0
+      }))
+    },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,font:{size:10}}}},
+      scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:9}}},y:{stacked:true,grid:gc,ticks:{callback:v=>fmt(v),font:{size:9}}}}}}));
+
+    // Brand tabs
+    let activeBrand=INV_BRANDS[0];
+    const tabs=document.getElementById('inv-brand-tabs');
+    tabs.innerHTML=INV_BRANDS.map((b,i)=>
+      `<button onclick="invSelectBrand(${i})" id="invtab-${i}" style="padding:3px 10px;border-radius:20px;font-size:10px;cursor:pointer;border:1px solid var(--border2);background:${i===0?'var(--accent)':'transparent'};color:${i===0?'#fff':'var(--text2)'};">${b.code}</button>`
+    ).join('');
+    renderInvTabs(0);
   }
 };
+
+let _invBrandIdx=0;
+function invSelectBrand(i){
+  _invBrandIdx=i;
+  document.querySelectorAll('[id^="invtab-"]').forEach((el,j)=>{
+    el.style.background=j===i?'var(--accent)':'transparent';
+    el.style.color=j===i?'#fff':'var(--text2)';
+  });
+  renderInvTabs(i);
+}
+function renderInvTabs(i){
+  const b=INV_BRANDS[i];
+  const tq=document.getElementById('tb-inv-topq');
+  const ta=document.getElementById('tb-inv-topa');
+  tq.innerHTML=b.topQ.map((x,j)=>`<tr><td><span class="rk rn">${j+1}</span></td><td class="mn" style="font-size:10px">${x.s}</td><td style="font-size:11px">${x.n}</td><td class="mn">${x.q.toLocaleString()}</td><td class="mn">${fmt(x.a)}</td></tr>`).join('');
+  ta.innerHTML=b.topA.map((x,j)=>`<tr><td><span class="rk rn">${j+1}</span></td><td class="mn" style="font-size:10px">${x.s}</td><td style="font-size:11px">${x.n}</td><td class="mn">${fmt(x.a)}</td><td class="mn">${x.q.toLocaleString()}</td></tr>`).join('');
+}
 
 function renderStoreTb(data){
   const tb=document.getElementById('tb-store');tb.innerHTML='';

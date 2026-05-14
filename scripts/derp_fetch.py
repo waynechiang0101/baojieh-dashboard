@@ -42,6 +42,23 @@ AREA_MAP = {
     'MS031':'其他',
 }
 
+BRAND_NAMES = {
+    'PAMPS':'幫寶適','WHSP':'好自在','HS':'海倫仙度絲','PNTN':'潘婷',
+    'HR':'赫本','OLAY':'玉蘭油','FBRZ':'風倒','ORALB':'歐樂B',
+    'GLT':'吉列','LENOR':'蘭諾','ARIEL':'碧浪','PERT':'飛柔',
+    'BRAUN':'百靈','CREST':'Crest','BOLD':'潮','TIDE':'汰漬',
+    'VS':'沙宣','JOY':'Joy','FAIRY':'Fairy','SARASA':'Sarasa',
+}
+SKIP_INV_BRANDS = {'SAMPLE','POSM','OTHER','GIFT','DISPLAY',''}
+
+def _wh_group(wh):
+    if '台南' in wh: return 'tainan'
+    if '高雄' in wh: return 'kaohsiung'
+    if 'TP' in wh or '台北' in wh: return 'tp'
+    if '康是美' in wh: return 'km'
+    if 'CVS' in wh: return 'cvs'
+    return 'other'
+
 
 # ── Session ──────────────────────────────────────────────
 def get_session():
@@ -179,6 +196,99 @@ def parse_xls(data):
     return {'grp':grp,'store':store,'ch':ch,'rep':rep}
 
 
+# ── 庫存：POST 登入 + 下載 + 解析 ───────────────────────
+def get_web_session():
+    ws = requests.Session()
+    ws.headers.update({'User-Agent':'Mozilla/5.0'})
+    r = ws.post(f'{BASE_URL}/CCderp.jsp', verify=False, timeout=30, data={
+        '*userID': os.environ.get("DERP_USER","user34"),
+        '*password': os.environ.get("DERP_PASS","user34"),
+        '*accountID': ACCOUNT_ID,
+        '*dataOwner': 'CVS-7,CVS-HL,CVS-OK,CVS-FM,ETC,OMD,COSMED,DMC,CVS-7N',
+        '*requestURL': f'{BASE_URL}/PC.sys',
+        '*loginTemplate':'Login.html','*menuTemplate':'indexBlank.html',
+        '*pageCmd':'Login','execCode':'0','execMsg':'','actionCode':'0',
+        'focusField':'','urlAlter':'','urlYes':'','urlNo':''
+    })
+    jsid = ws.cookies.get('JSESSIONID','')
+    print(f"  Web session: {'✓' if jsid else '✗'} {jsid[:8] if jsid else ''}...")
+    return ws if jsid else None
+
+def dl_inventory(ws):
+    import tempfile
+    params = {
+        '*pageCmd':'print','*sortType':'4','*sort':'0',
+        '*ABCClass':'','*barcode':'','*itemNo':'','*itemDesc':'',
+        '*warehouse':'','*warehouseMerge':'','*categoryCode':'','*categoryCodeMerge':'',
+        '*brandCode':'','*brandCodeMerge':'','*idleDay':'','*inventoryDay':'',
+        '*invQueryType':'0','*rowsPerPage':'500','linePerPage':'25',
+        '*indexSelected':'','*keySelected':'','*derpPage':'derp-327-00',
+        'execCode':'0','execMsg':'','actionCode':'0',
+        'focusField':'','urlAlter':'','urlYes':'','urlNo':'',
+        'accountID':ACCOUNT_ID,'userID':'user34','appSysName':'derp'
+    }
+    print("  下載庫存報表 (streaming ~45MB)...")
+    try:
+        r = ws.get(f'{BASE_URL}/3.IN/derp-327-50.jsp',
+                   params=params, verify=False, timeout=(30, 600), stream=True,
+                   headers={'Referer':f'{BASE_URL}/3.IN/derp-327-00.jsp'})
+        tmp = tempfile.mktemp(suffix='.html')
+        total = 0
+        with open(tmp,'wb') as f:
+            for chunk in r.iter_content(chunk_size=65536):
+                f.write(chunk)
+                total += len(chunk)
+        print(f"    ✓ {total/1024/1024:.1f}MB")
+        return tmp
+    except Exception as e:
+        print(f"    ⚠ 庫存下載失敗: {e}")
+        return None
+
+def parse_inventory_html(path):
+    from collections import defaultdict
+    with open(path,'rb') as f:
+        content = f.read().decode('utf-8', errors='replace')
+    rows = re.findall(r'<TR[^>]*>(.*?)</TR>', content, re.I|re.S)
+    brands = defaultdict(lambda: {
+        'qty':0,'amt':0,'tainan':0,'kaohsiung':0,'tp':0,'km':0,'cvs':0,'other':0,
+        'skus':{}
+    })
+    for row in rows[6:]:
+        cells = re.findall(r'<T[DH][^>]*>(.*?)</T[DH]>', row, re.I|re.S)
+        cleaned = [re.sub(r'<[^>]+>','',c).strip() for c in cells]
+        if len(cleaned) < 16: continue
+        sku, name, brand, wh = cleaned[0], cleaned[2], cleaned[4], cleaned[5]
+        if brand in SKIP_INV_BRANDS or '合計' in sku: continue
+        try:
+            qty = float(cleaned[11])
+            amt = float(cleaned[15])
+        except: continue
+        if qty <= 0: continue
+        g = _wh_group(wh)
+        b = brands[brand]
+        b['qty'] += qty; b['amt'] += amt; b[g] += amt
+        if sku not in b['skus']:
+            b['skus'][sku] = {'name': name[:30], 'qty':0, 'amt':0}
+        b['skus'][sku]['qty'] += qty
+        b['skus'][sku]['amt'] += amt
+    result = []
+    for code, d in sorted(brands.items(), key=lambda x:-x[1]['amt']):
+        skus = d['skus']
+        topQ = sorted(skus.items(), key=lambda x:-x[1]['qty'])[:5]
+        topA = sorted(skus.items(), key=lambda x:-x[1]['amt'])[:5]
+        result.append({
+            'code':code, 'label':BRAND_NAMES.get(code,code),
+            'qty':int(d['qty']), 'amt':int(d['amt']),
+            'tainan':int(d['tainan']), 'kaohsiung':int(d['kaohsiung']),
+            'tp':int(d['tp']), 'km':int(d['km']), 'cvs':int(d['cvs']),
+            'topQ':[{'s':k,'n':v['name'],'q':int(v['qty']),'a':int(v['amt'])} for k,v in topQ],
+            'topA':[{'s':k,'n':v['name'],'q':int(v['qty']),'a':int(v['amt'])} for k,v in topA],
+        })
+    total_amt = sum(d['amt'] for d in result)
+    print(f"  ✓ 庫存: {len(result)} 品牌  ${total_amt/1e6:.1f}M")
+    return result
+
+
 # ── 讀取本地收款 Excel ────────────────────────────────────
 def parse_local_payment_xls():
     import glob, xlrd
@@ -214,7 +324,7 @@ def parse_local_payment_xls():
 
 
 # ── 更新 dashboard.html ──────────────────────────────────
-def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected):
+def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=None):
     html = DASHBOARD.read_text(encoding='utf-8')
     def esc(s): return s.replace("'","`")
     def fm(n): return f"${n/1e6:.1f}M"
@@ -510,6 +620,40 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected):
         lambda mm: mm.group(1) + ','.join(str(x) for x in ch_data) + mm.group(2),
         html, count=1)
 
+    # ── 庫存 (INV_BRANDS / INV_WH) ──
+    if inv_data:
+        def jstr(v): return str(v).replace("'","`")
+        brand_lines = []
+        for b in inv_data:
+            tq = ','.join(f"{{s:'{jstr(x['s'])}',n:'{jstr(x['n'])}',q:{x['q']},a:{x['a']}}}" for x in b['topQ'])
+            ta = ','.join(f"{{s:'{jstr(x['s'])}',n:'{jstr(x['n'])}',q:{x['q']},a:{x['a']}}}" for x in b['topA'])
+            brand_lines.append(
+                f"  {{code:'{b['code']}',label:'{b['label']}',qty:{b['qty']},amt:{b['amt']},"
+                f"tainan:{b['tainan']},kaohsiung:{b['kaohsiung']},tp:{b['tp']},km:{b['km']},cvs:{b['cvs']},"
+                f"topQ:[{tq}],topA:[{ta}]}}"
+            )
+        html = re.sub(r'const INV_BRANDS=\[[\s\S]*?\];',
+                      'const INV_BRANDS=[\n'+',\n'.join(brand_lines)+'\n];', html)
+
+        wh_totals = {'台南':0,'高雄':0,'桃園':0,'康是美':0,'CVS':0}
+        wh_qty    = {'台南':0,'高雄':0,'桃園':0,'康是美':0,'CVS':0}
+        for b in inv_data:
+            wh_totals['台南']   += b['tainan']
+            wh_totals['高雄']   += b['kaohsiung']
+            wh_totals['桃園']   += b['tp']
+            wh_totals['康是美'] += b['km']
+            wh_totals['CVS']    += b['cvs']
+        wh_lines = [f"  {{name:'{k}',amt:{int(v)}}}" for k,v in wh_totals.items()]
+        html = re.sub(r'const INV_WH=\[[\s\S]*?\];',
+                      'const INV_WH=[\n'+',\n'.join(wh_lines)+'\n];', html)
+
+        total_inv = sum(b['amt'] for b in inv_data)
+        sub_kpi('總庫存金額', fm(total_inv), f'{len(inv_data)} 品牌')
+        sub_kpi('台南倉庫存', fm(wh_totals['台南']), '台南出貨倉')
+        sub_kpi('高雄倉庫存', fm(wh_totals['高雄']), '高雄主貨倉')
+        sub_kpi('桃園倉庫存', fm(wh_totals['桃園']), 'TP主貨倉')
+        sub_kpi('康是美倉庫存', fm(wh_totals['康是美']), '康是美寄倉')
+
     # ── 日期 ──
     td     = _today.strftime("%Y/%m/%d")
     mo_lbl = _today.strftime("%m/%d")
@@ -520,10 +664,11 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected):
 
     DASHBOARD.write_text(html, encoding='utf-8')
 
+    inv_summary = f"  庫存:{fm(sum(b['amt'] for b in inv_data))}({len(inv_data)}品牌)" if inv_data else ""
     print(f"\n✅ {td} 全指標更新完成")
     print(f"   本月:{fm(total_mo)}  季累計:{fm(total_q)}  IYA:{iya_pct:+.1f}%  交易客戶:{cust_cnt:,}")
     print(f"   KM:{fm(km_total)}({km_cnt}點)  CVS:{fm(cvs_total)}({cvs_cnt}點)  小北:{fm(xb_total)}({xb_cnt}點)")
-    print(f"   通路:{len(ch_s)}種  業務:{len(rep_lines)}人")
+    print(f"   通路:{len(ch_s)}種  業務:{len(rep_lines)}人{inv_summary}")
 
 
 # ── Main ─────────────────────────────────────────────────
@@ -553,7 +698,18 @@ def main():
     if not q.get('grp'):
         print("✗ 解析失敗"); sys.exit(1)
 
-    update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected)
+    print("\n[庫存下載]")
+    inv_data = None
+    try:
+        ws = get_web_session()
+        if ws:
+            inv_path = dl_inventory(ws)
+            if inv_path:
+                inv_data = parse_inventory_html(inv_path)
+    except Exception as e:
+        print(f"  ⚠ 庫存下載失敗（業績仍正常更新）: {e}")
+
+    update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data)
 
 
 if __name__ == "__main__":
