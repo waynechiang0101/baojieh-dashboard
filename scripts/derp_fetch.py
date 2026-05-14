@@ -207,29 +207,46 @@ def parse_xls(data):
     return {'grp':grp,'store':store,'ch':ch,'rep':rep}
 
 
-# ── 解析收款 XLS（HTML-based）──────────────────────────
-def parse_payment_xls(data):
-    if not data: return {}
-    try:
-        content = data.decode('utf-8', errors='replace')
-        rows = re.findall(r'<tr[^>]*>(.*?)</tr>', content, re.DOTALL|re.IGNORECASE)
-        pays = {}
-        for row in rows:
-            cells = re.findall(r'<t[dh][^>]*>(.*?)</t[dh]>', row, re.DOTALL|re.IGNORECASE)
-            cells = [re.sub(r'<[^>]+>','',c).strip().replace(',','') for c in cells]
-            if len(cells) >= 3 and cells[0] and cells[0] not in ['業務','合計','小計','']:
-                try:
-                    rn = cells[0]
-                    amt = float(cells[-1]) if cells[-1].lstrip('-').isdigit() else 0
-                    if rn and amt != 0:
-                        pays[rn] = pays.get(rn,0) + amt
-                except: pass
-        return pays
-    except: return {}
+# ── 讀取本地收款 Excel（115-05收款.xls 格式）──────────
+def parse_local_payment_xls():
+    """
+    讀 Downloads 最新的 115-XX收款.xls，格式：
+    col0=業務代號.名稱, col1=MBO目標, col2=已達成, col5=GAP
+    """
+    import glob, xlrd
+    pattern = os.path.expanduser("~/Downloads/115-??收款.xls")
+    files = sorted(glob.glob(pattern))
+    if not files:
+        print("  ⚠ 找不到 115-XX收款.xls，跳過收款資料")
+        return [], 0
+
+    path = files[-1]  # 最新的
+    print(f"  讀取: {os.path.basename(path)}")
+    wb = xlrd.open_workbook(path)
+    ws = wb.sheet_by_index(0)
+
+    pays = []
+    total_tgt = total_act = 0
+    for i in range(2, ws.nrows):
+        cell0 = str(ws.cell_value(i, 0)).strip()
+        if not cell0 or cell0.lower() == 'total': continue
+        m = re.match(r'MS\d+[. ]+(.+)', cell0)
+        name = m.group(1).strip() if m else cell0
+        tgt  = float(ws.cell_value(i, 1) or 0)
+        act  = float(ws.cell_value(i, 2) or 0)
+        gap  = tgt - act
+        if tgt == 0 and act == 0: continue
+        pays.append({'r': name, 'tgt': int(tgt), 'act': int(act), 'gap': int(gap)})
+        total_tgt += tgt
+        total_act += act
+
+    uncollected = total_tgt - total_act
+    print(f"  ✓ {len(pays)}人  未收款: ${uncollected/1e6:.1f}M")
+    return pays, uncollected
 
 
 # ── 更新 dashboard.html ──────────────────────────────────
-def update_dashboard(q, m, mo, iya_q, iya_mo, pay_data):
+def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected):
     html = DASHBOARD.read_text(encoding='utf-8')
     def esc(s): return s.replace("'","`")
     def fm(n): return f"${n/1e6:.1f}M"
@@ -266,6 +283,8 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pay_data):
     sub_kpi('交易客戶', f'{cust_cnt:,}')
     if iya_pct:
         sub_kpi('IYA 成長', f'+{iya_pct}%' if iya_pct>=0 else f'{iya_pct}%')
+    if uncollected:
+        sub_kpi('未收款', fm(uncollected))
 
     # ── GRP ──
     grp_s = sorted(grp_q.items(), key=lambda x:-x[1])[:15]
@@ -342,20 +361,14 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pay_data):
         html = re.sub(r'const REPS=\[[\s\S]*?\];',
                       'const REPS=[\n'+',\n'.join(rep_lines)+'\n];', html)
 
-    # ── PAYS（收款狀況）──
-    if pay_data:
-        existing_pays = {}
-        for m2 in re.finditer(r"\{r:'([^']+)',tgt:(\d+),act:(\d+)", html):
-            existing_pays[m2.group(1)] = int(m2.group(2))
-
-        pay_lines = []
-        for rn, act in sorted(pay_data.items(), key=lambda x:-x[1]):
-            tgt = existing_pays.get(rn, 0)
-            gap = tgt - act
-            pay_lines.append(f"  {{r:'{esc(rn)}',tgt:{tgt},act:{int(act)},gap:{int(gap)}}}")
-        if pay_lines:
-            html = re.sub(r'const PAYS=\[[\s\S]*?\];',
-                          'const PAYS=[\n'+',\n'.join(pay_lines)+'\n];', html)
+    # ── PAYS（收款狀況，來自 115-XX收款.xls）──
+    if pays_list:
+        pay_lines = [
+            f"  {{r:'{esc(p['r'])}',tgt:{p['tgt']},act:{p['act']},gap:{p['gap']}}}"
+            for p in sorted(pays_list, key=lambda x: x['tgt']-x['act'], reverse=True)
+        ]
+        html = re.sub(r'const PAYS=\[[\s\S]*?\];',
+                      'const PAYS=[\n'+',\n'.join(pay_lines)+'\n];', html)
 
     # ── 月業績趨勢（c0）：更新 4月 和 本月 資料點 ──
     apr_total = sum(m.get('grp',{}).values())    # 4月全月
@@ -425,8 +438,7 @@ def main():
     data_iya_q  = dl_sales(s, ly_qstart,  ly_today,  "去年季累計")
     data_iya_mo = dl_sales(s, ly_mostart, ly_today,  "去年本月")
 
-    print("\n[下載 收款]")
-    pay_raw = dl_payment(s, mo_start, today)
+    print("\n[收款 Excel]")
 
     print("\n[解析]")
     q   = parse_xls(data_q);   print(f"  季累計  → 集團:{len(q.get('grp',{}))} 門市:{len(q.get('store',{}))} 業務:{len(q.get('rep',{}))}")
@@ -434,12 +446,12 @@ def main():
     m   = parse_xls(data_m);   print(f"  4月全月 → 集團:{len(m.get('grp',{}))}")
     iya_q  = parse_xls(data_iya_q);  print(f"  去年季  → 集團:{len(iya_q.get('grp',{}))}")
     iya_mo = parse_xls(data_iya_mo); print(f"  去年月  → 集團:{len(iya_mo.get('grp',{}))}")
-    pays = parse_payment_xls(pay_raw)
+    pays_list, uncollected = parse_local_payment_xls()
 
     if not q.get('grp'):
         print("✗ 解析失敗"); sys.exit(1)
 
-    update_dashboard(q, m, mo, iya_q, iya_mo, pays)
+    update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected)
 
 
 if __name__ == "__main__":
