@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-DERP → Dashboard 自動更新
-本地: python3 scripts/derp_fetch.py
-CI:   DERP_USER / DERP_PASS 環境變數由 GitHub Secrets 帶入
+DERP → Dashboard 全指標自動更新
+更新: GRP, STORES, CHS, UNIF, REPS, PAYS, BRANDS, KPIs, IYA
 """
 import os, re, sys, requests
 from datetime import date
@@ -14,39 +13,59 @@ BASE_URL   = "https://gderp.titan.ebiz.tw/derp"
 ACCOUNT_ID = "86041711"
 DASHBOARD  = Path(__file__).parent.parent / "dashboard.html"
 
-_today  = date.today()
-today   = _today.strftime("%Y/%m/%d")
-q_start = f"{_today.year}/04/01"
+_today   = date.today()
+_ly      = _today.replace(year=_today.year - 1)
+today    = _today.strftime("%Y/%m/%d")
+q_start  = f"{_today.year}/04/01"
 mo_start = f"{_today.year}/{_today.month:02d}/01"
-m_end   = f"{_today.year}/04/30"
+m_end    = f"{_today.year}/04/30"
+ly_today  = _ly.strftime("%Y/%m/%d")
+ly_qstart = f"{_ly.year}/04/01"
+ly_mostart = f"{_ly.year}/{_ly.month:02d}/01"
+ly_mend   = f"{_ly.year}/04/30"
+
+# XLS 品牌欄位對照 (col → 品牌代號)
+BRAND_COLS = {
+    12:'PAMPS', 16:'WHSP', 20:'HS', 24:'PNTN', 28:'PERT', 32:'VS',
+    36:'HR', 40:'OLAY', 44:'TIDE', 48:'ARIEL', 52:'BOLD', 56:'LENOR',
+    60:'SARASA', 64:'FAIRY', 68:'FBRZ', 72:'JOY', 76:'GLT',
+    80:'ORALB', 84:'CREST', 88:'BRAUN'
+}
+# 看板顯示品牌（b[] 順序 + 整體排行）
+REP_BRANDS  = ['PAMPS', 'WHSP', 'OLAY', 'GLT', 'LENOR', 'ORALB']
+DASH_BRANDS = ['PAMPS', 'WHSP', 'OLAY', 'GLT', 'ORALB', 'LENOR', 'FBRZ']
+
+# 業務區域對照
+AREA_MAP = {
+    'MS032':'雲嘉','MS033':'雲嘉','MS035':'雲嘉',
+    'MS006':'高屏','MS009':'高屏','MS023':'高屏',
+    'MS026':'高屏','MS027':'高屏','MS013':'高屏',
+    'MS030':'北部','MS001':'中部','MS002':'中部',
+    'MS011':'中部','MS015':'中部','MS017':'其他',
+    'MS031':'其他',
+}
 
 
 # ── Session ──────────────────────────────────────────────
 def get_session():
     user = os.environ.get("DERP_USER", "user34")
     pwd  = os.environ.get("DERP_PASS", "user34")
-
     if os.environ.get("CI"):
         return _login_playwright(user, pwd)
-
     try:
         import subprocess
-        result = subprocess.run(
-            ["agent-browser", "cookies", "get", "--url", "https://gderp.titan.ebiz.tw"],
-            capture_output=True, text=True, timeout=10
-        )
-        jsid = re.search(r'JSESSIONID=([A-F0-9]+)', result.stdout)
-        if jsid:
-            s = _make_session(jsid.group(1))
-            r = s.get(f"{BASE_URL}/6.BR/derp-610-82.jsp", verify=False, timeout=10)
-            if "610-82" in r.text or "Sell" in r.text:
-                print(f"✓ Session ({jsid.group(1)[:8]}...)")
+        r = subprocess.run(
+            ["agent-browser","cookies","get","--url","https://gderp.titan.ebiz.tw"],
+            capture_output=True, text=True, timeout=10)
+        m = re.search(r'JSESSIONID=([A-F0-9]+)', r.stdout)
+        if m:
+            s = _make_session(m.group(1))
+            rr = s.get(f"{BASE_URL}/6.BR/derp-610-82.jsp", verify=False, timeout=10)
+            if "Sell" in rr.text or "610" in rr.text:
+                print(f"✓ Session ({m.group(1)[:8]}...)")
                 return s
-    except:
-        pass
-
+    except: pass
     return _login_playwright(user, pwd)
-
 
 def _login_playwright(user, pwd):
     from playwright.sync_api import sync_playwright
@@ -61,172 +80,328 @@ def _login_playwright(user, pwd):
         page.wait_for_load_state("networkidle", timeout=20000)
         cookies = page.context.cookies()
         browser.close()
-    jsid = next((c["value"] for c in cookies if c["name"] == "JSESSIONID"), None)
-    if not jsid:
-        print("✗ 登入失敗"); sys.exit(1)
-    print(f"✓ 登入成功 ({jsid[:8]}...)")
+    jsid = next((c["value"] for c in cookies if c["name"]=="JSESSIONID"), None)
+    if not jsid: print("✗ 登入失敗"); sys.exit(1)
+    print(f"✓ 登入 ({jsid[:8]}...)")
     return _make_session(jsid)
-
 
 def _make_session(jsid):
     s = requests.Session()
     s.cookies.set("JSESSIONID", jsid, domain="gderp.titan.ebiz.tw", path="/")
-    s.headers.update({"User-Agent": "Mozilla/5.0",
-                      "Referer": f"{BASE_URL}/6.BR/derp-610-82.jsp"})
+    s.headers.update({"User-Agent":"Mozilla/5.0",
+                      "Referer":f"{BASE_URL}/6.BR/derp-610-82.jsp"})
     return s
 
 
-# ── 下載銷售報表 ──────────────────────────────────────────
-def download_report(s, date_start, date_end, label=""):
-    print(f"  {label} ({date_start}~{date_end})...")
+# ── 下載銷售日報（dsrDailySales）────────────────────────
+def dl_sales(s, d0, d1, label):
+    print(f"  {label} {d0}~{d1}...")
     params = {
-        "*transDateStart": date_start, "*transDateEnd": date_end,
-        "*itemNoStart": "", "*itemNoEnd": "",
-        "*soldToCode": "", "*soldToCodeMerge": "",
-        "*customerNo": "", "customerNo": "", "*customerNoMerge": "",
-        "*territoryCodeStart": "", "*territoryCodeStartName": "",
-        "*territoryCodeEnd": "", "*territoryCodeEndName": "",
-        "*dsrNoStart": "", "*dsrNoStartName": "",
-        "*dsrNoEnd": "", "*dsrNoEndName": "",
-        "*brandCodeStart": "", "*brandCodeStartName": "",
-        "*brandCodeEnd": "", "*brandCodeEndName": "",
-        "*acChannelCode": "", "*pgChannelCode": "",
-        "*pageCmd": "dsrDailySales",
-        "closedType": "closedNot", "dsrNoCredit": "O",
-        "reportRange": "S", "reportRangeSelect": "S",
-        "*keySelected": f"{ACCOUNT_ID},",
-        "*maxKeyValue": "", "*minKeyValue": "",
-        "*rowsPerPage": "20", "*indexSelected": "",
+        "*transDateStart":d0, "*transDateEnd":d1,
+        "*itemNoStart":"","*itemNoEnd":"",
+        "*soldToCode":"","*soldToCodeMerge":"",
+        "*customerNo":"","customerNo":"","*customerNoMerge":"",
+        "*territoryCodeStart":"","*territoryCodeStartName":"",
+        "*territoryCodeEnd":"","*territoryCodeEndName":"",
+        "*dsrNoStart":"","*dsrNoStartName":"",
+        "*dsrNoEnd":"","*dsrNoEndName":"",
+        "*brandCodeStart":"","*brandCodeStartName":"",
+        "*brandCodeEnd":"","*brandCodeEndName":"",
+        "*acChannelCode":"","*pgChannelCode":"",
+        "*pageCmd":"dsrDailySales",
+        "closedType":"closedNot","dsrNoCredit":"O",
+        "reportRange":"S","reportRangeSelect":"S",
+        "*keySelected":f"{ACCOUNT_ID},",
+        "*maxKeyValue":"","*minKeyValue":"",
+        "*rowsPerPage":"20","*indexSelected":"",
     }
-    r = s.get(f"{BASE_URL}/BizPlan/dsrDailySales", params=params,
-              verify=False, timeout=120)
-    print(f"  ✓ {len(r.content)//1024}KB")
+    r = s.get(f"{BASE_URL}/BizPlan/dsrDailySales",
+              params=params, verify=False, timeout=120)
+    print(f"    ✓ {len(r.content)//1024}KB")
     return r.content
 
 
-# ── 解析 XLS ─────────────────────────────────────────────
+# ── 下載應收帳款（收款狀況）────────────────────────────
+def dl_payment(s, d0, d1):
+    print(f"  收款報表 {d0}~{d1}...")
+    s.headers.update({"Referer":f"{BASE_URL}/4.FN/derp-421-00.jsp"})
+    params = {
+        "*customerNo":"","*customerName":"","*dsr":"","*dsrName":"",
+        "*territoryCode":"","*territoryCodeName":"",
+        "*customerNoMerge":"","*dsrNoMerge":"","*territoryMerge":"",
+        "*deliveryDate":d0,"*deliveryDateEnd":d1,
+        "offSetFlagSelect":"1","*offSetFlag":"1",
+        "*queryRows":"","*pageMax":"","*pageOffset":"",
+        "*rowsPerPage":"100","*pageIndex":"",
+        "*soldToCode":"","*soldToCodeMerge":"",
+        "*deliveryNo":"","*deliveryNoEnd":"",
+        "buttonDsrPrint":"業務別收款總表by Excel(E)",
+        "*pageCmd":"print",
+    }
+    r = s.get(f"{BASE_URL}/4.FN/derp-421-14-1.jsp",
+              params=params, verify=False, timeout=60)
+    print(f"    {'✓' if len(r.content)>5000 else '⚠'} {len(r.content)//1024}KB")
+    return r.content if len(r.content) > 5000 else None
+
+
+# ── 解析銷售 XLS（Binary）───────────────────────────────
 def parse_xls(data):
     import xlrd
     wb = xlrd.open_workbook(file_contents=data)
     ws = wb.sheet_by_index(0)
 
-    header_row = None
+    # 找 header row
+    hdr = None
     for i in range(ws.nrows):
-        row = [str(ws.cell_value(i, j)).strip() for j in range(min(ws.ncols, 20))]
-        if "總公司名稱" in row:
-            header_row = i
-            headers = [str(ws.cell_value(i, j)).strip() for j in range(ws.ncols)]
+        row = [str(ws.cell_value(i,j)).strip() for j in range(min(ws.ncols,20))]
+        if '總公司名稱' in row:
+            hdr = i
+            hdrs = [str(ws.cell_value(i,j)).strip() for j in range(ws.ncols)]
             break
+    if hdr is None: return {}
 
-    if header_row is None:
-        return {}, {}, {}
+    def col(nm): return next((i for i,h in enumerate(hdrs) if nm in h), None)
+    ci = {k: col(k) for k in ['總公司名稱','店家名稱','業務代表','業代編號','AC通路','合計']}
 
-    def col(name): return next((i for i, h in enumerate(headers) if name in h), None)
-    c_grp, c_store, c_rep = col("總公司名稱"), col("店家名稱"), col("業務代表")
-    c_ac, c_amt = col("AC通路"), col("合計")
+    grp, store, ch, rep = {}, {}, {}, {}
 
-    grp, store, rep = {}, {}, {}
-    for i in range(header_row + 2, ws.nrows):
-        try:
-            def v(c): return str(ws.cell_value(i, c)).strip() if c is not None and c < ws.ncols else ""
-            def n(c):
-                val = ws.cell_value(i, c) if c is not None and c < ws.ncols else 0
-                return float(val) if isinstance(val, (int, float)) else 0
+    for i in range(hdr+2, ws.nrows):
+        def v(c): return str(ws.cell_value(i,c)).strip() if c is not None and c<ws.ncols else ''
+        def n(c):
+            val = ws.cell_value(i,c) if c is not None and c<ws.ncols else 0
+            return float(val) if isinstance(val,(int,float)) else 0
 
-            g, st, r2, ac, amt = v(c_grp), v(c_store), v(c_rep), v(c_ac), n(c_amt)
-            if not g or amt <= 0: continue
+        g  = v(ci['總公司名稱'])
+        st = v(ci['店家名稱'])
+        r2 = v(ci['業務代表'])
+        rc = v(ci['業代編號'])
+        ac = v(ci['AC通路'])
+        amt= n(ci['合計'])
+        if not g or amt<=0: continue
 
-            grp[g] = grp.get(g, 0) + amt
-            if st:
-                if st not in store:
-                    store[st] = {"grp": g, "rep": r2.split(".")[1] if "." in r2 else r2,
-                                 "ch": ac, "amt": 0}
-                store[st]["amt"] += amt
-            if r2:
-                rn = r2.split(".")[1] if "." in r2 else r2
-                rep[rn] = rep.get(rn, 0) + amt
-        except:
-            continue
+        # 品牌金額
+        brands = {b: n(c) for c,b in BRAND_COLS.items()}
 
-    return grp, store, rep
+        grp[g] = grp.get(g,0) + amt
+
+        if st:
+            if st not in store:
+                rn = r2.split('.')[1] if '.' in r2 else r2
+                store[st] = {'grp':g,'rep':rn,'ch':ac,'amt':0,'brands':{b:0 for b in BRAND_COLS.values()}}
+            store[st]['amt'] += amt
+            for b,bv in brands.items():
+                store[st]['brands'][b] = store[st]['brands'].get(b,0)+bv
+
+        ac_clean = ac.replace('大型','').replace('小型','').strip() if ac else '其他'
+        ch[ac] = ch.get(ac,0)+amt
+
+        if r2:
+            rn = r2.split('.')[1] if '.' in r2 else r2
+            if rn not in rep:
+                area = AREA_MAP.get(rc,'')
+                rep[rn] = {'code':rc,'area':area,'amt':0,'brands':{b:0 for b in BRAND_COLS.values()}}
+            rep[rn]['amt'] += amt
+            for b,bv in brands.items():
+                rep[rn]['brands'][b] = rep[rn]['brands'].get(b,0)+bv
+
+    return {'grp':grp,'store':store,'ch':ch,'rep':rep}
+
+
+# ── 解析收款 XLS（HTML-based）──────────────────────────
+def parse_payment_xls(data):
+    if not data: return {}
+    try:
+        content = data.decode('utf-8', errors='replace')
+        rows = re.findall(r'<tr[^>]*>(.*?)</tr>', content, re.DOTALL|re.IGNORECASE)
+        pays = {}
+        for row in rows:
+            cells = re.findall(r'<t[dh][^>]*>(.*?)</t[dh]>', row, re.DOTALL|re.IGNORECASE)
+            cells = [re.sub(r'<[^>]+>','',c).strip().replace(',','') for c in cells]
+            if len(cells) >= 3 and cells[0] and cells[0] not in ['業務','合計','小計','']:
+                try:
+                    rn = cells[0]
+                    amt = float(cells[-1]) if cells[-1].lstrip('-').isdigit() else 0
+                    if rn and amt != 0:
+                        pays[rn] = pays.get(rn,0) + amt
+                except: pass
+        return pays
+    except: return {}
 
 
 # ── 更新 dashboard.html ──────────────────────────────────
-def update_dashboard(grp_q, grp_m, store_q, store_m, total_mo, total_q, cust_count):
-    html = DASHBOARD.read_text(encoding="utf-8")
-    def esc(s): return s.replace("'", "`")
+def update_dashboard(q, m, mo, iya_q, iya_mo, pay_data):
+    html = DASHBOARD.read_text(encoding='utf-8')
+    def esc(s): return s.replace("'","`")
     def fm(n): return f"${n/1e6:.1f}M"
 
-    # ── GRP（集團排行）──
-    grp_sorted = sorted(grp_q.items(), key=lambda x: -x[1])[:15]
-    lines = [f"  {{n:'{esc(n)}',s5:{int(s5)},s4:{int(grp_m.get(n, s5*0.85))}}}"
-             for n, s5 in grp_sorted]
-    html = re.sub(r"const GRP=\[[\s\S]*?\];",
-                  "const GRP=[\n" + ",\n".join(lines) + "\n];", html)
+    grp_q  = q.get('grp',{})
+    grp_m  = m.get('grp',{})
+    grp_mo = mo.get('grp',{})
+    store_q= q.get('store',{})
+    store_m= m.get('store',{})
+    ch_q   = q.get('ch',{})
+    ch_m   = m.get('ch',{})
+    rep_q  = q.get('rep',{})
+    rep_mo = mo.get('rep',{})
+    rep_iya= iya_q.get('rep',{}) if iya_q else {}
+    iya_grp= iya_q.get('grp',{}) if iya_q else {}
+    iya_mo_grp = iya_mo.get('grp',{}) if iya_mo else {}
 
-    # ── STORES（門市排行）──
-    store_sorted = sorted(store_q.items(), key=lambda x: -x[1]["amt"])[:20]
+    total_q  = sum(grp_q.values())
+    total_mo = sum(grp_mo.values())
+    total_iya_q  = sum(iya_grp.values()) if iya_grp else 0
+    total_iya_mo = sum(iya_mo_grp.values()) if iya_mo_grp else 0
+    iya_pct  = round((total_q/total_iya_q-1)*100,1) if total_iya_q else 0
+    cust_cnt = len(store_q)
+
+    # ── KPI HTML ──
+    def sub_kpi(label, val):
+        nonlocal html
+        html = re.sub(
+            rf'(<div class="kl">{re.escape(label)}</div><div class="kv">)[^<]*(</div>)',
+            rf'\g<1>{val}\g<2>', html)
+
+    sub_kpi('P&G 本月業績', fm(total_mo))
+    sub_kpi('季累計', fm(total_q))
+    sub_kpi('交易客戶', f'{cust_cnt:,}')
+    if iya_pct:
+        sub_kpi('IYA 成長', f'+{iya_pct}%' if iya_pct>=0 else f'{iya_pct}%')
+
+    # ── GRP ──
+    grp_s = sorted(grp_q.items(), key=lambda x:-x[1])[:15]
+    lines = [f"  {{n:'{esc(n)}',s5:{int(s5)},s4:{int(grp_m.get(n,s5*.85))}}}"
+             for n,s5 in grp_s]
+    html = re.sub(r'const GRP=\[[\s\S]*?\];',
+                  'const GRP=[\n'+',\n'.join(lines)+'\n];', html)
+
+    # ── STORES ──
+    st_s = sorted(store_q.items(), key=lambda x:-x[1]['amt'])[:20]
     lines = [
         f"  {{s:'{esc(n)}',g:'{esc(d['grp'])}',r:'{esc(d['rep'])}',ch:'{esc(d['ch'])}',"
-        f"v5:{int(d['amt'])},v4:{int(store_m.get(n, {}).get('amt', d['amt']*0.85))}}}"
-        for n, d in store_sorted
+        f"v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',d['amt']*.85))}}}"
+        for n,d in st_s
     ]
-    html = re.sub(r"const STORES=\[[\s\S]*?\];",
-                  "const STORES=[\n" + ",\n".join(lines) + "\n];", html)
+    html = re.sub(r'const STORES=\[[\s\S]*?\];',
+                  'const STORES=[\n'+',\n'.join(lines)+'\n];', html)
 
-    # ── KPI 頂部數字 ──
-    # P&G 本月業績
-    html = re.sub(
-        r'(<div class="kl">P&G 本月業績</div><div class="kv">)[^<]*(</div>)',
-        rf'\g<1>{fm(total_mo)}\g<2>', html)
-    # 季累計
-    html = re.sub(
-        r'(<div class="kl">季累計</div><div class="kv">)[^<]*(</div>)',
-        rf'\g<1>{fm(total_q)}\g<2>', html)
-    # 交易客戶
-    html = re.sub(
-        r'(<div class="kl">交易客戶</div><div class="kv">)[^<]*(</div>)',
-        rf'\g<1>{int(cust_count):,}\g<2>', html)
+    # ── CHS（通路別）──
+    ch_s = sorted(ch_q.items(), key=lambda x:-x[1])[:10]
+    lines = [f"  {{n:'{esc(n)}',s5:{int(v)},s4:{int(ch_m.get(n,v*.85))}}}"
+             for n,v in ch_s]
+    html = re.sub(r'const CHS=\[[\s\S]*?\];',
+                  'const CHS=[\n'+',\n'.join(lines)+'\n];', html)
+
+    # ── UNIF（統一藥品門市）──
+    unif_stores = {n:d for n,d in store_q.items() if '統一藥品' in d['grp']}
+    unif_s = sorted(unif_stores.items(), key=lambda x:-x[1]['amt'])[:20]
+    def unif_label(name):
+        # "統一藥品股份有限公司 99 (中壢)" → "99(中壢)"
+        m2 = re.search(r'(\d+)\s*[\(（]([^)\）]+)[\)）]', name)
+        return f"{m2.group(1)}({m2.group(2)})" if m2 else name
+    lines = [
+        f"  {{s:'{unif_label(n)}',v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',d['amt']*.85))}}}"
+        for n,d in unif_s
+    ]
+    if lines:
+        html = re.sub(r'const UNIF=\[[\s\S]*?\];',
+                      'const UNIF=[\n'+',\n'.join(lines)+'\n];', html)
+
+    # ── BRANDS（品牌排行）──
+    def brand_total(data_dict, brand):
+        return sum(d.get('brands',{}).get(brand,0) for d in data_dict.get('store',{}).values())
+
+    bapr  = [int(brand_total(m,  b)) for b in DASH_BRANDS]
+    bmay  = [int(brand_total(mo, b)) for b in DASH_BRANDS]
+    biya  = [int(brand_total(iya_q, b)) for b in DASH_BRANDS] if iya_q else bapr
+
+    html = re.sub(r'const BAPR=\[[^\]]*\];',  f'const BAPR={bapr};',  html)
+    html = re.sub(r'const BMAY=\[[^\]]*\];',  f'const BMAY={bmay};',  html)
+    html = re.sub(r'const BIYA_=\[[^\]]*\];', f'const BIYA_={biya};', html)
+    html = re.sub(r"const BRANDS=\[[^\]]*\];",
+                  f"const BRANDS={[b for b in DASH_BRANDS]};", html)
+
+    # ── REPS（業務排行）──
+    # 保留現有 tgt / qT，只更新 act / iya / q / b[]
+    existing_tgts = {}
+    for m2 in re.finditer(r"\{n:'([^']+)'[^}]*tgt:(\d+)[^}]*qT:(\d+)", html):
+        existing_tgts[m2.group(1)] = (int(m2.group(2)), int(m2.group(3)))
+
+    rep_lines = []
+    for rn, rd in sorted(rep_q.items(), key=lambda x:-x[1]['amt']):
+        act   = int(rep_mo.get(rn,{}).get('amt',0))
+        q_val = int(rd['amt'])
+        iya   = int(rep_iya.get(rn,{}).get('amt',0)) if rep_iya else int(act*.9)
+        tgt, qT = existing_tgts.get(rn, (0, 0))
+        area  = rd.get('area','')
+        bvals = [int(rd['brands'].get(b,0)) for b in REP_BRANDS]
+        rep_lines.append(
+            f"  {{n:'{esc(rn)}',area:'{area}',tgt:{tgt},act:{act},"
+            f"iya:{iya},q:{q_val},qT:{qT},b:{bvals}}}"
+        )
+    if rep_lines:
+        html = re.sub(r'const REPS=\[[\s\S]*?\];',
+                      'const REPS=[\n'+',\n'.join(rep_lines)+'\n];', html)
+
+    # ── PAYS（收款狀況）──
+    if pay_data:
+        existing_pays = {}
+        for m2 in re.finditer(r"\{r:'([^']+)',tgt:(\d+),act:(\d+)", html):
+            existing_pays[m2.group(1)] = int(m2.group(2))
+
+        pay_lines = []
+        for rn, act in sorted(pay_data.items(), key=lambda x:-x[1]):
+            tgt = existing_pays.get(rn, 0)
+            gap = tgt - act
+            pay_lines.append(f"  {{r:'{esc(rn)}',tgt:{tgt},act:{int(act)},gap:{int(gap)}}}")
+        if pay_lines:
+            html = re.sub(r'const PAYS=\[[\s\S]*?\];',
+                          'const PAYS=[\n'+',\n'.join(pay_lines)+'\n];', html)
 
     # ── 日期 ──
-    td = _today
-    td_str = td.strftime("%Y/%m/%d")
-    mo_label = td.strftime("%m/%d")
+    td = _today.strftime("%Y/%m/%d")
+    mo_lbl = _today.strftime("%m/%d")
     html = re.sub(r'\d{4}/\d{2}/\d{2} · 寶捷實業有限公司',
-                  f'{td_str} · 寶捷實業有限公司', html)
+                  f'{td} · 寶捷實業有限公司', html)
     html = re.sub(r'\d{4}年\d+月（截至\d+/\d+）',
-                  f'{td.year}年{td.month}月（截至{mo_label}）', html)
+                  f'{_today.year}年{_today.month}月（截至{mo_lbl}）', html)
 
-    DASHBOARD.write_text(html, encoding="utf-8")
-    print(f"\n✅ {td_str} 更新完成")
-    print(f"   本月: {fm(total_mo)}  季累計: {fm(total_q)}  交易客戶: {cust_count:,}")
-    print(f"   Top3: {', '.join(n.split('(')[0].strip() for n, _ in grp_sorted[:3])}")
+    DASHBOARD.write_text(html, encoding='utf-8')
+
+    print(f"\n✅ {td} 全指標更新完成")
+    print(f"   本月:{fm(total_mo)}  季累計:{fm(total_q)}  "
+          f"IYA:{iya_pct:+.1f}%  交易客戶:{cust_cnt:,}")
+    print(f"   通路:{len(ch_s)}種  統一藥品門市:{len(unif_s)}點  業務:{len(rep_lines)}人")
 
 
 # ── Main ─────────────────────────────────────────────────
 def main():
-    print(f"\n{'='*50}\n  DERP → Dashboard  {today}\n{'='*50}\n")
-
+    print(f"\n{'='*52}\n  DERP → Dashboard 全指標更新  {today}\n{'='*52}\n")
     s = get_session()
 
-    print("[下載]")
-    data_q  = download_report(s, q_start,  today,    "季累計")
-    data_mo = download_report(s, mo_start, today,    "本月")
-    data_m  = download_report(s, q_start,  m_end,    "4月全月")
+    print("[下載 本期]")
+    data_q  = dl_sales(s, q_start,  today,    "季累計")
+    data_mo = dl_sales(s, mo_start, today,    "本月")
+    data_m  = dl_sales(s, q_start,  m_end,    "4月全月")
+
+    print("\n[下載 去年同期 IYA]")
+    data_iya_q  = dl_sales(s, ly_qstart,  ly_today,  "去年季累計")
+    data_iya_mo = dl_sales(s, ly_mostart, ly_today,  "去年本月")
+
+    print("\n[下載 收款]")
+    pay_raw = dl_payment(s, mo_start, today)
 
     print("\n[解析]")
-    grp_q,  store_q,  _ = parse_xls(data_q)
-    grp_mo, _,        _ = parse_xls(data_mo)
-    grp_m,  store_m,  _ = parse_xls(data_m)
+    q   = parse_xls(data_q);   print(f"  季累計  → 集團:{len(q.get('grp',{}))} 門市:{len(q.get('store',{}))} 業務:{len(q.get('rep',{}))}")
+    mo  = parse_xls(data_mo);  print(f"  本月    → 集團:{len(mo.get('grp',{}))}")
+    m   = parse_xls(data_m);   print(f"  4月全月 → 集團:{len(m.get('grp',{}))}")
+    iya_q  = parse_xls(data_iya_q);  print(f"  去年季  → 集團:{len(iya_q.get('grp',{}))}")
+    iya_mo = parse_xls(data_iya_mo); print(f"  去年月  → 集團:{len(iya_mo.get('grp',{}))}")
+    pays = parse_payment_xls(pay_raw)
 
-    if not grp_q:
+    if not q.get('grp'):
         print("✗ 解析失敗"); sys.exit(1)
 
-    total_q  = sum(grp_q.values())
-    total_mo = sum(grp_mo.values())
-    cust_count = len(store_q)
-
-    update_dashboard(grp_q, grp_m, store_q, store_m, total_mo, total_q, cust_count)
+    update_dashboard(q, m, mo, iya_q, iya_mo, pays)
 
 
 if __name__ == "__main__":
