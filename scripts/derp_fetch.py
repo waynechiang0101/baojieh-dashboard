@@ -327,7 +327,7 @@ def parse_local_payment_xls():
 def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=None):
     html = DASHBOARD.read_text(encoding='utf-8')
     def esc(s): return s.replace("'","`")
-    def fm(n): return f"${n/1e6:.1f}M"
+    def fm(n): return '$' + f"{int(round(n)):,}"
 
     grp_q   = q.get('grp',{})
     grp_mo  = mo.get('grp',{})
