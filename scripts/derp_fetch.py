@@ -183,7 +183,7 @@ def parse_xls(data):
     def col(nm): return next((i for i,h in enumerate(hdrs) if nm in h), None)
     ci = {k: col(k) for k in ['總公司名稱','店家名稱','業務代表','業代編號','AC通路','合計']}
 
-    grp, store, ch, rep = {}, {}, {}, {}
+    grp, grp_brands, store, ch, rep = {}, {}, {}, {}, {}
 
     for i in range(hdr+2, ws.nrows):
         def v(c): return str(ws.cell_value(i,c)).strip() if c is not None and c<ws.ncols else ''
@@ -202,6 +202,9 @@ def parse_xls(data):
         brands = {b: n(c) for c,b in BRAND_COLS.items()}
 
         grp[g] = grp.get(g,0) + amt
+        if g not in grp_brands: grp_brands[g] = {}
+        for b,bv in brands.items():
+            if bv > 0: grp_brands[g][b] = grp_brands[g].get(b,0) + bv
 
         if st:
             if st not in store:
@@ -223,7 +226,7 @@ def parse_xls(data):
             for b,bv in brands.items():
                 rep[rn]['brands'][b] = rep[rn]['brands'].get(b,0)+bv
 
-    return {'grp':grp,'store':store,'ch':ch,'rep':rep}
+    return {'grp':grp,'grp_brands':grp_brands,'store':store,'ch':ch,'rep':rep}
 
 
 # ── 庫存：POST 登入 + 下載 + 解析 ───────────────────────
@@ -613,22 +616,42 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         sign = '+' if best_brand_pct >= 0 else ''
         sub_kpi('最強成長品牌', f'{best_brand_name} {sign}{best_brand_pct}%', '↑ 最快')
 
+    # ── helper: brand top5 for a store ──
+    def top5_brands(brands_dict, max_n=5):
+        top = sorted(brands_dict.items(), key=lambda x:-x[1])[:max_n]
+        return '[' + ','.join(f"{{b:'{b}',v:{int(v)}}}" for b,v in top if v>0) + ']'
+
     # ── GRP ──
-    iya_grp_data = iya_q.get('grp',{}) if iya_q else {}
-    lines = [
-        f"  {{n:'{esc(n)}',s5:{int(s5)},s4:{int(grp_m.get(n,int(s5*.85)))},"
-        f"s3:{int(grp_mo.get(n,0))},iya:{int(iya_grp_data.get(n,0))}}}"
-        for n,s5 in grp_s]
+    iya_grp_data  = iya_q.get('grp',{})  if iya_q  else {}
+    iya_mo_grp    = iya_mo.get('grp',{}) if iya_mo else {}
+    grp_brands_q  = q.get('grp_brands',{})
+    lines = []
+    for n, s5 in grp_s:
+        gb = grp_brands_q.get(n, {})
+        lines.append(
+            f"  {{n:'{esc(n)}',s5:{int(s5)},s4:{int(grp_m.get(n,int(s5*.85)))},"
+            f"s3:{int(grp_mo.get(n,0))},iya:{int(iya_grp_data.get(n,0))},"
+            f"iya3:{int(iya_mo_grp.get(n,0))},br:{top5_brands(gb)}}}"
+        )
     html = re.sub(r'const GRP=\[[\s\S]*?\];',
                   'const GRP=[\n'+',\n'.join(lines)+'\n];', html)
 
     # ── STORES (排除 KM 和 CVS，Top 100) ──
+    iya_q_store  = iya_q.get('store',{})  if iya_q  else {}
+    iya_mo_store = iya_mo.get('store',{}) if iya_mo else {}
+    mo_store     = mo.get('store',{})
     st_s = sorted(other_stores.items(), key=lambda x:-x[1]['amt'])[:100]
-    lines = [
-        f"  {{s:'{esc(n)}',g:'{esc(d['grp'])}',r:'{esc(d['rep'])}',ch:'{esc(d['ch'])}',"
-        f"v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',d['amt']*.85))}}}"
-        for n,d in st_s
-    ]
+    lines = []
+    for n, d in st_s:
+        br = top5_brands(d.get('brands',{}))
+        v3 = int(mo_store.get(n,{}).get('amt',0))
+        iy5 = int(iya_q_store.get(n,{}).get('amt',0))
+        iy3 = int(iya_mo_store.get(n,{}).get('amt',0))
+        lines.append(
+            f"  {{s:'{esc(n)}',g:'{esc(d['grp'])}',r:'{esc(d['rep'])}',ch:'{esc(d['ch'])}',"
+            f"v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',d['amt']*.85))},"
+            f"v3:{v3},iy5:{iy5},iy3:{iy3},br:{br}}}"
+        )
     html = re.sub(r'const STORES=\[[\s\S]*?\];',
                   'const STORES=[\n'+',\n'.join(lines)+'\n];', html)
 
@@ -639,34 +662,52 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     html = re.sub(r'const CHS=\[[\s\S]*?\];',
                   'const CHS=[\n'+',\n'.join(lines)+'\n];', html)
 
-    # ── UNIF (康是美分點，加 rep 欄位) ──
+    # ── UNIF (康是美分點) ──
     km_s = sorted(km_stores.items(), key=lambda x:-x[1]['amt'])[:50]
     def unif_label(name):
         m2 = re.search(r'(\d+)\s*[\(（]([^)\）]+)[\)）]', name)
         return f"{m2.group(1)}({m2.group(2)})" if m2 else name[:20]
-    lines = [
-        f"  {{s:'{unif_label(n)}',r:'{esc(d['rep'])}',v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',d['amt']*.85))}}}"
-        for n,d in km_s
-    ]
+    lines = []
+    for n, d in km_s:
+        br = top5_brands(d.get('brands',{}))
+        v3 = int(mo_store.get(n,{}).get('amt',0))
+        iy5 = int(iya_q_store.get(n,{}).get('amt',0))
+        iy3 = int(iya_mo_store.get(n,{}).get('amt',0))
+        lines.append(
+            f"  {{s:'{unif_label(n)}',r:'{esc(d['rep'])}',v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',d['amt']*.85))},"
+            f"v3:{v3},iy5:{iy5},iy3:{iy3},br:{br}}}"
+        )
     if lines:
         html = re.sub(r'const UNIF=\[[\s\S]*?\];',
                       'const UNIF=[\n'+',\n'.join(lines)+'\n];', html)
 
     # ── CVS_STORES ──
     cvs_s = sorted(cvs_stores.items(), key=lambda x:-x[1]['amt'])[:50]
-    lines = [
-        f"  {{s:'{esc(n[:22])}',r:'{esc(d['rep'])}',v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',d['amt']*.85))}}}"
-        for n,d in cvs_s
-    ]
+    lines = []
+    for n, d in cvs_s:
+        br = top5_brands(d.get('brands',{}))
+        v3 = int(mo_store.get(n,{}).get('amt',0))
+        iy5 = int(iya_q_store.get(n,{}).get('amt',0))
+        iy3 = int(iya_mo_store.get(n,{}).get('amt',0))
+        lines.append(
+            f"  {{s:'{esc(n[:22])}',r:'{esc(d['rep'])}',v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',d['amt']*.85))},"
+            f"v3:{v3},iy5:{iy5},iy3:{iy3},br:{br}}}"
+        )
     html = re.sub(r'const CVS_STORES=\[[\s\S]*?\];',
                   'const CVS_STORES=[\n'+(',\n'.join(lines) if lines else '')+'\n];', html)
 
     # ── XB_STORES (小北) ──
     xb_s = sorted(xb_stores.items(), key=lambda x:-x[1]['amt'])[:50]
-    lines = [
-        f"  {{s:'{esc(n[:22])}',r:'{esc(d['rep'])}',v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',d['amt']*.85))}}}"
-        for n,d in xb_s
-    ]
+    lines = []
+    for n, d in xb_s:
+        br = top5_brands(d.get('brands',{}))
+        v3 = int(mo_store.get(n,{}).get('amt',0))
+        iy5 = int(iya_q_store.get(n,{}).get('amt',0))
+        iy3 = int(iya_mo_store.get(n,{}).get('amt',0))
+        lines.append(
+            f"  {{s:'{esc(n[:22])}',r:'{esc(d['rep'])}',v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',d['amt']*.85))},"
+            f"v3:{v3},iy5:{iy5},iy3:{iy3},br:{br}}}"
+        )
     html = re.sub(r'const XB_STORES=\[[\s\S]*?\];',
                   'const XB_STORES=[\n'+(',\n'.join(lines) if lines else '')+'\n];', html)
 
