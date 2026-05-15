@@ -532,14 +532,16 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         sub_kpi('康是美本月', fm(km_broker_mo), '康是美')
         sub_kpi('CVS盤商本月', fm(0), '全家+7-11+萊爾富+OK')
 
-    # ── 集團排行 KPIs ──
-    grp_s     = sorted(grp_q.items(), key=lambda x:-x[1])[:15]
+    # ── 集團排行 KPIs（以本月排序）──
+    grp_s     = sorted(grp_q.keys(), key=lambda n: -grp_mo.get(n, 0))[:15]
+    grp_s     = [(n, grp_q[n]) for n in grp_s]   # (name, 季累計) pairs, 本月 order
+    grp_mo_total = sum(grp_mo.values())
     grp_total = sum(grp_q.values())
     grp_count = len(grp_q)
-    top5_sum  = sum(v for _,v in grp_s[:5])
-    top5_pct  = round(top5_sum/grp_total*100, 1) if grp_total else 0
+    top5_sum  = sum(grp_mo.get(n,0) for n,_ in grp_s[:5])
+    top5_pct  = round(top5_sum/grp_mo_total*100, 1) if grp_mo_total else 0
     top1_name = grp_s[0][0] if grp_s else ''
-    top1_amt  = grp_s[0][1] if grp_s else 0
+    top1_amt  = grp_mo.get(top1_name, 0)  # 本月第1名金額
     top1_short = re.sub(r'股份有限公司.*|有限公司.*', '', top1_name).strip()[:8]
 
     best_grp_name, best_grp_growth = '', -999
@@ -636,11 +638,12 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     html = re.sub(r'const GRP=\[[\s\S]*?\];',
                   'const GRP=[\n'+',\n'.join(lines)+'\n];', html)
 
-    # ── STORES (排除 KM 和 CVS，Top 100) ──
+    # ── STORES (排除 KM 和 CVS，按本月排序 Top 100) ──
     iya_q_store  = iya_q.get('store',{})  if iya_q  else {}
     iya_mo_store = iya_mo.get('store',{}) if iya_mo else {}
     mo_store     = mo.get('store',{})
-    st_s = sorted(other_stores.items(), key=lambda x:-x[1]['amt'])[:100]
+    st_s = sorted(other_stores.items(),
+                  key=lambda x: -mo_store.get(x[0],{}).get('amt',0))[:100]
     lines = []
     for n, d in st_s:
         br = top5_brands(d.get('brands',{}))
@@ -662,8 +665,9 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     html = re.sub(r'const CHS=\[[\s\S]*?\];',
                   'const CHS=[\n'+',\n'.join(lines)+'\n];', html)
 
-    # ── UNIF (康是美分點) ──
-    km_s = sorted(km_stores.items(), key=lambda x:-x[1]['amt'])[:50]
+    # ── UNIF (康是美分點，按本月排序) ──
+    km_s = sorted(km_stores.items(),
+                  key=lambda x: -mo_store.get(x[0],{}).get('amt',0))[:50]
     def unif_label(name):
         m2 = re.search(r'(\d+)\s*[\(（]([^)\）]+)[\)）]', name)
         return f"{m2.group(1)}({m2.group(2)})" if m2 else name[:20]
@@ -681,8 +685,9 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         html = re.sub(r'const UNIF=\[[\s\S]*?\];',
                       'const UNIF=[\n'+',\n'.join(lines)+'\n];', html)
 
-    # ── CVS_STORES ──
-    cvs_s = sorted(cvs_stores.items(), key=lambda x:-x[1]['amt'])[:50]
+    # ── CVS_STORES（按本月排序）──
+    cvs_s = sorted(cvs_stores.items(),
+                   key=lambda x: -mo_store.get(x[0],{}).get('amt',0))[:50]
     lines = []
     for n, d in cvs_s:
         br = top5_brands(d.get('brands',{}))
@@ -696,8 +701,9 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     html = re.sub(r'const CVS_STORES=\[[\s\S]*?\];',
                   'const CVS_STORES=[\n'+(',\n'.join(lines) if lines else '')+'\n];', html)
 
-    # ── XB_STORES (小北) ──
-    xb_s = sorted(xb_stores.items(), key=lambda x:-x[1]['amt'])[:50]
+    # ── XB_STORES (小北，按本月排序) ──
+    xb_s = sorted(xb_stores.items(),
+                  key=lambda x: -mo_store.get(x[0],{}).get('amt',0))[:50]
     lines = []
     for n, d in xb_s:
         br = top5_brands(d.get('brands',{}))
