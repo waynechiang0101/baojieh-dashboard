@@ -353,6 +353,83 @@ def parse_local_payment_xls():
     return pays, uncollected
 
 
+# ── 讀取業績追踨 Excel (數字對齊 XLS) ────────────────────────
+def parse_xls_performance():
+    """解析 ~/Downloads/*業績追踨*.xls，回傳 dict 或 None。"""
+    import glob, xlrd as _xlrd
+    pattern = os.path.expanduser("~/Downloads/*業績追踨*.xls")
+    files = sorted(glob.glob(pattern), key=os.path.getmtime)
+    if not files:
+        print("  ⚠ 找不到業績追踨 XLS，通路 KPI 改用 DERP 資料")
+        return None
+    path = files[-1]
+    print(f"  讀取業績追踨: {os.path.basename(path)}")
+    try:
+        wb = _xlrd.open_workbook(path)
+    except Exception as e:
+        print(f"  ⚠ 無法開啟: {e}"); return None
+
+    sh0 = wb.sheet_by_index(0)   # PG最新業績
+    sh1 = wb.sheet_by_index(1)   # 品牌業績
+
+    def fv(r, c):
+        v = sh0.cell_value(r, c)
+        return float(v) if isinstance(v, (int, float)) else 0.0
+
+    # 時間進度 (row 0)
+    work_done  = int(fv(0, 2))
+    work_total = int(fv(0, 0))
+    time_pct   = fv(0, 5)
+
+    # 總計 row (row 30): col4=5月目標, col5=達成率, col6=家品累計, col2=已交易, col1=交易目標
+    biz_tgt    = fv(30, 4)
+    biz_pct    = fv(30, 5)
+    biz_home   = fv(30, 6)   # 業務通路累計
+    traded     = int(fv(30, 2))
+    traded_tgt = int(fv(30, 1))
+
+    # 藥房/超市小計 (rows 26–27, col6)
+    pharma = fv(26, 6)
+    super_ = fv(27, 6)
+
+    # 通路列 (col4 = 累計業績): 丁丁33 啄木鳥34 大樹35 小北36 B&C37
+    channels = {}
+    ch_map = {33:'丁丁',34:'啄木鳥',35:'大樹',36:'小北',37:'B&C',
+              41:'全台全家',42:'捷盟7-11',43:'萊爾富',44:'來來OK',45:'康是美'}
+    for r, name in ch_map.items():
+        v = sh0.cell_value(r, 4)
+        channels[name] = float(v) if isinstance(v, (int, float)) and v > 0 else 0.0
+
+    # P&G Total (row 47, col4)
+    pg_total = fv(47, 4)
+
+    # Sheet1: 康是美(row33 col20), CVS盤商合計(row34 col20)
+    def fv1(r, c):
+        v = sh1.cell_value(r, c)
+        return float(v) if isinstance(v, (int, float)) else 0.0
+    km_direct  = fv1(33, 20)   # 康是美直送
+    cvs_total  = fv1(34, 20)   # CVS合計 (全家+7-11+萊爾富+OK+康是美)
+    cvs_others = cvs_total - km_direct  # 全家+7-11+萊爾富+OK
+
+    return {
+        'pg_total':    int(pg_total),
+        'pharma':      int(pharma),
+        'super':       int(super_),
+        'km_direct':   int(km_direct),
+        'cvs_others':  int(cvs_others),
+        'cvs_total':   int(cvs_total),
+        'biz_home':    int(biz_home),
+        'biz_tgt':     int(biz_tgt),
+        'biz_pct':     biz_pct,
+        'traded':      traded,
+        'traded_tgt':  traded_tgt,
+        'work_done':   work_done,
+        'work_total':  work_total,
+        'time_pct':    time_pct,
+        'channels':    channels,
+    }
+
+
 # ── 更新 dashboard.html ──────────────────────────────────
 def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=None):
     html = DASHBOARD.read_text(encoding='utf-8')
@@ -410,24 +487,47 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
                 rf'\g<1>{kv_val}\g<2>', html)
 
     # ── Overview KPIs ──
-    sub_kpi('P&G 本月業績', fm(total_mo))
     sub_kpi('季累計', fm(total_q))
-    sub_kpi('交易客戶', f'{cust_cnt:,}')
     sub_kpi('IYA 成長', f'+{iya_pct}%' if iya_pct>=0 else f'{iya_pct}%')
     if uncollected:
         sub_kpi('未收款', fm(uncollected))
 
-    # ── 通路組本月 KPIs ──
-    ch_mo_data = mo.get('ch',{})
-    PHARMA_CH    = ['小型藥局','大型藥局']
-    KM_BROKER_CH = ['美妝店','便利商店']
-    pharma_mo    = sum(ch_mo_data.get(c,0) for c in PHARMA_CH)
-    km_broker_mo = sum(ch_mo_data.get(c,0) for c in KM_BROKER_CH)
-    supermarket_mo = sum(v for k,v in ch_mo_data.items()
-                         if k not in PHARMA_CH and k not in KM_BROKER_CH)
-    sub_kpi('藥房組本月', fm(pharma_mo), '小型+大型藥局')
-    sub_kpi('超市組本月', fm(supermarket_mo), '超市+辦公室+線上')
-    sub_kpi('康是美盤商本月', fm(km_broker_mo), '康是美+CVS盤商')
+    # ── 通路組本月 KPIs（優先用業績追踨 XLS，DERP 為備援）──
+    xls_perf = None
+    try:
+        xls_perf = parse_xls_performance()
+    except Exception as e:
+        print(f"  ⚠ XLS 解析失敗: {e}")
+
+    if xls_perf:
+        biz_pct_str = f"{xls_perf['biz_pct']:.1%}"
+        time_pct_str = f"{xls_perf['time_pct']:.0%}"
+        sub_kpi('P&G 本月業績', fm(xls_perf['pg_total']),
+                f'↑ 業務達成 {biz_pct_str} · 時間 {time_pct_str}')
+        sub_kpi('交易客戶', f"{xls_perf['traded']:,}",
+                f"目標 {xls_perf['traded_tgt']:,} 門市")
+        sub_kpi('藥房業務本月', fm(xls_perf['pharma']), '業務rep · 藥局通路')
+        sub_kpi('超市業務本月', fm(xls_perf['super']), '業務rep · 超市通路')
+        sub_kpi('康是美本月', fm(xls_perf['km_direct']), '直送門市 · 25點')
+        sub_kpi('CVS盤商本月', fm(xls_perf['cvs_others']), '全家+7-11+萊爾富+OK')
+        print(f"  ✓ XLS 通路KPI: 藥房{xls_perf['pharma']//10000}萬 "
+              f"超市{xls_perf['super']//10000}萬 "
+              f"KM{xls_perf['km_direct']//10000}萬 "
+              f"CVS盤商{xls_perf['cvs_others']//10000}萬")
+    else:
+        sub_kpi('P&G 本月業績', fm(total_mo))
+        sub_kpi('交易客戶', f'{cust_cnt:,}')
+        ch_mo_data = mo.get('ch', {})
+        PHARMA_CH    = ['小型藥局', '大型藥局']
+        KM_BROKER_CH = ['美妝店', '便利商店']
+        pharma_mo      = sum(ch_mo_data.get(c, 0) for c in PHARMA_CH)
+        km_broker_mo   = sum(ch_mo_data.get(c, 0) for c in KM_BROKER_CH)
+        supermarket_mo = sum(v for k, v in ch_mo_data.items()
+                             if k not in PHARMA_CH and k not in KM_BROKER_CH)
+        sub_kpi('藥房業務本月', fm(pharma_mo), '小型+大型藥局')
+        sub_kpi('超市業務本月', fm(supermarket_mo), '超市+辦公室+線上')
+        sub_kpi('康是美本月', fm(km_broker_mo), '康是美')
+        sub_kpi('CVS盤商本月', fm(0), '全家+7-11+萊爾富+OK')
 
     # ── 集團排行 KPIs ──
     grp_s     = sorted(grp_q.items(), key=lambda x:-x[1])[:15]
@@ -711,7 +811,11 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
 
     inv_summary = f"  庫存:{fm(sum(b['amt'] for b in inv_data))}({len(inv_data)}品牌)" if inv_data else ""
     print(f"\n✅ {td} 全指標更新完成")
-    print(f"   本月:{fm(total_mo)}  季累計:{fm(total_q)}  IYA:{iya_pct:+.1f}%  交易客戶:{cust_cnt:,}")
+    if xls_perf:
+        print(f"   本月(XLS):{fm(xls_perf['pg_total'])}  季累計:{fm(total_q)}  IYA:{iya_pct:+.1f}%  交易客戶:{xls_perf['traded']:,}/{xls_perf['traded_tgt']:,}")
+        print(f"   藥房業務:{fm(xls_perf['pharma'])}  超市業務:{fm(xls_perf['super'])}  KM直送:{fm(xls_perf['km_direct'])}  CVS盤商:{fm(xls_perf['cvs_others'])}")
+    else:
+        print(f"   本月:{fm(total_mo)}  季累計:{fm(total_q)}  IYA:{iya_pct:+.1f}%  交易客戶:{cust_cnt:,}")
     print(f"   KM:{fm(km_total)}({km_cnt}點)  CVS:{fm(cvs_total)}({cvs_cnt}點)  小北:{fm(xb_total)}({xb_cnt}點)")
     print(f"   通路:{len(ch_s)}種  業務:{len(rep_lines)}人{inv_summary}")
 
@@ -731,6 +835,8 @@ def main():
     data_iya_mo = dl_sales(s, ly_mostart, ly_today, "去年本月")
 
     print("\n[收款 Excel]")
+
+    print("\n[業績追踨 XLS]")
 
     print("\n[解析]")
     q      = parse_xls(data_q);      print(f"  季累計  → 集團:{len(q.get('grp',{}))} 門市:{len(q.get('store',{}))} 業務:{len(q.get('rep',{}))}")
