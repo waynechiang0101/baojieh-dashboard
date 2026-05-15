@@ -467,13 +467,17 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     other_stores = {n:d for n,d in store_q.items()
                     if '統一藥品' not in d.get('grp','') and '便利商店' not in d.get('ch','')}
 
-    km_total  = sum(d['amt'] for d in km_stores.values())
+    mo_store_early = mo.get('store', {})  # 本月各門市
+    km_total  = sum(d['amt'] for d in km_stores.values())   # 季累計 (供 total_q 等用)
+    km_mo     = sum(mo_store_early.get(n,{}).get('amt',0) for n in km_stores)  # 本月
     km_apr    = sum(store_m.get(n,{}).get('amt',0) for n in km_stores)
     km_cnt    = len(km_stores)
     cvs_total = sum(d['amt'] for d in cvs_stores.values())
+    cvs_mo    = sum(mo_store_early.get(n,{}).get('amt',0) for n in cvs_stores)
     cvs_apr   = sum(store_m.get(n,{}).get('amt',0) for n in cvs_stores)
     cvs_cnt   = len(cvs_stores)
     xb_total  = sum(d['amt'] for d in xb_stores.values())
+    xb_mo     = sum(mo_store_early.get(n,{}).get('amt',0) for n in xb_stores)
     xb_apr    = sum(store_m.get(n,{}).get('amt',0) for n in xb_stores)
     xb_cnt    = len(xb_stores)
 
@@ -564,25 +568,25 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         rf'\g<1>{esc(best_short)}+{best_grp_growth}%\g<2>4月→季累計\g<3>', html)
 
     # ── 康是美 KPIs ──
-    km_pct = round(km_total/total_q*100, 1) if total_q else 0
-    km_chg = round((km_total/km_apr-1)*100, 1) if km_apr else 0
-    sub_kpi('康是美季累計', fm(km_total), f'↑ +{km_chg}% vs 4月' if km_chg >= 0 else f'↓ {km_chg}% vs 4月')
+    km_pct = round(km_mo/total_mo*100, 1) if total_mo else 0
+    km_mo_chg = round((km_mo/km_apr-1)*100, 1) if km_apr else 0
+    sub_kpi('康是美本月', fm(km_mo), f'↑ +{km_mo_chg}% vs 上月' if km_mo_chg >= 0 else f'↓ {km_mo_chg}% vs 上月')
     sub_kpi('康是美四月', fm(km_apr), '完整月份')
     sub_kpi('康是美分點數', f'{km_cnt}', '康是美門市')
     sub_kpi('康是美佔比', f'{km_pct}%', '高度集中' if km_pct > 40 else '佔全公司')
 
     # ── CVS KPIs ──
-    cvs_pct = round(cvs_total/total_q*100, 1) if total_q else 0
-    cvs_chg = round((cvs_total/cvs_apr-1)*100, 1) if cvs_apr else 0
-    sub_kpi('CVS季累計', fm(cvs_total), f'↑ +{cvs_chg}% vs 4月' if cvs_chg >= 0 else f'↓ {cvs_chg}% vs 4月')
+    cvs_pct = round(cvs_mo/total_mo*100, 1) if total_mo else 0
+    cvs_mo_chg = round((cvs_mo/cvs_apr-1)*100, 1) if cvs_apr else 0
+    sub_kpi('CVS本月', fm(cvs_mo), f'↑ +{cvs_mo_chg}% vs 上月' if cvs_mo_chg >= 0 else f'↓ {cvs_mo_chg}% vs 上月')
     sub_kpi('CVS四月', fm(cvs_apr), '完整月份')
     sub_kpi('CVS門市數', f'{cvs_cnt}', '便利商店')
     sub_kpi('CVS佔比', f'{cvs_pct}%', '佔全公司')
 
     # ── 小北 KPIs ──
-    xb_pct = round(xb_total/total_q*100, 1) if total_q else 0
-    xb_chg = round((xb_total/xb_apr-1)*100, 1) if xb_apr else 0
-    sub_kpi('小北季累計', fm(xb_total), f'↑ +{xb_chg}% vs 4月' if xb_chg >= 0 else f'↓ {xb_chg}% vs 4月')
+    xb_pct = round(xb_mo/total_mo*100, 1) if total_mo else 0
+    xb_mo_chg = round((xb_mo/xb_apr-1)*100, 1) if xb_apr else 0
+    sub_kpi('小北本月', fm(xb_mo), f'↑ +{xb_mo_chg}% vs 上月' if xb_mo_chg >= 0 else f'↓ {xb_mo_chg}% vs 上月')
     sub_kpi('小北四月', fm(xb_apr), '完整月份')
     sub_kpi('小北分點數', f'{xb_cnt}', '小北門市')
     sub_kpi('小北佔比', f'{xb_pct}%', '佔全公司')
@@ -863,7 +867,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         print(f"   藥房業務:{fm(xls_perf['pharma'])}  超市業務:{fm(xls_perf['super'])}  KM直送:{fm(xls_perf['km_direct'])}  CVS盤商:{fm(xls_perf['cvs_others'])}")
     else:
         print(f"   本月:{fm(total_mo)}  季累計:{fm(total_q)}  IYA:{iya_pct:+.1f}%  交易客戶:{cust_cnt:,}")
-    print(f"   KM:{fm(km_total)}({km_cnt}點)  CVS:{fm(cvs_total)}({cvs_cnt}點)  小北:{fm(xb_total)}({xb_cnt}點)")
+    print(f"   KM本月:{fm(km_mo)}({km_cnt}點)  CVS本月:{fm(cvs_mo)}({cvs_cnt}點)  小北本月:{fm(xb_mo)}({xb_cnt}點)")
     print(f"   通路:{len(ch_s)}種  業務:{len(rep_lines)}人{inv_summary}")
 
 
