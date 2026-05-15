@@ -521,6 +521,30 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
               f"超市{xls_perf['super']//10000}萬 "
               f"KM{xls_perf['km_direct']//10000}萬 "
               f"CVS盤商{xls_perf['cvs_others']//10000}萬")
+        # ── XLS 通路明細 JS arrays ──
+        ch = xls_perf['channels']
+        biz_rows = [
+            f"  {{n:'藥房業務',v:{xls_perf['pharma']}}}",
+            f"  {{n:'超市業務',v:{xls_perf['super']}}}",
+            f"  {{n:'└ 丁丁',v:{int(ch.get('丁丁',0))}}}",
+            f"  {{n:'└ 啄木鳥',v:{int(ch.get('啄木鳥',0))}}}",
+            f"  {{n:'└ 大樹',v:{int(ch.get('大樹',0))}}}",
+            f"  {{n:'└ 小北',v:{int(ch.get('小北',0))}}}",
+            f"  {{n:'└ B&C',v:{int(ch.get('B&C',0))}}}",
+        ]
+        direct_rows = [
+            f"  {{n:'全台(全家)',v:{int(ch.get('全台全家',0))}}}",
+            f"  {{n:'捷盟(7-11)',v:{int(ch.get('捷盟7-11',0))}}}",
+            f"  {{n:'萊爾富',v:{int(ch.get('萊爾富',0))}}}",
+            f"  {{n:'來來(OK)',v:{int(ch.get('來來OK',0))}}}",
+            f"  {{n:'康是美',v:{int(ch.get('康是美',0))}}}",
+        ]
+        html = re.sub(r'const XLS_BIZ=\[[\s\S]*?\];',
+                      'const XLS_BIZ=[\n'+',\n'.join(biz_rows)+'\n];', html)
+        html = re.sub(r'const XLS_DIRECT=\[[\s\S]*?\];',
+                      'const XLS_DIRECT=[\n'+',\n'.join(direct_rows)+'\n];', html)
+        html = re.sub(r'const XLS_TOTAL=\d+;',
+                      f'const XLS_TOTAL={xls_perf["pg_total"]};', html)
     else:
         sub_kpi('P&G 本月業績', fm(total_mo))
         sub_kpi('交易客戶', f'{cust_cnt:,}')
