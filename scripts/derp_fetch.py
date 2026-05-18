@@ -499,66 +499,122 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     if uncollected:
         sub_kpi('未收款', fm(uncollected))
 
-    # ── 通路組本月 KPIs（優先用業績追踨 XLS，DERP 為備援）──
+    # ── 通路明細：從 DERP 自動計算（XLS 僅作輔助對照）──
+    ch_mo_data = mo.get('ch', {})
+
+    # 直送盤商：從 grp_mo 用集團名稱比對
+    DIRECT_GRP = [
+        ('統一藥品', '康是美'),
+        ('捷盟',    '捷盟(7-11)'),
+        ('全台物流', '全台(全家)'),
+        ('萊爾富',  '萊爾富'),
+        ('來來物流', '來來(OK)'),
+        ('來來(OK)', '來來(OK)'),
+    ]
+    CHAIN_GRP = [
+        ('A01-大樹', '大樹'),
+        ('A02-丁丁', '丁丁'),
+        ('A03-啄木鳥','啄木鳥'),
+        ('小北',     '小北'),
+        ('B&C',      'B&C'),
+    ]
+    direct_totals = {}
+    chain_totals  = {}
+    for grp_name, amt in grp_mo.items():
+        for pat, label in DIRECT_GRP:
+            if pat in grp_name:
+                direct_totals[label] = direct_totals.get(label, 0) + amt
+                break
+        for pat, label in CHAIN_GRP:
+            if pat in grp_name:
+                chain_totals[label] = chain_totals.get(label, 0) + amt
+                break
+
+    km_derp      = direct_totals.get('康是美', 0)
+    cvs_others   = sum(v for k,v in direct_totals.items() if k != '康是美')
+    all_direct   = km_derp + cvs_others
+    pharma_derp  = sum(ch_mo_data.get(c, 0) for c in ['小型藥局', '大型藥局'])
+    super_derp   = total_mo - pharma_derp - all_direct
+    derp_total   = total_mo
+
+    # KPI cards
+    sub_kpi('P&G 本月業績', fm(derp_total))
+    sub_kpi('交易客戶', f'{cust_cnt:,}', f'目標 {cust_cnt:,} 門市')
+    sub_kpi('藥房業務本月', fm(pharma_derp), '業務rep · 藥局通路')
+    sub_kpi('超市業務本月', fm(super_derp),  '業務rep · 超市通路')
+    sub_kpi('康是美本月',   fm(km_derp),     '直送門市')
+    sub_kpi('CVS盤商本月',  fm(cvs_others),  '全家+7-11+萊爾富+OK')
+
+    # 若 XLS 存在則覆蓋主要 KPI（對齊業績追踨數字）
     xls_perf = None
     try:
         xls_perf = parse_xls_performance()
     except Exception as e:
         print(f"  ⚠ XLS 解析失敗: {e}")
-
     if xls_perf:
-        biz_pct_str = f"{xls_perf['biz_pct']:.1%}"
+        biz_pct_str  = f"{xls_perf['biz_pct']:.1%}"
         time_pct_str = f"{xls_perf['time_pct']:.0%}"
         sub_kpi('P&G 本月業績', fm(xls_perf['pg_total']),
                 f'↑ 業務達成 {biz_pct_str} · 時間 {time_pct_str}')
         sub_kpi('交易客戶', f"{xls_perf['traded']:,}",
                 f"目標 {xls_perf['traded_tgt']:,} 門市")
         sub_kpi('藥房業務本月', fm(xls_perf['pharma']), '業務rep · 藥局通路')
-        sub_kpi('超市業務本月', fm(xls_perf['super']), '業務rep · 超市通路')
-        sub_kpi('康是美本月', fm(xls_perf['km_direct']), '直送門市 · 25點')
-        sub_kpi('CVS盤商本月', fm(xls_perf['cvs_others']), '全家+7-11+萊爾富+OK')
-        print(f"  ✓ XLS 通路KPI: 藥房{xls_perf['pharma']//10000}萬 "
-              f"超市{xls_perf['super']//10000}萬 "
-              f"KM{xls_perf['km_direct']//10000}萬 "
-              f"CVS盤商{xls_perf['cvs_others']//10000}萬")
-        # ── XLS 通路明細 JS arrays ──
+        sub_kpi('超市業務本月', fm(xls_perf['super']),  '業務rep · 超市通路')
+        sub_kpi('康是美本月',   fm(xls_perf['km_direct']), '直送門市')
+        sub_kpi('CVS盤商本月',  fm(xls_perf['cvs_others']), '全家+7-11+萊爾富+OK')
+        # 通路明細用 XLS 精確數字
         ch = xls_perf['channels']
-        biz_rows = [
-            f"  {{n:'藥房業務',v:{xls_perf['pharma']}}}",
-            f"  {{n:'超市業務',v:{xls_perf['super']}}}",
-            f"  {{n:'└ 丁丁',v:{int(ch.get('丁丁',0))}}}",
-            f"  {{n:'└ 啄木鳥',v:{int(ch.get('啄木鳥',0))}}}",
-            f"  {{n:'└ 大樹',v:{int(ch.get('大樹',0))}}}",
-            f"  {{n:'└ 小北',v:{int(ch.get('小北',0))}}}",
-            f"  {{n:'└ B&C',v:{int(ch.get('B&C',0))}}}",
-        ]
-        direct_rows = [
-            f"  {{n:'全台(全家)',v:{int(ch.get('全台全家',0))}}}",
-            f"  {{n:'捷盟(7-11)',v:{int(ch.get('捷盟7-11',0))}}}",
-            f"  {{n:'萊爾富',v:{int(ch.get('萊爾富',0))}}}",
-            f"  {{n:'來來(OK)',v:{int(ch.get('來來OK',0))}}}",
-            f"  {{n:'康是美',v:{int(ch.get('康是美',0))}}}",
-        ]
-        html = re.sub(r'const XLS_BIZ=\[[\s\S]*?\];',
-                      'const XLS_BIZ=[\n'+',\n'.join(biz_rows)+'\n];', html)
-        html = re.sub(r'const XLS_DIRECT=\[[\s\S]*?\];',
-                      'const XLS_DIRECT=[\n'+',\n'.join(direct_rows)+'\n];', html)
-        html = re.sub(r'const XLS_TOTAL=\d+;',
-                      f'const XLS_TOTAL={xls_perf["pg_total"]};', html)
+        pharma_final = xls_perf['pharma']
+        super_final  = xls_perf['super']
+        chain_fin    = {k: int(ch.get(k, chain_totals.get(k, 0))) for k in ['丁丁','啄木鳥','大樹','小北','B&C']}
+        dir_fin      = {
+            '全台(全家)': int(ch.get('全台全家', direct_totals.get('全台(全家)',0))),
+            '捷盟(7-11)': int(ch.get('捷盟7-11', direct_totals.get('捷盟(7-11)',0))),
+            '萊爾富':     int(ch.get('萊爾富',   direct_totals.get('萊爾富',0))),
+            '來來(OK)':   int(ch.get('來來OK',   direct_totals.get('來來(OK)',0))),
+            '康是美':     int(xls_perf['km_direct']),
+        }
+        pg_total_fin = xls_perf['pg_total']
+        print(f"  ✓ XLS 覆蓋通路KPI: 藥房{pharma_final//10000}萬 "
+              f"超市{super_final//10000}萬 KM{xls_perf['km_direct']//10000}萬")
     else:
-        sub_kpi('P&G 本月業績', fm(total_mo))
-        sub_kpi('交易客戶', f'{cust_cnt:,}')
-        ch_mo_data = mo.get('ch', {})
-        PHARMA_CH    = ['小型藥局', '大型藥局']
-        KM_BROKER_CH = ['美妝店', '便利商店']
-        pharma_mo      = sum(ch_mo_data.get(c, 0) for c in PHARMA_CH)
-        km_broker_mo   = sum(ch_mo_data.get(c, 0) for c in KM_BROKER_CH)
-        supermarket_mo = sum(v for k, v in ch_mo_data.items()
-                             if k not in PHARMA_CH and k not in KM_BROKER_CH)
-        sub_kpi('藥房業務本月', fm(pharma_mo), '小型+大型藥局')
-        sub_kpi('超市業務本月', fm(supermarket_mo), '超市+辦公室+線上')
-        sub_kpi('康是美本月', fm(km_broker_mo), '康是美')
-        sub_kpi('CVS盤商本月', fm(0), '全家+7-11+萊爾富+OK')
+        pharma_final = pharma_derp
+        super_final  = super_derp
+        chain_fin    = {k: int(chain_totals.get(k, 0)) for k in ['丁丁','啄木鳥','大樹','小北','B&C']}
+        dir_fin      = {
+            '全台(全家)': int(direct_totals.get('全台(全家)', 0)),
+            '捷盟(7-11)': int(direct_totals.get('捷盟(7-11)', 0)),
+            '萊爾富':     int(direct_totals.get('萊爾富', 0)),
+            '來來(OK)':   int(direct_totals.get('來來(OK)', 0)),
+            '康是美':     int(km_derp),
+        }
+        pg_total_fin = derp_total
+        print(f"  ✓ DERP 通路KPI: 藥房{pharma_derp//10000}萬 "
+              f"超市{super_derp//10000}萬 KM{km_derp//10000}萬")
+
+    # ── 通路明細 JS arrays ──
+    biz_rows = [
+        f"  {{n:'藥房業務',v:{pharma_final}}}",
+        f"  {{n:'超市業務',v:{super_final}}}",
+        f"  {{n:'└ 丁丁',v:{chain_fin.get('丁丁',0)}}}",
+        f"  {{n:'└ 啄木鳥',v:{chain_fin.get('啄木鳥',0)}}}",
+        f"  {{n:'└ 大樹',v:{chain_fin.get('大樹',0)}}}",
+        f"  {{n:'└ 小北',v:{chain_fin.get('小北',0)}}}",
+        f"  {{n:'└ B&C',v:{chain_fin.get('B&C',0)}}}",
+    ]
+    direct_rows = [
+        f"  {{n:'全台(全家)',v:{dir_fin['全台(全家)']}}}",
+        f"  {{n:'捷盟(7-11)',v:{dir_fin['捷盟(7-11)']}}}",
+        f"  {{n:'萊爾富',v:{dir_fin['萊爾富']}}}",
+        f"  {{n:'來來(OK)',v:{dir_fin['來來(OK)']}}}",
+        f"  {{n:'康是美',v:{dir_fin['康是美']}}}",
+    ]
+    html = re.sub(r'const XLS_BIZ=\[[\s\S]*?\];',
+                  'const XLS_BIZ=[\n'+',\n'.join(biz_rows)+'\n];', html)
+    html = re.sub(r'const XLS_DIRECT=\[[\s\S]*?\];',
+                  'const XLS_DIRECT=[\n'+',\n'.join(direct_rows)+'\n];', html)
+    html = re.sub(r'const XLS_TOTAL=\d+;',
+                  f'const XLS_TOTAL={pg_total_fin};', html)
 
     # ── 集團排行 KPIs（以本月排序）──
     grp_s     = sorted(grp_q.keys(), key=lambda n: -grp_mo.get(n, 0))[:15]
