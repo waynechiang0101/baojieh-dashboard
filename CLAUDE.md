@@ -17,7 +17,7 @@ GitHub Actions 每個工作日 17:00（台灣）自動執行：
 ```bash
 python3 scripts/derp_fetch.py
 ```
-若 ~/Downloads 有最新「業績追踨.xls」，腳本會自動讀取並覆蓋為更精確數字。
+資料來源 100% 為 DERP，不讀本地 XLS。
 
 ## 部署到 Netlify（手動）
 ```python
