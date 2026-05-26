@@ -139,12 +139,9 @@ def _make_session(jsid):
 
 # ── 下載銷售日報 ──────────────────────────────────────────
 def dl_sales(s, d0, d1, label):
-    # 每次重新 login，確保 session 不過期
-    s = _post_login(
-        os.environ.get("DERP_USER", "user34"),
-        os.environ.get("DERP_PASS", "user34")
-    )
-    print(f"  {label} {d0}~{d1}...")
+    import time
+    user = os.environ.get("DERP_USER", "user34")
+    pwd  = os.environ.get("DERP_PASS", "user34")
     params = {
         "*transDateStart":d0, "*transDateEnd":d1,
         "*itemNoStart":"","*itemNoEnd":"",
@@ -164,16 +161,41 @@ def dl_sales(s, d0, d1, label):
         "*maxKeyValue":"","*minKeyValue":"",
         "*rowsPerPage":"20","*indexSelected":"",
     }
-    r = s.get(f"{BASE_URL}/BizPlan/dsrDailySales",
-              params=params, verify=False, timeout=120)
-    print(f"    ✓ {len(r.content)//1024}KB")
-    return r.content
+    for attempt in range(3):
+        if attempt > 0:
+            wait = attempt * 10
+            print(f"  retry {attempt}/2，等 {wait}s...")
+            time.sleep(wait)
+        # 每次重新 login
+        s = _post_login(user, pwd)
+        print(f"  {label} {d0}~{d1}...")
+        r = s.get(f"{BASE_URL}/BizPlan/dsrDailySales",
+                  params=params, verify=False, timeout=120)
+        size_kb = len(r.content) // 1024
+        print(f"    ✓ {size_kb}KB")
+        # 小於 10KB 幾乎必定是 HTML 錯誤頁
+        if size_kb < 10:
+            print(f"  ⚠ 回傳太小（{size_kb}KB），可能是 HTML，重試...")
+            continue
+        return r.content
+    print(f"  ✗ {label} 3次都失敗，回傳空白")
+    return b''
 
 
 # ── 解析銷售 XLS ─────────────────────────────────────────
 def parse_xls(data):
     import xlrd
-    wb = xlrd.open_workbook(file_contents=data)
+    if data[:9].lower().lstrip() in (b'<!doctype', b'<html') or data[:5] == b'<html':
+        print("  ⚠ DERP 回傳 HTML（非 XLS），跳過此報表")
+        return {}
+    if not data or data[:8].lower().startswith(b'<!'):
+        print("  ⚠ DERP 回傳無效資料，跳過此報表")
+        return {}
+    try:
+        wb = xlrd.open_workbook(file_contents=data)
+    except Exception as e:
+        print(f"  ⚠ XLS 解析失敗 ({e.__class__.__name__})，跳過此報表")
+        return {}
     ws = wb.sheet_by_index(0)
 
     hdr = None
@@ -542,29 +564,49 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     super_derp   = total_mo - pharma_derp - all_direct
     derp_total   = total_mo
 
-    # KPI cards
-    sub_kpi('P&G 本月業績', fm(derp_total))
-    sub_kpi('交易客戶', f'{cust_cnt:,}', f'目標 {cust_cnt:,} 門市')
-    sub_kpi('藥房業務本月', fm(pharma_derp), '業務rep · 藥局通路')
-    sub_kpi('超市業務本月', fm(super_derp),  '業務rep · 超市通路')
-    sub_kpi('康是美本月',   fm(km_derp),     '直送門市')
-    sub_kpi('CVS盤商本月',  fm(cvs_others),  '全家+7-11+萊爾富+OK')
-
-    # 100% DERP 資料，不讀 XLS
-    pharma_final = pharma_derp
-    super_final  = super_derp
-    chain_fin    = {k: int(chain_totals.get(k, 0)) for k in ['丁丁','啄木鳥','大樹','小北','B&C']}
-    dir_fin      = {
-        '全台(全家)': int(direct_totals.get('全台(全家)', 0)),
-        '捷盟(7-11)': int(direct_totals.get('捷盟(7-11)', 0)),
-        '萊爾富':     int(direct_totals.get('萊爾富', 0)),
-        '來來(OK)':   int(direct_totals.get('來來(OK)', 0)),
-        '康是美':     int(km_derp),
-    }
-    pg_total_fin = derp_total
-    xls_perf = None
-    print(f"  ✓ DERP 通路KPI: 藥房{pharma_derp//10000}萬 "
-          f"超市{super_derp//10000}萬 KM{km_derp//10000}萬")
+    # KPI cards — DERP 預設，XLS 覆蓋（若有）
+    xls_perf = parse_xls_performance()
+    if xls_perf:
+        pg_total_fin = xls_perf['pg_total']
+        pharma_final = xls_perf['pharma']
+        super_final  = xls_perf['super']
+        chain_fin    = {k: int(xls_perf['channels'].get(k, 0)) for k in ['丁丁','啄木鳥','大樹','小北','B&C']}
+        dir_fin      = {
+            '全台(全家)': int(xls_perf['channels'].get('全台全家', 0)),
+            '捷盟(7-11)': int(xls_perf['channels'].get('捷盟7-11', 0)),
+            '萊爾富':     int(xls_perf['channels'].get('萊爾富', 0)),
+            '來來(OK)':   int(xls_perf['channels'].get('來來OK', 0)),
+            '康是美':     int(xls_perf['km_direct']),
+        }
+        sub_kpi('P&G 本月業績', fm(pg_total_fin),
+                f"↑ 業務達成 {xls_perf['biz_pct']:.1%} · 時間 {xls_perf['time_pct']:.0%}")
+        sub_kpi('交易客戶', f"{xls_perf['traded']:,}", f"目標 {xls_perf['traded_tgt']:,} 門市")
+        sub_kpi('藥房業務本月', fm(pharma_final), '業務rep · 藥局通路')
+        sub_kpi('超市業務本月', fm(super_final),  '業務rep · 超市通路')
+        sub_kpi('康是美本月',   fm(xls_perf['km_direct']), '直送門市')
+        sub_kpi('CVS盤商本月',  fm(xls_perf['cvs_others']), '全家+7-11+萊爾富+OK')
+        print(f"  ✓ XLS 覆蓋通路KPI: P&G{pg_total_fin//10000}萬 "
+              f"藥房{pharma_final//10000}萬 超市{super_final//10000}萬 KM{xls_perf['km_direct']//10000}萬")
+    else:
+        pg_total_fin = derp_total
+        pharma_final = pharma_derp
+        super_final  = super_derp
+        chain_fin    = {k: int(chain_totals.get(k, 0)) for k in ['丁丁','啄木鳥','大樹','小北','B&C']}
+        dir_fin      = {
+            '全台(全家)': int(direct_totals.get('全台(全家)', 0)),
+            '捷盟(7-11)': int(direct_totals.get('捷盟(7-11)', 0)),
+            '萊爾富':     int(direct_totals.get('萊爾富', 0)),
+            '來來(OK)':   int(direct_totals.get('來來(OK)', 0)),
+            '康是美':     int(km_derp),
+        }
+        sub_kpi('P&G 本月業績', fm(pg_total_fin))
+        sub_kpi('交易客戶', f'{cust_cnt:,}', f'目標 {cust_cnt:,} 門市')
+        sub_kpi('藥房業務本月', fm(pharma_final), '業務rep · 藥局通路')
+        sub_kpi('超市業務本月', fm(super_final),  '業務rep · 超市通路')
+        sub_kpi('康是美本月',   fm(km_derp),     '直送門市')
+        sub_kpi('CVS盤商本月',  fm(cvs_others),  '全家+7-11+萊爾富+OK')
+        print(f"  ✓ DERP 通路KPI: 藥房{pharma_derp//10000}萬 "
+              f"超市{super_derp//10000}萬 KM{km_derp//10000}萬")
 
     # ── 通路明細 JS arrays ──
     biz_rows = [
