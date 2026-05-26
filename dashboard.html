@@ -133,7 +133,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
       <div class="g3">
         <div class="card"><div class="ct">通路業績佔比</div><div class="cs">季累計各通路</div><div style="position:relative;height:260px" id="c1-wrap"><svg id="c1" style="width:100%;height:100%"></svg></div></div>
-        <div class="card"><div class="ct">月業績趨勢 vs IYA</div><div class="cs">今年 / 去年同期 / 目標</div><div style="position:relative;height:260px"><canvas id="c0" role="img" aria-label="月業績趨勢">趨勢</canvas></div></div>
+        <div class="card"><div class="ct">月業績趨勢 vs IYA</div><div class="cs">今年 / 去年同期 / 目標</div><div style="position:relative;height:260px" id="c0-wrap"></div></div>
       </div>
       <div class="g2">
         <div class="card"><div class="ct">品牌業績佔比</div><div class="cs">P&G 各品牌（本月）</div><div style="position:relative;height:180px" id="c3-wrap"><svg id="c3" style="width:100%;height:100%"></svg></div></div>
@@ -752,11 +752,37 @@ const builds={
   overview(){
     charts.overview=[];
     renderXlsChannels();
-    charts.overview.push(new Chart('c0',{type:'line',data:{labels:['12月','1月','2月','3月','4月','5月'],datasets:[
-      {label:'今年',data:[42100000,35600000,29800000,41200000,66885676,86924821],borderColor:'#4fa3e0',backgroundColor:'rgba(79,163,224,.08)',tension:.4,fill:true,pointRadius:3},
-      {label:'去年',data:[38800000,32900000,27200000,37800000,97562898,76677456],borderColor:'#888780',borderDash:[4,4],tension:.4,pointRadius:2,fill:false},
-      {label:'目標',data:[42000000,36000000,32000000,40000000,52000000,38000000],borderColor:'#e0b84f',borderDash:[6,3],tension:.4,pointRadius:0,fill:false},
-    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,padding:10,font:{size:10}}}},scales:{x:{grid:gc},y:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:10}}}}}}));
+    // 月業績趨勢 — 數字卡
+    (function(){
+      const months= ['12月','1月','2月','3月','4月','5月'];
+      const thisY= [42100000,35600000,29800000,41200000,66885676,86924821];
+      const lastY= [38800000,32900000,27200000,37800000,97562898,76677456];
+      const tgts=  [42000000,36000000,32000000,40000000,52000000,38000000];
+      const wrap=document.getElementById('c0-wrap');
+      wrap.style.cssText='display:flex;flex-direction:column;gap:6px;padding:4px 2px;height:260px;justify-content:center';
+      months.forEach((m,i)=>{
+        const v=thisY[i], ly=lastY[i], tg=tgts[i];
+        const iya=ly>0?Math.round((v-ly)/ly*100):0;
+        const vsT=tg>0?Math.round(v/tg*100):null;
+        const isCur=i===months.length-1;
+        const iyaColor=iya>=0?'#4caf82':'#e05a4f';
+        const iyaSign=iya>=0?'+':'';
+        const row=document.createElement('div');
+        row.style.cssText=`display:flex;align-items:center;gap:10px;padding:${isCur?'8px 10px':'5px 10px'};border-radius:8px;background:${isCur?'rgba(79,163,224,0.08)':'transparent'};border:1px solid ${isCur?'rgba(79,163,224,0.25)':'transparent'};transition:background 0.2s`;
+        row.onmouseenter=()=>{if(!isCur)row.style.background='rgba(255,255,255,0.03)';};
+        row.onmouseleave=()=>{if(!isCur)row.style.background='transparent';};
+        row.innerHTML=`
+          <div style="width:28px;font-size:${isCur?'12':'10'}px;color:${isCur?'#ccd6f6':'#4a5580'};font-weight:${isCur?700:400};flex-shrink:0">${m}</div>
+          <div style="flex:1">
+            <div style="font-size:${isCur?'18':'13'}px;font-weight:700;color:${isCur?'#e8eaf2':'#8892b0'};font-family:var(--mono)">${fmt(v)}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:${isCur?'12':'10'}px;font-weight:700;color:${iyaColor}">${iyaSign}${iya}% vs 去年</div>
+            ${vsT!==null?`<div style="font-size:9px;color:#4a5580">目標 ${vsT}%</div>`:''}
+          </div>`;
+        wrap.appendChild(row);
+      });
+    })();
     // 通路業績佔比 — 橫向排行 Bar
     (function(){
       const total=XLS_TOTAL||1;
