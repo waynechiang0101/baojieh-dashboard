@@ -913,11 +913,11 @@ const builds={
         .attr('font-size','9').attr('fill','rgba(255,255,255,0.7)').attr('opacity',0)
         .text(d=>(d.x1-d.x0)>50?(d.value/total*100).toFixed(1)+'%':'')
         .transition().delay(700).duration(400).attr('opacity',1);
-      // 點 SVG 任何空白處關閉（包含 g、rect 以外的區域）
-      svg.on('click',function(e){
-        const tag=e.target.tagName.toLowerCase();
-        if(tag==='svg'||tag==='text'||tag==='tspan'){
-          document.getElementById('brand-info').style.display='none';
+      // 點任何地方關閉
+      document.addEventListener('click',function(e){
+        const panel=document.getElementById('brand-info');
+        if(panel&&!panel.contains(e.target)&&!e.target.closest('#c3-wrap')){
+          panel.style.display='none';
           d3.selectAll('#c3 rect').attr('opacity',0.85);
         }
       });
