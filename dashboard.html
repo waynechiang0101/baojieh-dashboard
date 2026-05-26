@@ -758,33 +758,37 @@ const builds={
     const pcts=REPS.map(r=>r.tgt>0?Math.round(r.act/r.tgt*100):null);
     const validReps=REPS.filter(r=>r.tgt>0);
     const validPcts=validReps.map(r=>Math.round(r.act/r.tgt*100));
-    // 業務達成率 — 遊戲感血條
+    // 業務達成率 — 賽車排行榜
     (function(){
       const el=document.getElementById('c2');
       const wrap=el.parentElement;
       el.style.display='none';
+      // 排序：達成率高到低
+      const sorted=[...validReps].sort((a,b)=>(b.act/b.tgt)-(a.act/a.tgt));
       const div=document.createElement('div');
-      div.style.cssText='overflow-y:auto;max-height:178px;padding:2px 4px';
-      validReps.forEach(r=>{
+      div.style.cssText='overflow-y:auto;max-height:178px;padding:4px 2px';
+      const CARS=['🏎','🚗','🚕','🚙','🛻','🚐','🚌','🚑'];
+      sorted.forEach((r,i)=>{
         const p=Math.round(r.act/r.tgt*100);
         const color=p>=100?'#4caf82':p>=70?'#e0b84f':'#e05a4f';
-        const lv=p>=100?'MAX':p>=80?'A':p>=60?'B':'C';
-        const lvColor=p>=100?'#4caf82':p>=80?'#4fa3e0':p>=60?'#e0b84f':'#e05a4f';
-        div.innerHTML+=`<div style="margin-bottom:7px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-            <span style="font-size:10px;color:#8892b0">${r.n.replace(/^MS\d+\./,'')}</span>
-            <div style="display:flex;align-items:center;gap:5px">
-              <span style="font-size:9px;font-weight:700;color:${lvColor};border:1px solid ${lvColor};padding:0 4px;border-radius:3px;letter-spacing:1px">Lv.${lv}</span>
-              <span style="font-size:11px;font-weight:700;color:${color}">${p}%</span>
-            </div>
+        const trackW=Math.min(p,100);
+        const rank=i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`;
+        div.innerHTML+=`<div style="margin-bottom:6px">
+          <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
+            <span style="font-size:11px;width:20px;text-align:center">${rank}</span>
+            <span style="font-size:10px;color:#ccd6f6;flex:1">${r.n.replace(/^MS\d+\./,'')}</span>
+            <span style="font-size:10px;font-weight:700;color:${color}">${p}%</span>
           </div>
-          <div style="height:8px;background:#1a2040;border-radius:4px;overflow:hidden;position:relative">
-            <div class="hpbar" data-w="${Math.min(p,100)}" style="height:100%;width:0%;background:linear-gradient(90deg,${color}99,${color});border-radius:4px;transition:width 1.2s cubic-bezier(.4,0,.2,1);box-shadow:0 0 6px ${color}88"></div>
+          <div style="display:flex;align-items:center;gap:0;height:14px;background:#111827;border-radius:7px;overflow:hidden;border:1px solid #1e2d4a;position:relative">
+            <div class="racetrack" data-w="${trackW}" style="height:100%;width:0%;background:linear-gradient(90deg,${color}44,${color}22);border-radius:7px;transition:width 1.4s cubic-bezier(.25,0,.2,1);position:relative;display:flex;align-items:center;justify-content:flex-end">
+              <span class="racecar" style="font-size:13px;line-height:1;margin-right:-2px;filter:drop-shadow(0 0 4px ${color})">${CARS[i]||'🚗'}</span>
+            </div>
+            <div style="position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:9px;color:#3a4a6a">🏁</div>
           </div>
         </div>`;
       });
       wrap.appendChild(div);
-      setTimeout(()=>{div.querySelectorAll('.hpbar').forEach(b=>{b.style.width=b.dataset.w+'%'})},100);
+      setTimeout(()=>{div.querySelectorAll('.racetrack').forEach(b=>{b.style.width=b.dataset.w+'%'})},150);
     })();
     charts.overview.push(new Chart('c3',{type:'doughnut',data:{labels:BRANDS,datasets:[{data:BMAY,backgroundColor:BCOLORS,borderWidth:2,borderColor:'#0a0e1a',cutout:'52%',hoverOffset:18,hoverBorderWidth:3}]},
       options:{responsive:true,maintainAspectRatio:false,animation:{animateRotate:true,animateScale:true,duration:1400,easing:'easeInOutQuart'},plugins:{legend:{position:'right',labels:{boxWidth:8,padding:5,font:{size:10}}},tooltip:{callbacks:{label:function(ctx){const v=ctx.parsed;const total=ctx.dataset.data.reduce((a,b)=>a+b,0);return ` ${ctx.label}: ${fmt(v)} (${(v/total*100).toFixed(1)}%)`;}}}}}}));
