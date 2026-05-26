@@ -757,13 +757,13 @@ const builds={
       {label:'去年',data:[38800000,32900000,27200000,37800000,97562898,76677456],borderColor:'#888780',borderDash:[4,4],tension:.4,pointRadius:2,fill:false},
       {label:'目標',data:[42000000,36000000,32000000,40000000,52000000,38000000],borderColor:'#e0b84f',borderDash:[6,3],tension:.4,pointRadius:0,fill:false},
     ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,padding:10,font:{size:10}}}},scales:{x:{grid:gc},y:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:10}}}}}}));
-    // 通路業績佔比 — D3 Bubble Chart + 浮動動畫
+    // 通路業績佔比 — Waffle Chart
     (function(){
       const total=XLS_TOTAL||1;
-      const allChannels=[
+      const channels=[
+        {name:'康是美',value:XLS_DIRECT.find(d=>d.n==='康是美').v,color:'#4caf82'},
         {name:'藥房',value:XLS_BIZ.find(d=>d.n==='藥房業務').v,color:'#4fa3e0'},
         {name:'超市',value:XLS_BIZ.find(d=>d.n==='超市業務').v,color:'#6cb3e8'},
-        {name:'康是美',value:XLS_DIRECT.find(d=>d.n==='康是美').v,color:'#4caf82'},
         {name:'大樹',value:XLS_BIZ.find(d=>d.n==='└ 大樹').v,color:'#a6d1f5'},
         {name:'小北',value:XLS_BIZ.find(d=>d.n==='└ 小北').v,color:'#b8daf8'},
         {name:'全家',value:XLS_DIRECT.find(d=>d.n==='全台(全家)').v,color:'#6dc49a'},
@@ -773,61 +773,61 @@ const builds={
         {name:'萊爾富',value:XLS_DIRECT.find(d=>d.n==='萊爾富').v,color:'#aee3c8'},
         {name:'B&C',value:XLS_BIZ.find(d=>d.n==='└ B&C').v,color:'#d5eafc'},
         {name:'OK',value:XLS_DIRECT.find(d=>d.n==='來來(OK)').v,color:'#cef2df'},
-      ];
+      ].sort((a,b)=>b.value-a.value);
       const wrap=document.getElementById('c1-wrap');
       const W=wrap.offsetWidth||320, H=260;
-      const root=d3.pack().size([W,H]).padding(4)(
-        d3.hierarchy({children:allChannels}).sum(d=>d.value||0)
-      );
-      const svg=d3.select('#c1').attr('viewBox',`0 0 ${W} ${H}`);
-      const node=svg.selectAll('g').data(root.leaves()).join('g')
-        .attr('transform',d=>`translate(${d.x},${d.y})`).style('cursor','pointer');
-      // 泡泡
-      node.append('circle')
-        .attr('r',0).attr('fill',d=>d.data.color).attr('opacity',0.82)
-        .attr('stroke',d=>d.data.color).attr('stroke-width',1.5).attr('stroke-opacity',0.4)
-        .on('mouseover',function(e,d){
-          d3.select(this).attr('opacity',1).attr('stroke-opacity',1).attr('stroke-width',2.5);
-          svg.select('#bubble-name').text(d.data.name);
-          svg.select('#bubble-val').text(`${fmt(d.data.value)}  (${(d.data.value/total*100).toFixed(1)}%)`);
-        })
-        .on('mouseout',function(){
-          d3.select(this).attr('opacity',0.82).attr('stroke-opacity',0.4).attr('stroke-width',1.5);
-          svg.select('#bubble-name').text('');
-          svg.select('#bubble-val').text('');
-        })
-        .transition().duration(900).ease(d3.easeElasticOut.amplitude(1).period(0.5))
-        .attr('r',d=>d.r);
-      // 大泡泡才放文字，小泡泡不放
-      node.append('text').attr('text-anchor','middle').attr('dy','0.35em')
-        .attr('font-size',d=>Math.min(11,d.r*0.5))
-        .attr('fill','#fff').attr('pointer-events','none').attr('opacity',0)
-        .text(d=>d.r>22?d.data.name:'')
-        .transition().delay(800).duration(400).attr('opacity',1);
-      node.append('text').attr('text-anchor','middle').attr('dy','1.5em')
-        .attr('font-size',d=>Math.min(9,d.r*0.38))
-        .attr('fill','rgba(255,255,255,0.7)').attr('pointer-events','none').attr('opacity',0)
-        .text(d=>d.r>30?(d.data.value/total*100).toFixed(1)+'%':'')
-        .transition().delay(900).duration(400).attr('opacity',1);
-      // hover tooltip — 固定在頂部顯示大字
-      const tipBg=svg.append('rect').attr('x',0).attr('y',0).attr('width',W).attr('height',32)
-        .attr('fill','rgba(10,14,26,0.85)').attr('rx',0).attr('opacity',0).attr('pointer-events','none');
-      svg.append('text').attr('id','bubble-name').attr('x',W/2).attr('y',13)
-        .attr('text-anchor','middle').attr('font-size','12').attr('font-weight','700').attr('fill','#e8eaf2').attr('pointer-events','none');
-      svg.append('text').attr('id','bubble-val').attr('x',W/2).attr('y',27)
-        .attr('text-anchor','middle').attr('font-size','10').attr('fill','#8892b0').attr('pointer-events','none');
-      // 顯示/隱藏 tipBg
-      node.select('circle')
-        .on('mouseover.tip',function(){tipBg.attr('opacity',1);})
-        .on('mouseout.tip',function(){tipBg.attr('opacity',0);});
-      // 浮動動畫
-      function floatBubbles(){
-        node.transition().duration(2800+Math.random()*1200)
-          .ease(d3.easeSinInOut)
-          .attr('transform',d=>`translate(${d.x+(Math.random()-0.5)*6},${d.y+(Math.random()-0.5)*5})`)
-          .on('end',floatBubbles);
-      }
-      setTimeout(floatBubbles, 1000);
+      const COLS=10, ROWS=10, PAD=2;
+      const cw=Math.floor((W*0.62-PAD*(COLS-1))/COLS);
+      const ch=Math.floor((H-PAD*(ROWS-1)-28)/ROWS);
+      // 每格代表 1%，總 100 格
+      const cells=[];
+      let remaining=100;
+      channels.forEach(ch2=>{
+        const pct=Math.round(ch2.value/total*100);
+        const count=Math.min(pct,remaining);
+        for(let i=0;i<count;i++) cells.push({color:ch2.color,name:ch2.name,pct});
+        remaining-=count;
+      });
+      while(cells.length<100) cells.push({color:'#1e2436',name:'',pct:0});
+      const div=document.createElement('div');
+      div.style.cssText=`display:flex;gap:8px;height:${H}px;align-items:flex-start;padding:4px 0`;
+      // 格子區
+      const grid=document.createElement('div');
+      grid.style.cssText=`display:grid;grid-template-columns:repeat(${COLS},${cw}px);grid-template-rows:repeat(${ROWS},${ch}px);gap:${PAD}px;flex-shrink:0`;
+      let tipEl=null;
+      cells.forEach((c,i)=>{
+        const cell=document.createElement('div');
+        cell.style.cssText=`width:${cw}px;height:${ch}px;border-radius:2px;background:${c.color};opacity:0;transition:opacity 0.05s ${i*8}ms, transform 0.15s, box-shadow 0.15s`;
+        cell.onmouseenter=()=>{
+          cell.style.transform='scale(1.3)';
+          cell.style.boxShadow=`0 0 6px ${c.color}`;
+          if(tipEl) tipEl.textContent=c.name?`${c.name}  ${c.pct}%`:'';
+        };
+        cell.onmouseleave=()=>{cell.style.transform='';cell.style.boxShadow='';if(tipEl)tipEl.textContent='';};
+        grid.appendChild(cell);
+        setTimeout(()=>{cell.style.opacity='1';},50+i*12);
+      });
+      div.appendChild(grid);
+      // 圖例
+      const legend=document.createElement('div');
+      legend.style.cssText='display:flex;flex-direction:column;gap:5px;padding-top:2px;flex:1;overflow:hidden';
+      channels.forEach(ch2=>{
+        const pct=Math.round(ch2.value/total*100);
+        if(pct===0) return;
+        const row=document.createElement('div');
+        row.style.cssText='display:flex;align-items:center;gap:5px;cursor:default';
+        row.innerHTML=`<div style="width:8px;height:8px;border-radius:2px;background:${ch2.color};flex-shrink:0"></div><span style="font-size:9px;color:#8892b0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ch2.name}</span><span style="font-size:9px;color:${ch2.color};font-weight:700;flex-shrink:0">${pct}%</span>`;
+        legend.appendChild(row);
+      });
+      div.appendChild(legend);
+      // tooltip
+      tipEl=document.createElement('div');
+      tipEl.style.cssText='position:absolute;bottom:6px;left:0;right:0;text-align:center;font-size:10px;color:#ccd6f6;pointer-events:none';
+      wrap.style.position='relative';
+      wrap.appendChild(div);
+      wrap.appendChild(tipEl);
+      // 隱藏 svg
+      document.getElementById('c1').style.display='none';
     })();
     const pcts=REPS.map(r=>r.tgt>0?Math.round(r.act/r.tgt*100):null);
     const validReps=REPS.filter(r=>r.tgt>0);
