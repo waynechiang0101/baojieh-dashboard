@@ -6,6 +6,7 @@
 <title>寶捷實業 業績儀表板 v4.1</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <style>
 :root{--bg:#0f1117;--bg2:#161a24;--bg3:#1e2436;--border:#2a3050;--border2:#3a4570;--text:#e8eaf2;--text2:#8892b0;--text3:#4a5580;--pg:#4fa3e0;--green:#4caf82;--amber:#e0b84f;--red:#e05a4f;--accent:#6c8ef5;--purple:#9b7fe8;--mono:"IBM Plex Mono",monospace;--sans:"Noto Sans TC",sans-serif}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -132,7 +133,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
       <div class="g3">
         <div class="card"><div class="ct">月業績趨勢 vs IYA</div><div class="cs">今年 / 去年同期 / 目標</div><div style="position:relative;height:195px"><canvas id="c0" role="img" aria-label="月業績趨勢">趨勢</canvas></div></div>
-        <div class="card"><div class="ct">通路業績佔比</div><div class="cs">季累計各通路</div><div style="position:relative;height:195px"><canvas id="c1" role="img" aria-label="通路佔比">通路</canvas></div></div>
+        <div class="card"><div class="ct">通路業績佔比</div><div class="cs">季累計各通路</div><div style="position:relative;height:195px" id="c1-wrap"><svg id="c1" style="width:100%;height:100%"></svg></div></div>
       </div>
       <div class="g2">
         <div class="card"><div class="ct">品牌業績佔比</div><div class="cs">P&G 各品牌（本月）</div><div style="position:relative;height:180px"><canvas id="c3" role="img" aria-label="品牌佔比">品牌</canvas></div></div>
@@ -756,9 +757,65 @@ const builds={
       {label:'去年',data:[38800000,32900000,27200000,37800000,97562898,76677456],borderColor:'#888780',borderDash:[4,4],tension:.4,pointRadius:2,fill:false},
       {label:'目標',data:[42000000,36000000,32000000,40000000,52000000,38000000],borderColor:'#e0b84f',borderDash:[6,3],tension:.4,pointRadius:0,fill:false},
     ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,padding:10,font:{size:10}}}},scales:{x:{grid:gc},y:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:10}}}}}}));
-    charts.overview.push(new Chart('c1',{type:'doughnut',data:{labels:['美妝店','小型藥局','大型小超','便利商店','辦公室用品','其他'],
-      datasets:[{data:[81166235,17664082,12271980,7516842,7271715,27596023],backgroundColor:COLORS.slice(0,6),borderWidth:2,borderColor:'#0a0e1a',cutout:'52%',hoverOffset:18,hoverBorderWidth:3}]},
-      options:{responsive:true,maintainAspectRatio:false,animation:{animateRotate:true,animateScale:true,duration:1200,easing:'easeInOutQuart'},plugins:{legend:{position:'right',labels:{boxWidth:8,padding:6,font:{size:10}}},tooltip:{callbacks:{label:function(ctx){const v=ctx.parsed;const total=ctx.dataset.data.reduce((a,b)=>a+b,0);return ` ${ctx.label}: ${fmt(v)} (${(v/total*100).toFixed(1)}%)`;}}}}}}));
+    // 通路業績佔比 — D3 Sunburst
+    (function(){
+      const bizTotal=XLS_BIZ.filter(d=>!d.n.startsWith('└')).reduce((s,d)=>s+d.v,0);
+      const dirTotal=XLS_DIRECT.reduce((s,d)=>s+d.v,0);
+      const tree={name:'root',children:[
+        {name:'業務直銷',value:bizTotal,color:'#4fa3e0',children:[
+          {name:'藥房',value:XLS_BIZ.find(d=>d.n==='藥房業務').v,color:'#4fa3e0'},
+          {name:'超市',value:XLS_BIZ.find(d=>d.n==='超市業務').v,color:'#6cb3e8'},
+          {name:'丁丁',value:XLS_BIZ.find(d=>d.n==='└ 丁丁').v,color:'#89c2ef'},
+          {name:'大樹',value:XLS_BIZ.find(d=>d.n==='└ 大樹').v,color:'#a6d1f5'},
+          {name:'小北',value:XLS_BIZ.find(d=>d.n==='└ 小北').v,color:'#b8daf8'},
+          {name:'啄木鳥',value:XLS_BIZ.find(d=>d.n==='└ 啄木鳥').v,color:'#c9e3fa'},
+          {name:'B&C',value:XLS_BIZ.find(d=>d.n==='└ B&C').v,color:'#d5eafc'},
+        ]},
+        {name:'直送',value:dirTotal,color:'#4caf82',children:[
+          {name:'康是美',value:XLS_DIRECT.find(d=>d.n==='康是美').v,color:'#4caf82'},
+          {name:'全家',value:XLS_DIRECT.find(d=>d.n==='全台(全家)').v,color:'#6dc49a'},
+          {name:'7-11',value:XLS_DIRECT.find(d=>d.n==='捷盟(7-11)').v,color:'#8dd4b1'},
+          {name:'萊爾富',value:XLS_DIRECT.find(d=>d.n==='萊爾富').v,color:'#aee3c8'},
+          {name:'OK',value:XLS_DIRECT.find(d=>d.n==='來來(OK)').v,color:'#cef2df'},
+        ]}
+      ]};
+      const wrap=document.getElementById('c1-wrap');
+      const W=wrap.offsetWidth||320, H=195;
+      const R=Math.min(W,H)/2-6;
+      const svg=d3.select('#c1').attr('viewBox',`0 0 ${W} ${H}`);
+      const g=svg.append('g').attr('transform',`translate(${W*0.38},${H/2})`);
+      const root=d3.hierarchy(tree).sum(d=>d.value||0);
+      const arc=d3.arc().innerRadius(d=>d.depth===1?R*0.28:R*0.52).outerRadius(d=>d.depth===1?R*0.5:R*0.95).padAngle(0.025).padRadius(R*0.5).cornerRadius(3);
+      const partition=d3.partition().size([2*Math.PI,1]);
+      partition(root);
+      // tooltip
+      let tip=svg.select('#sb-tip');
+      if(tip.empty())tip=svg.append('text').attr('id','sb-tip').attr('text-anchor','middle').attr('font-size','9').attr('fill','#ccd6f6').attr('y',H-6);
+      g.selectAll('path').data(root.descendants().filter(d=>d.depth>0)).join('path')
+        .attr('d',arc).attr('fill',d=>d.data.color||'#4a5580').attr('opacity',0.88)
+        .attr('stroke','#0f1117').attr('stroke-width',1)
+        .style('cursor','pointer')
+        .on('mouseover',function(e,d){
+          d3.select(this).attr('opacity',1).attr('transform','scale(1.04)');
+          const total=XLS_TOTAL||1;
+          const pct=(d.value/total*100).toFixed(1);
+          tip.text(`${d.data.name}  ${fmt(d.value)}  (${pct}%)`);
+        })
+        .on('mouseout',function(){d3.select(this).attr('opacity',0.88).attr('transform','scale(1)');tip.text('');})
+        .transition().duration(900).attrTween('d',function(d){
+          const i=d3.interpolate({startAngle:d.x0,endAngle:d.x0},{startAngle:d.x0,endAngle:d.x1});
+          return t=>arc(Object.assign({},d,i(t)));
+        });
+      // 中心文字
+      g.append('text').attr('text-anchor','middle').attr('dy','-0.2em').attr('font-size','10').attr('fill','#8892b0').text('Total');
+      g.append('text').attr('text-anchor','middle').attr('dy','1em').attr('font-size','11').attr('fill','#e8eaf2').attr('font-weight','700').text(fmt(XLS_TOTAL));
+      // legend
+      const lg=svg.append('g').attr('transform',`translate(${W*0.72},${H/2-40})`);
+      [{name:'業務直銷',color:'#4fa3e0'},{name:'直送',color:'#4caf82'}].forEach((d,i)=>{
+        lg.append('rect').attr('x',0).attr('y',i*18).attr('width',8).attr('height',8).attr('rx',2).attr('fill',d.color);
+        lg.append('text').attr('x',12).attr('y',i*18+8).attr('font-size','10').attr('fill','#8892b0').text(d.name);
+      });
+    })();
     const pcts=REPS.map(r=>r.tgt>0?Math.round(r.act/r.tgt*100):null);
     const validReps=REPS.filter(r=>r.tgt>0);
     const validPcts=validReps.map(r=>Math.round(r.act/r.tgt*100));
