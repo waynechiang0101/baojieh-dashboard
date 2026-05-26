@@ -861,9 +861,15 @@ const builds={
     // 品牌業績佔比 — D3 Treemap
     (function(){
       const wrap=document.getElementById('c3-wrap');
+      // 加一個 info panel 在右邊
+      wrap.parentElement.style.position='relative';
+      const info=document.createElement('div');
+      info.style.cssText='position:absolute;top:36px;right:0;width:100%;pointer-events:none;padding:0 15px';
+      info.innerHTML='<div id="brand-info" style="display:none;background:rgba(10,14,26,0.92);border:1px solid rgba(79,163,224,0.3);border-radius:8px;padding:10px 12px;margin-top:6px"></div>';
+      wrap.parentElement.appendChild(info);
       const W=wrap.offsetWidth||320, H=180;
       const total=BMAY.reduce((s,v)=>s+v,0);
-      const data={children:BRANDS.map((b,i)=>({name:BN[b]||b,value:BMAY[i],color:BCOLORS[i]}))};
+      const data={children:BRANDS.map((b,i)=>({name:BN[b]||b,code:b,value:BMAY[i],iya:BIYA_[i],color:BCOLORS[i]}))};
       const root=d3.hierarchy(data).sum(d=>d.value||0).sort((a,b)=>b.value-a.value);
       d3.treemap().size([W,H]).padding(2).round(true)(root);
       const svg=d3.select('#c3').attr('viewBox',`0 0 ${W} ${H}`);
@@ -872,8 +878,29 @@ const builds={
       cell.append('rect')
         .attr('width',0).attr('height',0)
         .attr('fill',d=>d.data.color).attr('opacity',0.85).attr('rx',3)
-        .on('mouseover',function(e,d){d3.select(this).attr('opacity',1);})
-        .on('mouseout',function(e,d){d3.select(this).attr('opacity',0.85);})
+        .on('mouseover',function(){d3.select(this).attr('opacity',1);})
+        .on('mouseout',function(){d3.select(this).attr('opacity',0.85);})
+        .on('click',function(e,d){
+          const iya=d.data.iya>0?Math.round((d.data.value-d.data.iya)/d.data.iya*100):null;
+          const iyaStr=iya!==null?`<span style="color:${iya>=0?'#4caf82':'#e05a4f'};font-size:11px;margin-left:6px">${iya>=0?'+':''}${iya}% vs 去年</span>`:'';
+          const pct=(d.data.value/total*100).toFixed(1);
+          const panel=document.getElementById('brand-info');
+          panel.style.display='block';
+          panel.style.borderColor=d.data.color+'88';
+          panel.innerHTML=`
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+              <div style="width:10px;height:10px;border-radius:2px;background:${d.data.color}"></div>
+              <span style="font-size:12px;font-weight:700;color:#e8eaf2">${d.data.name}</span>
+              ${iyaStr}
+            </div>
+            <div style="font-size:20px;font-weight:700;color:${d.data.color};font-family:var(--mono);margin-bottom:4px">${fmt(d.data.value)}</div>
+            <div style="display:flex;gap:16px">
+              <span style="font-size:10px;color:#8892b0">佔比 <strong style="color:#ccd6f6">${pct}%</strong></span>
+              ${d.data.iya>0?`<span style="font-size:10px;color:#8892b0">去年同期 <strong style="color:#4a5580">${fmt(d.data.iya)}</strong></span>`:''}
+            </div>`;
+          d3.selectAll('#c3 rect').attr('opacity',0.4);
+          d3.select(this).attr('opacity',1);
+        })
         .transition().duration(800).ease(d3.easeCubicOut)
         .attr('width',d=>d.x1-d.x0).attr('height',d=>d.y1-d.y0);
       cell.append('text').attr('x',4).attr('y',13)
@@ -885,6 +912,14 @@ const builds={
         .attr('font-size','9').attr('fill','rgba(255,255,255,0.7)').attr('opacity',0)
         .text(d=>(d.x1-d.x0)>50?(d.value/total*100).toFixed(1)+'%':'')
         .transition().delay(700).duration(400).attr('opacity',1);
+      // 點空白處關閉
+      svg.on('click',function(e){
+        if(e.target.tagName==='svg'){
+          document.getElementById('brand-info').style.display='none';
+          d3.selectAll('#c3 rect').attr('opacity',0.85);
+        }
+      });
+      wrap.parentElement.appendChild(info);
     })();
   },
 
