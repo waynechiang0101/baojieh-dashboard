@@ -106,6 +106,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="kpi"><div class="kl">CVS盤商本月</div><div class="kv">$2,152,683</div><div class="ks">全家+7-11+萊爾富+OK</div></div>
         <div class="kpi" style="background:transparent;border:none"></div>
       </div>
+      <!-- 業務達成率 — 賽車排行榜 -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="ct">業務達成率</div><div class="cs">本月目標達成率 · 賽車排行</div>
+        <div style="position:relative;height:260px"><canvas id="c2" role="img" aria-label="業務達成率">達成率</canvas></div>
+      </div>
       <!-- 通路業績明細 (from XLS) -->
       <div class="card" style="margin-bottom:14px">
         <div class="ct">通路業績明細</div>
@@ -130,7 +135,6 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="card"><div class="ct">通路業績佔比</div><div class="cs">季累計各通路</div><div style="position:relative;height:195px"><canvas id="c1" role="img" aria-label="通路佔比">通路</canvas></div></div>
       </div>
       <div class="g2">
-        <div class="card"><div class="ct">業務達成率</div><div class="cs">本月目標達成率</div><div style="position:relative;height:180px"><canvas id="c2" role="img" aria-label="業務達成率">達成率</canvas></div></div>
         <div class="card"><div class="ct">品牌業績佔比</div><div class="cs">P&G 各品牌（本月）</div><div style="position:relative;height:180px"><canvas id="c3" role="img" aria-label="品牌佔比">品牌</canvas></div></div>
       </div>
     </div>
@@ -766,7 +770,7 @@ const builds={
       // 排序：達成率高到低
       const sorted=[...validReps].sort((a,b)=>(b.act/b.tgt)-(a.act/a.tgt));
       const div=document.createElement('div');
-      div.style.cssText='overflow-y:auto;max-height:178px;padding:4px 2px';
+      div.style.cssText='overflow-y:auto;max-height:258px;padding:4px 6px';
       const CARS=['🏎','🚗','🚕','🚙','🛻','🚐','🚌','🚑'];
       sorted.forEach((r,i)=>{
         const p=Math.round(r.act/r.tgt*100);
