@@ -753,15 +753,41 @@ const builds={
       {label:'目標',data:[42000000,36000000,32000000,40000000,52000000,38000000],borderColor:'#e0b84f',borderDash:[6,3],tension:.4,pointRadius:0,fill:false},
     ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,padding:10,font:{size:10}}}},scales:{x:{grid:gc},y:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:10}}}}}}));
     charts.overview.push(new Chart('c1',{type:'doughnut',data:{labels:['美妝店','小型藥局','大型小超','便利商店','辦公室用品','其他'],
-      datasets:[{data:[81166235,17664082,12271980,7516842,7271715,27596023],backgroundColor:COLORS.slice(0,6),borderWidth:0,cutout:'56%'}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:8,padding:6,font:{size:10}}}}}}));
+      datasets:[{data:[81166235,17664082,12271980,7516842,7271715,27596023],backgroundColor:COLORS.slice(0,6),borderWidth:2,borderColor:'#0a0e1a',cutout:'52%',hoverOffset:18,hoverBorderWidth:3}]},
+      options:{responsive:true,maintainAspectRatio:false,animation:{animateRotate:true,animateScale:true,duration:1200,easing:'easeInOutQuart'},plugins:{legend:{position:'right',labels:{boxWidth:8,padding:6,font:{size:10}}},tooltip:{callbacks:{label:function(ctx){const v=ctx.parsed;const total=ctx.dataset.data.reduce((a,b)=>a+b,0);return ` ${ctx.label}: ${fmt(v)} (${(v/total*100).toFixed(1)}%)`;}}}}}}));
     const pcts=REPS.map(r=>r.tgt>0?Math.round(r.act/r.tgt*100):null);
     const validReps=REPS.filter(r=>r.tgt>0);
     const validPcts=validReps.map(r=>Math.round(r.act/r.tgt*100));
-    charts.overview.push(new Chart('c2',{type:'bar',data:{labels:validReps.map(r=>r.n),datasets:[{data:validPcts,backgroundColor:validPcts.map(p=>p>=100?'#4caf82':p>=60?'#e0b84f':'#e05a4f'),borderRadius:4,barPercentage:.65}]},
-      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:gc,max:145,ticks:{callback:v=>v+'%',font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:10}}}}}}));
-    charts.overview.push(new Chart('c3',{type:'doughnut',data:{labels:BRANDS,datasets:[{data:BMAY,backgroundColor:BCOLORS,borderWidth:0,cutout:'55%'}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:8,padding:5,font:{size:10}}}}}}));
+    // 業務達成率 — 遊戲感血條
+    (function(){
+      const el=document.getElementById('c2');
+      const wrap=el.parentElement;
+      el.style.display='none';
+      const div=document.createElement('div');
+      div.style.cssText='overflow-y:auto;max-height:178px;padding:2px 4px';
+      validReps.forEach(r=>{
+        const p=Math.round(r.act/r.tgt*100);
+        const color=p>=100?'#4caf82':p>=70?'#e0b84f':'#e05a4f';
+        const lv=p>=100?'MAX':p>=80?'A':p>=60?'B':'C';
+        const lvColor=p>=100?'#4caf82':p>=80?'#4fa3e0':p>=60?'#e0b84f':'#e05a4f';
+        div.innerHTML+=`<div style="margin-bottom:7px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+            <span style="font-size:10px;color:#8892b0">${r.n.replace(/^MS\d+\./,'')}</span>
+            <div style="display:flex;align-items:center;gap:5px">
+              <span style="font-size:9px;font-weight:700;color:${lvColor};border:1px solid ${lvColor};padding:0 4px;border-radius:3px;letter-spacing:1px">Lv.${lv}</span>
+              <span style="font-size:11px;font-weight:700;color:${color}">${p}%</span>
+            </div>
+          </div>
+          <div style="height:8px;background:#1a2040;border-radius:4px;overflow:hidden;position:relative">
+            <div class="hpbar" data-w="${Math.min(p,100)}" style="height:100%;width:0%;background:linear-gradient(90deg,${color}99,${color});border-radius:4px;transition:width 1.2s cubic-bezier(.4,0,.2,1);box-shadow:0 0 6px ${color}88"></div>
+          </div>
+        </div>`;
+      });
+      wrap.appendChild(div);
+      setTimeout(()=>{div.querySelectorAll('.hpbar').forEach(b=>{b.style.width=b.dataset.w+'%'})},100);
+    })();
+    charts.overview.push(new Chart('c3',{type:'doughnut',data:{labels:BRANDS,datasets:[{data:BMAY,backgroundColor:BCOLORS,borderWidth:2,borderColor:'#0a0e1a',cutout:'52%',hoverOffset:18,hoverBorderWidth:3}]},
+      options:{responsive:true,maintainAspectRatio:false,animation:{animateRotate:true,animateScale:true,duration:1400,easing:'easeInOutQuart'},plugins:{legend:{position:'right',labels:{boxWidth:8,padding:5,font:{size:10}}},tooltip:{callbacks:{label:function(ctx){const v=ctx.parsed;const total=ctx.dataset.data.reduce((a,b)=>a+b,0);return ` ${ctx.label}: ${fmt(v)} (${(v/total*100).toFixed(1)}%)`;}}}}}}));
   },
 
   'cust-group'(){
@@ -926,8 +952,38 @@ const builds={
     ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,font:{size:10}}}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:10}}}}}}));
     const validR=REPS.filter(r=>r.tgt>0);
     const vpcts=validR.map(r=>Math.round(r.act/r.tgt*100));
-    charts.rep.push(new Chart('c-rpct',{type:'bar',data:{labels:validR.map(r=>r.n),datasets:[{data:vpcts,backgroundColor:vpcts.map(p=>p>=100?'#4caf82':p>=60?'#e0b84f':'#e05a4f'),borderRadius:4,barPercentage:.65}]},
-      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:gc,max:145,ticks:{callback:v=>v+'%',font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:10}}}}}}));
+    // 業務頁達成率 — 遊戲感血條（較高）
+    (function(){
+      const el=document.getElementById('c-rpct');
+      const wrap=el.parentElement;
+      el.style.display='none';
+      const div=document.createElement('div');
+      div.style.cssText='overflow-y:auto;max-height:258px;padding:2px 6px';
+      validR.forEach(r=>{
+        const p=Math.round(r.act/r.tgt*100);
+        const color=p>=100?'#4caf82':p>=70?'#e0b84f':'#e05a4f';
+        const lv=p>=100?'MAX':p>=80?'A':p>=60?'B':'C';
+        const lvColor=p>=100?'#4caf82':p>=80?'#4fa3e0':p>=60?'#e0b84f':'#e05a4f';
+        const stars=p>=100?'★★★':p>=80?'★★☆':p>=60?'★☆☆':'☆☆☆';
+        div.innerHTML+=`<div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:10px;color:#8892b0">${r.n.replace(/^MS\d+\./,'')}</span>
+              <span style="font-size:9px;color:${lvColor};letter-spacing:1px">${stars}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:5px">
+              <span style="font-size:9px;font-weight:700;color:${lvColor};border:1px solid ${lvColor};padding:0 5px;border-radius:3px;letter-spacing:1px">Lv.${lv}</span>
+              <span style="font-size:12px;font-weight:700;color:${color}">${p}%</span>
+            </div>
+          </div>
+          <div style="height:9px;background:#1a2040;border-radius:5px;overflow:hidden">
+            <div class="hpbar2" data-w="${Math.min(p,100)}" style="height:100%;width:0%;background:linear-gradient(90deg,${color}88,${color});border-radius:5px;transition:width 1.4s cubic-bezier(.4,0,.2,1);box-shadow:0 0 8px ${color}99"></div>
+          </div>
+        </div>`;
+      });
+      wrap.appendChild(div);
+      setTimeout(()=>{div.querySelectorAll('.hpbar2').forEach(b=>{b.style.width=b.dataset.w+'%'})},100);
+    })();
     const tb=document.getElementById('tb-rep');tb.innerHTML='';
     s.forEach((r,i)=>{
       const p=r.tgt>0?Math.round(r.act/r.tgt*100):null,ip=pctChg(r.act,r.iya);
