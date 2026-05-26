@@ -912,9 +912,10 @@ const builds={
         .attr('font-size','9').attr('fill','rgba(255,255,255,0.7)').attr('opacity',0)
         .text(d=>(d.x1-d.x0)>50?(d.value/total*100).toFixed(1)+'%':'')
         .transition().delay(700).duration(400).attr('opacity',1);
-      // 點空白處關閉
+      // 點 SVG 任何空白處關閉（包含 g、rect 以外的區域）
       svg.on('click',function(e){
-        if(e.target.tagName==='svg'){
+        const tag=e.target.tagName.toLowerCase();
+        if(tag==='svg'||tag==='text'||tag==='tspan'){
           document.getElementById('brand-info').style.display='none';
           d3.selectAll('#c3 rect').attr('opacity',0.85);
         }
