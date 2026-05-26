@@ -132,8 +132,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
         </div>
       </div>
       <div class="g3">
-        <div class="card"><div class="ct">通路業績佔比</div><div class="cs">季累計各通路</div><div style="position:relative;height:195px" id="c1-wrap"><svg id="c1" style="width:100%;height:100%"></svg></div></div>
-        <div class="card"><div class="ct">月業績趨勢 vs IYA</div><div class="cs">今年 / 去年同期 / 目標</div><div style="position:relative;height:195px"><canvas id="c0" role="img" aria-label="月業績趨勢">趨勢</canvas></div></div>
+        <div class="card"><div class="ct">通路業績佔比</div><div class="cs">季累計各通路</div><div style="position:relative;height:260px" id="c1-wrap"><svg id="c1" style="width:100%;height:100%"></svg></div></div>
+        <div class="card"><div class="ct">月業績趨勢 vs IYA</div><div class="cs">今年 / 去年同期 / 目標</div><div style="position:relative;height:260px"><canvas id="c0" role="img" aria-label="月業績趨勢">趨勢</canvas></div></div>
       </div>
       <div class="g2">
         <div class="card"><div class="ct">品牌業績佔比</div><div class="cs">P&G 各品牌（本月）</div><div style="position:relative;height:180px" id="c3-wrap"><svg id="c3" style="width:100%;height:100%"></svg></div></div>
@@ -775,7 +775,7 @@ const builds={
         {name:'OK',value:XLS_DIRECT.find(d=>d.n==='來來(OK)').v,color:'#cef2df'},
       ];
       const wrap=document.getElementById('c1-wrap');
-      const W=wrap.offsetWidth||320, H=195;
+      const W=wrap.offsetWidth||320, H=260;
       const root=d3.pack().size([W,H]).padding(4)(
         d3.hierarchy({children:allChannels}).sum(d=>d.value||0)
       );
