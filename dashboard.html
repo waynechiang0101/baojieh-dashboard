@@ -757,7 +757,7 @@ const builds={
       {label:'去年',data:[38800000,32900000,27200000,37800000,97562898,76677456],borderColor:'#888780',borderDash:[4,4],tension:.4,pointRadius:2,fill:false},
       {label:'目標',data:[42000000,36000000,32000000,40000000,52000000,38000000],borderColor:'#e0b84f',borderDash:[6,3],tension:.4,pointRadius:0,fill:false},
     ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,padding:10,font:{size:10}}}},scales:{x:{grid:gc},y:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:10}}}}}}));
-    // 通路業績佔比 — D3 Treemap
+    // 通路業績佔比 — D3 Bubble Chart + 浮動動畫
     (function(){
       const total=XLS_TOTAL||1;
       const allChannels=[
@@ -776,27 +776,48 @@ const builds={
       ];
       const wrap=document.getElementById('c1-wrap');
       const W=wrap.offsetWidth||320, H=195;
-      const root=d3.hierarchy({children:allChannels}).sum(d=>d.value||0).sort((a,b)=>b.value-a.value);
-      d3.treemap().size([W,H]).padding(2).round(true)(root);
+      const root=d3.pack().size([W,H]).padding(4)(
+        d3.hierarchy({children:allChannels}).sum(d=>d.value||0)
+      );
       const svg=d3.select('#c1').attr('viewBox',`0 0 ${W} ${H}`);
-      const cell=svg.selectAll('g').data(root.leaves()).join('g')
-        .attr('transform',d=>`translate(${d.x0},${d.y0})`).style('cursor','pointer');
-      cell.append('rect')
-        .attr('width',0).attr('height',0)
-        .attr('fill',d=>d.data.color).attr('opacity',0.85).attr('rx',3)
-        .on('mouseover',function(e,d){d3.select(this).attr('opacity',1);})
-        .on('mouseout',function(e,d){d3.select(this).attr('opacity',0.85);})
-        .transition().duration(800).ease(d3.easeCubicOut)
-        .attr('width',d=>d.x1-d.x0).attr('height',d=>d.y1-d.y0);
-      cell.append('text').attr('x',4).attr('y',14)
-        .attr('font-size',d=>(d.x1-d.x0)>55?'11':'9')
-        .attr('fill','#fff').attr('opacity',0)
-        .text(d=>(d.x1-d.x0)>30?d.data.name:'')
-        .transition().delay(600).duration(400).attr('opacity',1);
-      cell.append('text').attr('x',4).attr('y',27)
-        .attr('font-size','9').attr('fill','rgba(255,255,255,0.7)').attr('opacity',0)
-        .text(d=>(d.x1-d.x0)>55?(d.value/total*100).toFixed(1)+'%':'')
-        .transition().delay(700).duration(400).attr('opacity',1);
+      const node=svg.selectAll('g').data(root.leaves()).join('g')
+        .attr('transform',d=>`translate(${d.x},${d.y})`).style('cursor','pointer');
+      // 泡泡
+      node.append('circle')
+        .attr('r',0).attr('fill',d=>d.data.color).attr('opacity',0.82)
+        .attr('stroke',d=>d.data.color).attr('stroke-width',1.5).attr('stroke-opacity',0.4)
+        .on('mouseover',function(e,d){
+          d3.select(this).attr('opacity',1).attr('stroke-opacity',1);
+          svg.select('#bubble-tip').text(`${d.data.name}  ${fmt(d.data.value)}  (${(d.data.value/total*100).toFixed(1)}%)`);
+        })
+        .on('mouseout',function(e,d){
+          d3.select(this).attr('opacity',0.82).attr('stroke-opacity',0.4);
+          svg.select('#bubble-tip').text('');
+        })
+        .transition().duration(900).ease(d3.easeElasticOut.amplitude(1).period(0.5))
+        .attr('r',d=>d.r);
+      // 文字
+      node.append('text').attr('text-anchor','middle').attr('dy','0.35em')
+        .attr('font-size',d=>Math.max(7,Math.min(11,d.r*0.45)))
+        .attr('fill','#fff').attr('pointer-events','none').attr('opacity',0)
+        .text(d=>d.r>18?d.data.name:'')
+        .transition().delay(800).duration(400).attr('opacity',1);
+      node.append('text').attr('text-anchor','middle').attr('dy','1.4em')
+        .attr('font-size',d=>Math.max(6,Math.min(9,d.r*0.35)))
+        .attr('fill','rgba(255,255,255,0.65)').attr('pointer-events','none').attr('opacity',0)
+        .text(d=>d.r>28?(d.data.value/total*100).toFixed(1)+'%':'')
+        .transition().delay(900).duration(400).attr('opacity',1);
+      // tooltip 文字列
+      svg.append('text').attr('id','bubble-tip').attr('x',W/2).attr('y',H-4)
+        .attr('text-anchor','middle').attr('font-size','9').attr('fill','#ccd6f6');
+      // 浮動動畫
+      function floatBubbles(){
+        node.transition().duration(2800+Math.random()*1200)
+          .ease(d3.easeSinInOut)
+          .attr('transform',d=>`translate(${d.x+(Math.random()-0.5)*6},${d.y+(Math.random()-0.5)*5})`)
+          .on('end',floatBubbles);
+      }
+      setTimeout(floatBubbles, 1000);
     })();
     const pcts=REPS.map(r=>r.tgt>0?Math.round(r.act/r.tgt*100):null);
     const validReps=REPS.filter(r=>r.tgt>0);
