@@ -757,13 +757,13 @@ const builds={
       {label:'去年',data:[38800000,32900000,27200000,37800000,97562898,76677456],borderColor:'#888780',borderDash:[4,4],tension:.4,pointRadius:2,fill:false},
       {label:'目標',data:[42000000,36000000,32000000,40000000,52000000,38000000],borderColor:'#e0b84f',borderDash:[6,3],tension:.4,pointRadius:0,fill:false},
     ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,padding:10,font:{size:10}}}},scales:{x:{grid:gc},y:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:10}}}}}}));
-    // 通路業績佔比 — Waffle Chart
+    // 通路業績佔比 — 橫向排行 Bar
     (function(){
       const total=XLS_TOTAL||1;
       const channels=[
         {name:'康是美',value:XLS_DIRECT.find(d=>d.n==='康是美').v,color:'#4caf82'},
-        {name:'藥房',value:XLS_BIZ.find(d=>d.n==='藥房業務').v,color:'#4fa3e0'},
-        {name:'超市',value:XLS_BIZ.find(d=>d.n==='超市業務').v,color:'#6cb3e8'},
+        {name:'藥房業務',value:XLS_BIZ.find(d=>d.n==='藥房業務').v,color:'#4fa3e0'},
+        {name:'超市業務',value:XLS_BIZ.find(d=>d.n==='超市業務').v,color:'#6cb3e8'},
         {name:'大樹',value:XLS_BIZ.find(d=>d.n==='└ 大樹').v,color:'#a6d1f5'},
         {name:'小北',value:XLS_BIZ.find(d=>d.n==='└ 小北').v,color:'#b8daf8'},
         {name:'全家',value:XLS_DIRECT.find(d=>d.n==='全台(全家)').v,color:'#6dc49a'},
@@ -775,59 +775,27 @@ const builds={
         {name:'OK',value:XLS_DIRECT.find(d=>d.n==='來來(OK)').v,color:'#cef2df'},
       ].sort((a,b)=>b.value-a.value);
       const wrap=document.getElementById('c1-wrap');
-      const W=wrap.offsetWidth||320, H=260;
-      const COLS=10, ROWS=10, PAD=2;
-      const cw=Math.floor((W*0.62-PAD*(COLS-1))/COLS);
-      const ch=Math.floor((H-PAD*(ROWS-1)-28)/ROWS);
-      // 每格代表 1%，總 100 格
-      const cells=[];
-      let remaining=100;
-      channels.forEach(ch2=>{
-        const pct=Math.round(ch2.value/total*100);
-        const count=Math.min(pct,remaining);
-        for(let i=0;i<count;i++) cells.push({color:ch2.color,name:ch2.name,pct});
-        remaining-=count;
-      });
-      while(cells.length<100) cells.push({color:'#1e2436',name:'',pct:0});
-      const div=document.createElement('div');
-      div.style.cssText=`display:flex;gap:8px;height:${H}px;align-items:flex-start;padding:4px 0`;
-      // 格子區
-      const grid=document.createElement('div');
-      grid.style.cssText=`display:grid;grid-template-columns:repeat(${COLS},${cw}px);grid-template-rows:repeat(${ROWS},${ch}px);gap:${PAD}px;flex-shrink:0`;
-      let tipEl=null;
-      cells.forEach((c,i)=>{
-        const cell=document.createElement('div');
-        cell.style.cssText=`width:${cw}px;height:${ch}px;border-radius:2px;background:${c.color};opacity:0;transition:opacity 0.05s ${i*8}ms, transform 0.15s, box-shadow 0.15s`;
-        cell.onmouseenter=()=>{
-          cell.style.transform='scale(1.3)';
-          cell.style.boxShadow=`0 0 6px ${c.color}`;
-          if(tipEl) tipEl.textContent=c.name?`${c.name}  ${c.pct}%`:'';
-        };
-        cell.onmouseleave=()=>{cell.style.transform='';cell.style.boxShadow='';if(tipEl)tipEl.textContent='';};
-        grid.appendChild(cell);
-        setTimeout(()=>{cell.style.opacity='1';},50+i*12);
-      });
-      div.appendChild(grid);
-      // 圖例
-      const legend=document.createElement('div');
-      legend.style.cssText='display:flex;flex-direction:column;gap:5px;padding-top:2px;flex:1;overflow:hidden';
-      channels.forEach(ch2=>{
-        const pct=Math.round(ch2.value/total*100);
-        if(pct===0) return;
-        const row=document.createElement('div');
-        row.style.cssText='display:flex;align-items:center;gap:5px;cursor:default';
-        row.innerHTML=`<div style="width:8px;height:8px;border-radius:2px;background:${ch2.color};flex-shrink:0"></div><span style="font-size:9px;color:#8892b0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ch2.name}</span><span style="font-size:9px;color:${ch2.color};font-weight:700;flex-shrink:0">${pct}%</span>`;
-        legend.appendChild(row);
-      });
-      div.appendChild(legend);
-      // tooltip
-      tipEl=document.createElement('div');
-      tipEl.style.cssText='position:absolute;bottom:6px;left:0;right:0;text-align:center;font-size:10px;color:#ccd6f6;pointer-events:none';
-      wrap.style.position='relative';
-      wrap.appendChild(div);
-      wrap.appendChild(tipEl);
-      // 隱藏 svg
       document.getElementById('c1').style.display='none';
+      const div=document.createElement('div');
+      div.style.cssText='padding:6px 4px;overflow-y:auto;height:260px';
+      const maxVal=channels[0].value;
+      channels.forEach((ch,i)=>{
+        const pct=(ch.value/total*100).toFixed(1);
+        const barW=Math.round(ch.value/maxVal*100);
+        const row=document.createElement('div');
+        row.style.cssText='margin-bottom:10px';
+        row.innerHTML=`
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">
+            <span style="font-size:10px;color:#ccd6f6">${ch.name}</span>
+            <span style="font-size:10px;color:${ch.color};font-weight:700">${fmt(ch.value)}<span style="font-size:9px;color:#8892b0;font-weight:400;margin-left:4px">${pct}%</span></span>
+          </div>
+          <div style="height:10px;background:#1a2040;border-radius:5px;overflow:hidden">
+            <div class="chbar" data-w="${barW}" style="height:100%;width:0%;background:linear-gradient(90deg,${ch.color}88,${ch.color});border-radius:5px;transition:width 1s cubic-bezier(.4,0,.2,1) ${i*80}ms;box-shadow:0 0 4px ${ch.color}66"></div>
+          </div>`;
+        div.appendChild(row);
+      });
+      wrap.appendChild(div);
+      setTimeout(()=>{div.querySelectorAll('.chbar').forEach(b=>{b.style.width=b.dataset.w+'%'});},100);
     })();
     const pcts=REPS.map(r=>r.tgt>0?Math.round(r.act/r.tgt*100):null);
     const validReps=REPS.filter(r=>r.tgt>0);
