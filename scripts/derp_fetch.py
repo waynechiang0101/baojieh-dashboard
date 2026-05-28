@@ -564,49 +564,27 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     super_derp   = total_mo - pharma_derp - all_direct
     derp_total   = total_mo
 
-    # KPI cards — DERP 預設，XLS 覆蓋（若有）
-    xls_perf = parse_xls_performance()
-    if xls_perf:
-        pg_total_fin = xls_perf['pg_total']
-        pharma_final = xls_perf['pharma']
-        super_final  = xls_perf['super']
-        chain_fin    = {k: int(xls_perf['channels'].get(k, 0)) for k in ['丁丁','啄木鳥','大樹','小北','B&C']}
-        dir_fin      = {
-            '全台(全家)': int(xls_perf['channels'].get('全台全家', 0)),
-            '捷盟(7-11)': int(xls_perf['channels'].get('捷盟7-11', 0)),
-            '萊爾富':     int(xls_perf['channels'].get('萊爾富', 0)),
-            '來來(OK)':   int(xls_perf['channels'].get('來來OK', 0)),
-            '康是美':     int(xls_perf['km_direct']),
-        }
-        sub_kpi('P&G 本月業績', fm(pg_total_fin),
-                f"↑ 業務達成 {xls_perf['biz_pct']:.1%} · 時間 {xls_perf['time_pct']:.0%}")
-        sub_kpi('交易客戶', f"{xls_perf['traded']:,}", f"目標 {xls_perf['traded_tgt']:,} 門市")
-        sub_kpi('藥房業務本月', fm(pharma_final), '業務rep · 藥局通路')
-        sub_kpi('超市業務本月', fm(super_final),  '業務rep · 超市通路')
-        sub_kpi('康是美本月',   fm(xls_perf['km_direct']), '直送門市')
-        sub_kpi('CVS盤商本月',  fm(xls_perf['cvs_others']), '全家+7-11+萊爾富+OK')
-        print(f"  ✓ XLS 覆蓋通路KPI: P&G{pg_total_fin//10000}萬 "
-              f"藥房{pharma_final//10000}萬 超市{super_final//10000}萬 KM{xls_perf['km_direct']//10000}萬")
-    else:
-        pg_total_fin = derp_total
-        pharma_final = pharma_derp
-        super_final  = super_derp
-        chain_fin    = {k: int(chain_totals.get(k, 0)) for k in ['丁丁','啄木鳥','大樹','小北','B&C']}
-        dir_fin      = {
-            '全台(全家)': int(direct_totals.get('全台(全家)', 0)),
-            '捷盟(7-11)': int(direct_totals.get('捷盟(7-11)', 0)),
-            '萊爾富':     int(direct_totals.get('萊爾富', 0)),
-            '來來(OK)':   int(direct_totals.get('來來(OK)', 0)),
-            '康是美':     int(km_derp),
-        }
-        sub_kpi('P&G 本月業績', fm(pg_total_fin))
-        sub_kpi('交易客戶', f'{cust_cnt:,}', f'目標 {cust_cnt:,} 門市')
-        sub_kpi('藥房業務本月', fm(pharma_final), '業務rep · 藥局通路')
-        sub_kpi('超市業務本月', fm(super_final),  '業務rep · 超市通路')
-        sub_kpi('康是美本月',   fm(km_derp),     '直送門市')
-        sub_kpi('CVS盤商本月',  fm(cvs_others),  '全家+7-11+萊爾富+OK')
-        print(f"  ✓ DERP 通路KPI: 藥房{pharma_derp//10000}萬 "
-              f"超市{super_derp//10000}萬 KM{km_derp//10000}萬")
+    # KPI cards — 100% DERP，不讀 XLS
+    xls_perf = None
+    pg_total_fin = derp_total
+    pharma_final = pharma_derp
+    super_final  = super_derp
+    chain_fin    = {k: int(chain_totals.get(k, 0)) for k in ['丁丁','啄木鳥','大樹','小北','B&C']}
+    dir_fin      = {
+        '全台(全家)': int(direct_totals.get('全台(全家)', 0)),
+        '捷盟(7-11)': int(direct_totals.get('捷盟(7-11)', 0)),
+        '萊爾富':     int(direct_totals.get('萊爾富', 0)),
+        '來來(OK)':   int(direct_totals.get('來來(OK)', 0)),
+        '康是美':     int(km_derp),
+    }
+    sub_kpi('P&G 本月業績', fm(pg_total_fin))
+    sub_kpi('交易客戶', f'{cust_cnt:,}', f'目標 {cust_cnt:,} 門市')
+    sub_kpi('藥房業務本月', fm(pharma_final), '業務rep · 藥局通路')
+    sub_kpi('超市業務本月', fm(super_final),  '業務rep · 超市通路')
+    sub_kpi('康是美本月',   fm(km_derp),     '直送門市')
+    sub_kpi('CVS盤商本月',  fm(cvs_others),  '全家+7-11+萊爾富+OK')
+    print(f"  ✓ DERP 通路KPI: 藥房{pharma_derp//10000}萬 "
+          f"超市{super_derp//10000}萬 KM{km_derp//10000}萬")
 
     # ── 通路明細 JS arrays ──
     biz_rows = [
