@@ -523,8 +523,11 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     # ── Overview KPIs ──
     sub_kpi('季累計', fm(total_q))
     sub_kpi('IYA 成長', f'+{iya_pct}%' if iya_pct>=0 else f'{iya_pct}%')
-    if uncollected:
-        sub_kpi('未收款', fm(uncollected))
+    if uncollected is not None:
+        if uncollected > 0:
+            sub_kpi('未收款', fm(uncollected), '需追蹤')
+        else:
+            sub_kpi('未收款', fm(-uncollected), '收款已超標 ✓')
 
     # ── 通路明細：從 DERP 自動計算（XLS 僅作輔助對照）──
     ch_mo_data = mo.get('ch', {})
