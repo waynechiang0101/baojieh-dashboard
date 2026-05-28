@@ -349,6 +349,42 @@ def parse_inventory_html(path):
     return result
 
 
+# ── 解析 DERP 應收帳款 XLS（業務別收款總表by Excel）────────────────
+def parse_derp_ar_xls():
+    """解析 DERP 業務帳款總表 XLS，回傳 (ar_reps, total_unpaid)
+    ar_reps: [{code, name, sales, cleared, unpaid}, ...]
+    """
+    import glob, xlrd
+    # 檔名格式：86041711_YYYYMMDDHHII.xls
+    pattern = os.path.expanduser("~/Downloads/86041711_*.xls")
+    files = sorted(glob.glob(pattern), key=os.path.getmtime)
+    if not files:
+        print("  ⚠ 找不到 DERP AR XLS（86041711_*.xls），跳過應收資料")
+        return [], 0
+    path = files[-1]
+    print(f"  讀取AR: {os.path.basename(path)}")
+    wb = xlrd.open_workbook(path)
+    ws = wb.sheet_by_index(0)
+    ar_reps = []
+    total_unpaid = 0
+    for i in range(ws.nrows):
+        v4 = str(ws.cell_value(i, 4)).strip()
+        if v4 == '業務小計':
+            code = str(ws.cell_value(i, 0)).strip()
+            name = str(ws.cell_value(i, 1)).strip()
+            sales   = float(ws.cell_value(i, 5) or 0)
+            cleared = float(ws.cell_value(i, 6) or 0)
+            unpaid  = float(ws.cell_value(i, 7) or 0)
+            if code.startswith('MS') and code != 'MS999':
+                m = re.match(r'MS\d+[. ]+(.+)', name)
+                short = m.group(1).strip() if m else name
+                ar_reps.append({'code': code, 'name': short, 'sales': int(sales), 'cleared': int(cleared), 'unpaid': int(unpaid)})
+        elif v4 == '業務總計':
+            total_unpaid = int(float(ws.cell_value(i, 7) or 0))
+    print(f"  ✓ AR: {len(ar_reps)}人  應收未付: ${total_unpaid/1e6:.1f}M")
+    return ar_reps, total_unpaid
+
+
 # ── 讀取本地收款 Excel ────────────────────────────────────
 def parse_local_payment_xls():
     import glob, xlrd
@@ -461,7 +497,7 @@ def parse_xls_performance():
 
 
 # ── 更新 dashboard.html ──────────────────────────────────
-def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=None):
+def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=None, ar_reps=None, ar_unpaid=0):
     html = DASHBOARD.read_text(encoding='utf-8')
     def esc(s): return s.replace("'","`")
     def fm(n): return '$' + f"{int(round(n)):,}"
@@ -523,11 +559,8 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     # ── Overview KPIs ──
     sub_kpi('季累計', fm(total_q))
     sub_kpi('IYA 成長', f'+{iya_pct}%' if iya_pct>=0 else f'{iya_pct}%')
-    if uncollected is not None:
-        if uncollected > 0:
-            sub_kpi('未收款', fm(uncollected), '需追蹤')
-        else:
-            sub_kpi('未收款', fm(-uncollected), '收款已超標 ✓')
+    if ar_unpaid:
+        sub_kpi('應收未付', fm(ar_unpaid), '應收帳款未付')
 
     # ── 通路明細：從 DERP 自動計算（XLS 僅作輔助對照）──
     ch_mo_data = mo.get('ch', {})
@@ -868,6 +901,16 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         html = re.sub(r'(\d+)月 MBO 收款 · 真實資料',
                       f'{mo_label} MBO 收款 · 真實資料', html)
 
+    # ── AR 應收帳款資料注入 ──
+    if ar_reps:
+        ar_lines = [
+            f"  {{code:'{r['code']}',name:'{esc(r['name'])}',sales:{r['sales']},cleared:{r['cleared']},unpaid:{r['unpaid']}}}"
+            for r in sorted(ar_reps, key=lambda x: x['unpaid'], reverse=True)
+        ]
+        html = re.sub(r'const AR_REPS=\[[\s\S]*?\];',
+                      'const AR_REPS=[\n'+',\n'.join(ar_lines)+'\n];', html)
+        html = re.sub(r'const AR_TOTAL=\d+;', f'const AR_TOTAL={ar_unpaid};', html)
+
     # ── 月業績趨勢 ──
     apr_total     = sum(m.get('grp',{}).values())
     iya_apr_total = sum(iya_q.get('grp',{}).values()) - sum(iya_mo.get('grp',{}).values()) if iya_q else 0
@@ -963,8 +1006,10 @@ def main():
     data_iya_mo = dl_sales(s, ly_mostart, ly_today, "去年本月")
 
     print("\n[收款 Excel]")
+    pays_list, uncollected = parse_local_payment_xls()
 
-    print("\n[業績追踨 XLS]")
+    print("\n[應收帳款 AR]")
+    ar_reps, ar_unpaid = parse_derp_ar_xls()
 
     print("\n[解析]")
     q      = parse_xls(data_q);      print(f"  季累計  → 集團:{len(q.get('grp',{}))} 門市:{len(q.get('store',{}))} 業務:{len(q.get('rep',{}))}")
@@ -988,7 +1033,7 @@ def main():
     except Exception as e:
         print(f"  ⚠ 庫存下載失敗（業績仍正常更新）: {e}")
 
-    update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data)
+    update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data, ar_reps, ar_unpaid)
 
 
 if __name__ == "__main__":
