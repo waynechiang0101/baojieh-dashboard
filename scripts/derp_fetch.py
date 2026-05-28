@@ -351,20 +351,58 @@ def parse_inventory_html(path):
 
 # ── 解析 DERP 應收帳款 XLS（業務別收款總表by Excel）────────────────
 def parse_derp_ar_xls():
-    """解析 DERP 業務帳款總表 XLS，回傳 (ar_reps, total_unpaid)
-    ar_reps: [{code, name, sales, cleared, unpaid}, ...]
-    """
-    import glob, xlrd
-    # 檔名格式：86041711_YYYYMMDDHHII.xls
-    pattern = os.path.expanduser("~/Downloads/86041711_*.xls")
-    files = sorted(glob.glob(pattern), key=os.path.getmtime)
-    if not files:
-        print("  ⚠ 找不到 DERP AR XLS（86041711_*.xls），跳過應收資料")
+    """自動從 DERP 撈應收帳款，回傳 (ar_reps, total_unpaid)"""
+    import glob, xlrd, datetime, re
+    user = os.environ.get("DERP_USER", "user34")
+    pwd  = os.environ.get("DERP_PASS",  "user34")
+    s = _post_login(user, pwd)
+    today_d = datetime.date.today()
+    month_start = today_d.replace(day=1)
+
+    base_params = {
+        'appContext': 'derp', 'handheldDevice': 'N', 'accountID': ACCOUNT_ID,
+        '*customerNo': '', '*customerName': '', '*dsr': '', '*dsrName': '',
+        '*territoryCode': '', '*territoryCodeName': '',
+        '*customerNoMerge': '', '*dsrNoMerge': '', '*territoryMerge': '',
+        '*deliveryDate': month_start.strftime('%Y/%m/%d'),
+        '*deliveryDateEnd': today_d.strftime('%Y/%m/%d'),
+        'offSetFlagSelect': '1', '*offSetFlag': '1',
+        '*queryRows': '', '*pageMax': '', '*pageOffset': '0',
+        '*rowsPerPage': '100', '*pageIndex': '1',
+        '*soldToCode': '', '*soldToCodeMerge': '',
+        '*customerClass': '', '*descLocal': '',
+        '*deliveryNo': '', '*deliveryNoEnd': '',
+        'transTypeSelect': '1', '*transType': '1',
+        '*remainTotal': '', '*pageCmd': 'query',
+        '*maxKeyValue': '', '*minKeyValue': '', '*indexSelected': '', '*keySelected': '',
+        'linePerPage': '', '*rptFormat': 'HTML',
+        '*rptLines': '', '*rptOrientation': '', '*rptPageSize': '',
+        '*rptGrayScale': '', '*rptDraftMode': '',
+    }
+    try:
+        r1 = s.post(f'{BASE_URL}/4.FN/derp-421-00.jsp', verify=False, timeout=60, data=base_params)
+        qrows  = re.search(r'name="\*queryRows"[^>]*value="(\d+)"',   r1.text)
+        remain = re.search(r'name="\*remainTotal"[^>]*value="([\d.]+)"', r1.text)
+        if not qrows:
+            print("  ⚠ AR: 查詢無結果，跳過")
+            return [], 0
+        xls_params = dict(base_params)
+        xls_params.update({
+            '*queryRows': qrows.group(1),
+            '*remainTotal': remain.group(1) if remain else '',
+            '*pageOffset': '0', '*pageIndex': '1',
+            '*pageCmd': '', '*rptFormat': 'XLS',
+        })
+        r2 = s.get(f'{BASE_URL}/4.FN/derp-421-14-1.jsp', params=xls_params, verify=False, timeout=120)
+        if r2.content[:4] != b'\xd0\xcf\x11\xe0':
+            print("  ⚠ AR: 下載失敗，回傳非 XLS")
+            return [], 0
+        wb = xlrd.open_workbook(file_contents=r2.content)
+        ws = wb.sheet_by_index(0)
+    except Exception as e:
+        print(f"  ⚠ AR 下載失敗: {e}")
         return [], 0
-    path = files[-1]
-    print(f"  讀取AR: {os.path.basename(path)}")
-    wb = xlrd.open_workbook(path)
-    ws = wb.sheet_by_index(0)
+
     ar_reps = []
     total_unpaid = 0
     for i in range(ws.nrows):
