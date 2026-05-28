@@ -41,7 +41,7 @@ token = json.load(open('/Users/wayne/Library/Preferences/netlify/config.json'))
 | `CVS_STORES` | CVS 便利商店門市 |
 | `XB_STORES` | 小北各分店 |
 | `REPS` | 業務代表績效 |
-| `PAYS` | 收款資料（from 115-05收款.xls） |
+| `PAYS` | 收款資料（from 115-XX收款*.xls，抓最新修改的檔） |
 | `INV_BRANDS` | 庫存（from DERP 327-50.jsp 約45MB） |
 | `XLS_BIZ` | 通路明細（業務直銷：藥房/超市/丁丁/大樹/小北/啄木鳥/B&C） |
 | `XLS_DIRECT` | 通路明細（直送：康是美/全家/7-11/萊爾富/OK） |

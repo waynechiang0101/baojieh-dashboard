@@ -352,8 +352,8 @@ def parse_inventory_html(path):
 # ── 讀取本地收款 Excel ────────────────────────────────────
 def parse_local_payment_xls():
     import glob, xlrd
-    pattern = os.path.expanduser("~/Downloads/115-??收款.xls")
-    files = sorted(glob.glob(pattern))
+    pattern = os.path.expanduser("~/Downloads/115-??收款*.xls")
+    files = sorted(glob.glob(pattern), key=os.path.getmtime)
     if not files:
         print("  ⚠ 找不到 115-XX收款.xls，跳過收款資料")
         return [], 0
