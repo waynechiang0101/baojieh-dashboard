@@ -516,6 +516,18 @@ def parse_xls_performance():
     cvs_total  = fv1(34, 20)   # CVS合計 (全家+7-11+萊爾富+OK+康是美)
     cvs_others = cvs_total - km_direct  # 全家+7-11+萊爾富+OK
 
+    # 業務月目標 (E欄 col4)，每個業務一行
+    rep_tgt = {}
+    for i in range(2, sh0.nrows):
+        cell0 = str(sh0.cell_value(i, 0)).strip()
+        if not cell0: continue
+        m2 = re.match(r'(MS\d+)[. ]+(.+)', cell0)
+        if not m2: continue
+        code = m2.group(1)
+        tgt_v = sh0.cell_value(i, 4)
+        if isinstance(tgt_v, (int, float)) and tgt_v > 0:
+            rep_tgt[code] = int(tgt_v)
+
     return {
         'pg_total':    int(pg_total),
         'pharma':      int(pharma),
@@ -532,6 +544,7 @@ def parse_xls_performance():
         'work_total':  work_total,
         'time_pct':    time_pct,
         'channels':    channels,
+        'rep_tgt':     rep_tgt,
     }
 
 
@@ -886,12 +899,23 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     for m2 in re.finditer(r"\{n:'([^']+)'[^}]*tgt:(\d+)[^}]*qT:(\d+)", html):
         existing_tgts[m2.group(1)] = (int(m2.group(2)), int(m2.group(3)))
 
+    # 從 XLS 讀業務月目標（優先）
+    xls_perf = None
+    try:
+        xls_perf = parse_xls_performance()
+    except Exception as e:
+        print(f"  ⚠ XLS業務目標讀取失敗: {e}")
+    xls_rep_tgt = xls_perf.get('rep_tgt', {}) if xls_perf else {}
+
     rep_lines = []
     for rn, rd in sorted(rep_q.items(), key=lambda x:-x[1]['amt']):
         act   = int(rep_mo.get(rn,{}).get('amt',0))
         q_val = int(rd['amt'])
         iya   = int(rep_iya.get(rn,{}).get('amt',0)) if rep_iya else int(act*.9)
-        tgt, qT = existing_tgts.get(rn, (0, 0))
+        code  = rd.get('code','')
+        # 目標優先順序：XLS業績追踨 > HTML舊值 > 0
+        tgt = xls_rep_tgt.get(code, existing_tgts.get(rn, (0,0))[0])
+        _, qT = existing_tgts.get(rn, (0, 0))
         area  = rd.get('area','')
         bvals = [int(rd['brands'].get(b,0)) for b in REP_BRANDS]
         rep_lines.append(
