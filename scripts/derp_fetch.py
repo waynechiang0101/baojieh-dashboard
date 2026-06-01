@@ -357,14 +357,15 @@ def parse_derp_ar_xls():
     pwd  = os.environ.get("DERP_PASS",  "user34")
     s = _post_login(user, pwd)
     today_d = datetime.date.today()
-    month_start = today_d.replace(day=1)
+    # AR 查近90天，涵蓋所有未付帳款
+    ar_start = today_d - datetime.timedelta(days=90)
 
     base_params = {
         'appContext': 'derp', 'handheldDevice': 'N', 'accountID': ACCOUNT_ID,
         '*customerNo': '', '*customerName': '', '*dsr': '', '*dsrName': '',
         '*territoryCode': '', '*territoryCodeName': '',
         '*customerNoMerge': '', '*dsrNoMerge': '', '*territoryMerge': '',
-        '*deliveryDate': month_start.strftime('%Y/%m/%d'),
+        '*deliveryDate': ar_start.strftime('%Y/%m/%d'),
         '*deliveryDateEnd': today_d.strftime('%Y/%m/%d'),
         'offSetFlagSelect': '1', '*offSetFlag': '1',
         '*queryRows': '', '*pageMax': '', '*pageOffset': '0',
