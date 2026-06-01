@@ -5,14 +5,11 @@ on:
     - cron: '30 10 * * 1-5'  # 台灣時間 18:30（UTC+8），週一到週五
   workflow_dispatch:          # 手動觸發按鈕
 
-permissions:
-  contents: write
-  pages: write
-  id-token: write
-
 jobs:
   update:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -40,32 +37,3 @@ jobs:
           git add dashboard.html
           git diff --cached --quiet || git commit -m "📊 自動更新看板 $(date +'%Y-%m-%d %H:%M')"
           git push
-
-      - name: 部署到 GitHub Pages
-        uses: actions/deploy-pages@v4
-        with:
-          artifact_name: github-pages
-
-  deploy:
-    needs: update
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: main
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: '.'
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
