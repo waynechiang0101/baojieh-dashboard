@@ -5,11 +5,14 @@ on:
     - cron: '30 10 * * 1-5'  # 台灣時間 18:30（UTC+8），週一到週五
   workflow_dispatch:          # 手動觸發按鈕
 
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
 jobs:
   update:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout
@@ -38,51 +41,31 @@ jobs:
           git diff --cached --quiet || git commit -m "📊 自動更新看板 $(date +'%Y-%m-%d %H:%M')"
           git push
 
-      - name: 部署到 Netlify
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-        run: |
-          python - <<'EOF'
-          import os, json, zipfile, time, urllib.request
+      - name: 部署到 GitHub Pages
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages
 
-          token   = os.environ['NETLIFY_AUTH_TOKEN']
-          site_id = os.environ['NETLIFY_SITE_ID']
+  deploy:
+    needs: update
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
 
-          # 建立 zip
-          with zipfile.ZipFile('/tmp/deploy.zip', 'w', zipfile.ZIP_DEFLATED) as z:
-              z.write('dashboard.html', 'dashboard.html')
-              z.writestr('_redirects', '/dashboard.html  /  301\n')
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
 
-          with open('/tmp/deploy.zip', 'rb') as f:
-              data = f.read()
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
 
-          # 上傳
-          req = urllib.request.Request(
-              f'https://api.netlify.com/api/v1/sites/{site_id}/deploys',
-              data=data,
-              headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/zip'},
-              method='POST'
-          )
-          with urllib.request.urlopen(req) as r:
-              deploy = json.loads(r.read())
-          deploy_id = deploy['id']
-          print(f'Deploy started: {deploy_id}')
-
-          # 等待完成
-          for _ in range(30):
-              time.sleep(10)
-              req2 = urllib.request.Request(
-                  f'https://api.netlify.com/api/v1/deploys/{deploy_id}',
-                  headers={'Authorization': f'Bearer {token}'}
-              )
-              with urllib.request.urlopen(req2) as r2:
-                  status = json.loads(r2.read())
-              state = status.get('state', '?')
-              print(f'  state: {state}')
-              if state == 'ready':
-                  print('✅ Netlify 部署完成')
-                  break
-              elif state == 'error':
-                  raise Exception('Netlify deploy failed')
-          EOF
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
