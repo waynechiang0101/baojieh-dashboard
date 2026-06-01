@@ -873,13 +873,22 @@ const builds={
       const sorted=[...validReps].sort((a,b)=>(b.act/b.tgt)-(a.act/a.tgt));
       const div=document.createElement('div');
       div.style.cssText='overflow-y:auto;max-height:258px;padding:4px 6px';
+      // tooltip panel
+      const tip=document.createElement('div');
+      tip.id='race-tip';
+      tip.style.cssText='display:none;background:rgba(10,14,26,0.95);border:1px solid #2a3050;border-radius:8px;padding:10px 12px;margin-bottom:8px';
+      wrap.parentElement.style.position='relative';
+      wrap.parentElement.insertBefore(tip, wrap);
       const CARS=['🏎','🚗','🚕','🚙','🛻','🚐','🚌','🚑'];
       sorted.forEach((r,i)=>{
         const p=Math.round(r.act/r.tgt*100);
         const color=p>=100?'#4caf82':p>=70?'#e0b84f':'#e05a4f';
         const trackW=Math.min(p,100);
         const rank=i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`;
-        div.innerHTML+=`<div style="margin-bottom:6px">
+        const gap=r.tgt-r.act;
+        const row=document.createElement('div');
+        row.style.cssText='margin-bottom:6px;cursor:pointer';
+        row.innerHTML=`
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
             <span style="font-size:11px;width:20px;text-align:center">${rank}</span>
             <span style="font-size:10px;color:#ccd6f6;flex:1">${r.n.replace(/^MS\d+\./,'')}</span>
@@ -890,8 +899,38 @@ const builds={
               <span class="racecar" style="font-size:13px;line-height:1;margin-right:-2px;filter:drop-shadow(0 0 4px ${color})">${CARS[i]||'🚗'}</span>
             </div>
             <div style="position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:9px;color:#3a4a6a">🏁</div>
-          </div>
-        </div>`;
+          </div>`;
+        row.onclick=()=>{
+          const t=document.getElementById('race-tip');
+          const gapColor=gap<=0?'#4caf82':'#e05a4f';
+          const gapStr=gap<=0?`超標 ${fmt(-gap)}`:`差距 ${fmt(gap)}`;
+          t.style.display='block';
+          t.style.borderColor=color+'88';
+          t.innerHTML=`
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <span style="font-size:12px;font-weight:700;color:#e8eaf2">${r.n.replace(/^MS\d+\./,'')} ${CARS[i]||'🚗'}</span>
+              <span style="font-size:11px;font-weight:700;color:${color}">${p}%達成</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center">
+              <div style="background:#1a2040;border-radius:6px;padding:6px">
+                <div style="font-size:9px;color:#4a5580;margin-bottom:2px">月目標</div>
+                <div style="font-size:12px;font-weight:700;color:#8892b0">${fmt(r.tgt)}</div>
+              </div>
+              <div style="background:#1a2040;border-radius:6px;padding:6px">
+                <div style="font-size:9px;color:#4a5580;margin-bottom:2px">目前業績</div>
+                <div style="font-size:12px;font-weight:700;color:${color}">${fmt(r.act)}</div>
+              </div>
+              <div style="background:#1a2040;border-radius:6px;padding:6px">
+                <div style="font-size:9px;color:#4a5580;margin-bottom:2px">${gap<=0?'超標':'差距'}</div>
+                <div style="font-size:12px;font-weight:700;color:${gapColor}">${gap<=0?'+':''}${fmt(Math.abs(gap))}</div>
+              </div>
+            </div>`;
+          // close on outside click
+          setTimeout(()=>document.addEventListener('click',function h(e){
+            if(!t.contains(e.target)&&!row.contains(e.target)){t.style.display='none';document.removeEventListener('click',h);}
+          }),50);
+        };
+        div.appendChild(row);
       });
       wrap.appendChild(div);
       setTimeout(()=>{div.querySelectorAll('.racetrack').forEach(b=>{b.style.width=b.dataset.w+'%'})},150);
