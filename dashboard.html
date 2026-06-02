@@ -342,6 +342,12 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="card"><div class="ct">品牌庫存金額排行</div><div class="cs">未稅金額</div><div style="position:relative;height:300px"><canvas id="c-inv-brand" role="img" aria-label="品牌庫存">品牌庫存</canvas></div></div>
         <div class="card"><div class="ct">倉庫分布（堆疊）</div><div class="cs">各品牌 × 倉庫（金額）</div><div style="position:relative;height:300px"><canvas id="c-inv-wh" role="img" aria-label="倉庫分布">倉庫分布</canvas></div></div>
       </div>
+      <!-- 庫存週轉天數 -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="ct">品牌庫存週轉天數</div>
+        <div class="cs">庫存金額 ÷ 日均業績（季累計） · 天數越少越好</div>
+        <div id="inv-turnover" style="margin-top:10px"></div>
+      </div>
       <div class="card">
         <div class="ct">品牌 Top SKU 明細</div>
         <div class="cs" style="margin-bottom:8px">各品牌最高庫存數量 / 金額 Top 5 SKU · 點選品牌切換</div>
@@ -1297,6 +1303,52 @@ const builds={
     const WH_COLORS={'tainan':'#4fa3e0','kaohsiung':'#4caf82','tp':'#f0d060','km':'#e07ab8','cvs':'#97c459'};
     const WH_LABELS={'tainan':'台南','kaohsiung':'高雄','tp':'桃園','km':'康是美','cvs':'CVS'};
     const top12=INV_BRANDS.slice(0,12);
+
+    // ── 品牌庫存週轉天數 ──
+    (function(){
+      const el=document.getElementById('inv-turnover');
+      if(!el) return;
+      // 季累計天數：用本季已過天數（約從4/1到今天）
+      const today=new Date();
+      const qStart=new Date(today.getFullYear(),3,1); // 4/1
+      const qDays=Math.max(1,Math.round((today-qStart)/(1000*60*60*24)));
+      // 品牌名對應：INV_BRANDS.code → BRANDS index
+      const brandMap={};
+      BRANDS.forEach((b,i)=>{ brandMap[b]=i; });
+      // 季累計業績用 GRP 加總（各集團的 s5）
+      const totalQ5=GRP.reduce((s,g)=>s+g.s5,0);
+      const dailyAvg=totalQ5/qDays;
+      // 每品牌季業績：用 REPS 的 brands 加總（index 對應 BRANDS）
+      const brandQ5=BRANDS.map((_,i)=>REPS.reduce((s,r)=>s+(r.b[i]||0),0));
+      // 渲染
+      const sorted=[...INV_BRANDS].filter(b=>b.amt>0).map(b=>{
+        const bi=brandMap[b.code];
+        const bQ5=bi!==undefined?brandQ5[bi]:0;
+        const dailyB=bQ5>0?bQ5/qDays:dailyAvg; // fallback to overall avg
+        const days=bQ5>0?Math.round(b.amt/dailyB):null;
+        return {...b, days, bQ5};
+      }).filter(b=>b.days!==null).sort((a,b)=>b.days-a.days);
+      const maxDays=sorted[0]?.days||1;
+      el.innerHTML='';
+      sorted.forEach(b=>{
+        const w=Math.round(b.days/maxDays*100);
+        const color=b.days>90?'#e05a4f':b.days>60?'#e0b84f':'#4caf82';
+        const row=document.createElement('div');
+        row.style.cssText='margin-bottom:10px';
+        row.innerHTML=`
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">
+            <span style="font-size:11px;color:#ccd6f6">${b.label}</span>
+            <div style="display:flex;gap:12px;align-items:baseline">
+              <span style="font-size:10px;color:#4a5580">庫存 ${fmt(b.amt)}</span>
+              <span style="font-size:13px;font-weight:700;color:${color}">${b.days} 天</span>
+            </div>
+          </div>
+          <div style="height:8px;background:#1a2040;border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:${w}%;background:linear-gradient(90deg,${color}88,${color});border-radius:4px;transition:width 1s ease"></div>
+          </div>`;
+        el.appendChild(row);
+      });
+    })();
 
     // Brand bar chart
     charts.inv.push(new Chart('c-inv-brand',{type:'bar',data:{
