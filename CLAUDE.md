@@ -1,9 +1,9 @@
 # 寶捷實業業績看板 — Claude 工作手冊
 
 ## 專案概覽
-- **網址**: https://bjworks.netlify.app/dashboard.html
+- **網址**: https://baojieh-dashboard.pages.dev/dashboard.html
 - **GitHub**: https://github.com/waynechiang0101/baojieh-dashboard
-- **Netlify Site ID**: 425e94c7-d4a5-478e-a10c-a7205fa69c21
+- **部署**: Cloudflare Pages — git push 自動觸發部署，無需手動 deploy
 - **資料來源**: DERP ERP (https://gderp.titan.ebiz.tw/derp), 帳號 user34
 
 ## 自動化流程
@@ -81,7 +81,7 @@ token = json.load(open('/Users/wayne/Library/Preferences/netlify/config.json'))
 python3 scripts/derp_fetch.py
 git add dashboard.html && git commit -m "更新" && git push
 ```
-（GitHub Actions 會自動接著部署到 Netlify）
+Cloudflare Pages 連 GitHub，push 後自動部署，約 1 分鐘上線。不需要手動 deploy。
 
 ### 只重新部署（不更新數字）
 用 Netlify API zip 上傳，見 scripts/derp_fetch.py 末段邏輯。
