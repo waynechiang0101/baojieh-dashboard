@@ -238,6 +238,17 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <table><thead><tr><th>#</th><th>分店</th><th>業務</th><th>本月</th><th>本月IYA</th><th>4月</th><th>季累計</th><th>季IYA</th><th>品牌Top3</th></tr></thead><tbody id="tb-xb"></tbody></table>
         </div>
       </div>
+      <div class="card" style="margin-top:12px">
+        <div class="ct">⚠ 小北退步分店</div>
+        <div class="cs" style="margin-bottom:10px">本月業績 &lt; 去年同月 · 依缺口排序 · Top 50 · 目標＝去年同月業績</div>
+        <div class="scroll-wrap">
+          <table><thead><tr>
+            <th>#</th><th>分店</th><th>業務</th>
+            <th>本月業績</th><th>去年同月</th><th>本月達成%</th><th>缺口</th>
+            <th>季累計</th><th>去年同季</th><th>季達成%</th>
+          </tr></thead><tbody id="tb-xb-decline"></tbody></table>
+        </div>
+      </div>
     </div>
 
     <!-- 通路別 -->
@@ -1133,6 +1144,42 @@ const builds={
         <td style="font-size:10px">${brHtml(x.br)}</td>
       </tr>`;
     });
+
+    // ── 退步分店表 ──
+    const tbD=document.getElementById('tb-xb-decline');
+    // 條件：去年同月有資料(iy3>0) 且 本月達成率 < 100%；依缺口（iy3-v3）降冪
+    const declined=XB_STORES
+      .filter(x=>x.iy3>0 && x.v3<x.iy3)
+      .map(x=>({
+        ...x,
+        gap: x.iy3 - x.v3,                                        // 本月缺口
+        moAch: Math.round(x.v3/x.iy3*100),                        // 本月達成%
+        qAch: x.iy5>0 ? Math.round(x.v5/x.iy5*100) : null,       // 季達成%
+      }))
+      .sort((a,b)=>b.gap-a.gap)
+      .slice(0,50);
+    tbD.innerHTML='';
+    if(!declined.length){
+      tbD.innerHTML='<tr><td colspan="10" style="text-align:center;color:#4caf82;padding:16px">目前無退步分店 🎉</td></tr>';
+    } else {
+      declined.forEach((x,i)=>{
+        const moColor=x.moAch<70?'#e05a4f':x.moAch<90?'#e0b84f':'#ccd6f6';
+        const qColor=x.qAch==null?'#4a5580':x.qAch<70?'#e05a4f':x.qAch<90?'#e0b84f':'#4caf82';
+        const qStr=x.qAch==null?'—':`<span style="color:${qColor};font-weight:700">${x.qAch}%</span>`;
+        tbD.innerHTML+=`<tr>
+          <td><span class="rk rn">${i+1}</span></td>
+          <td>${x.s}</td>
+          <td style="color:var(--text2);font-size:11px">${x.r||''}</td>
+          <td class="mn">${fmt(x.v3)}</td>
+          <td class="mn" style="color:var(--text3)">${fmt(x.iy3)}</td>
+          <td class="mn"><span style="color:${moColor};font-weight:700">${x.moAch}%</span></td>
+          <td class="mn" style="color:#e05a4f">-${fmt(x.gap)}</td>
+          <td class="mn">${fmt(x.v5)}</td>
+          <td class="mn" style="color:var(--text3)">${x.iy5>0?fmt(x.iy5):'—'}</td>
+          <td class="mn">${qStr}</td>
+        </tr>`;
+      });
+    }
   },
 
   'cust-channel'(){
