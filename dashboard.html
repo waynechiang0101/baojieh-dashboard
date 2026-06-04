@@ -1320,8 +1320,13 @@ const builds={
         const bQ5=bi!==undefined?brandQ5[bi]:0;
         const dailyB=bQ5>0?bQ5/qDays:dailyAvg; // fallback to overall avg
         const days=bQ5>0?Math.round(b.amt/dailyB):null;
-        return {...b, days, bQ5};
+        return {...b, days, bQ5, dailyB};
       }).filter(b=>b.days!==null).sort((a,b)=>b.days-a.days);
+      // 把 days 和 dailyB 存回原始物件，供 renderInvTabs 使用
+      sorted.forEach(item=>{
+        const orig=INV_BRANDS.find(b=>b.code===item.code);
+        if(orig){ orig._days=item.days; orig._dailyB=item.dailyB; }
+      });
       const maxDays=sorted[0]?.days||1;
       el.innerHTML='';
       sorted.forEach(b=>{
@@ -1398,17 +1403,8 @@ function invSelectBrand(i){
 function renderInvTabs(i){
   const b=INV_BRANDS[i];
   const tb=document.getElementById('tb-inv-sku');
-  // 計算品牌日均銷售（用同一邏輯：季累計 ÷ qDays）
-  const today=new Date();
-  const qStart=new Date(today.getFullYear(),3,1);
-  const qDays=Math.max(1,Math.round((today-qStart)/(1000*60*60*24)));
-  const brandMap={};
-  BRANDS.forEach((bk,j)=>{ brandMap[bk]=j; });
-  const brandQ5=BRANDS.map((_,j)=>REPS.reduce((s,r)=>s+(r.b[j]||0),0));
-  const bi=brandMap[b.code];
-  const bQ5=bi!==undefined?brandQ5[bi]:0;
-  const dailyBrand=bQ5>0?bQ5/qDays:0;
-  // 合併 topA（依金額排序）並加庫存天數
+  const dailyBrand=b._dailyB||0;
+  // 依金額排序，加庫存天數
   const rows=b.topA.map((x,j)=>{
     const days=dailyBrand>0?Math.round(x.a/dailyBrand):null;
     const daysHtml=days===null?'—':`<span style="font-weight:700;color:${days>90?'#e05a4f':days>60?'#e0b84f':'#4caf82'}">${days}天</span>`;
