@@ -313,7 +313,7 @@ def parse_inventory_html(path):
         'qty':0,'amt':0,'tainan':0,'kaohsiung':0,'tp':0,'km':0,'cvs':0,'other':0,
         'skus':{}
     })
-    # 先偵測 header row 的欄位順序，找出「日均銷」的 index
+    # 偵測 header，找「日均銷」欄位 index
     daily_col = None
     for row in rows[:10]:
         cells = re.findall(r'<T[DH][^>]*>(.*?)</T[DH]>', row, re.I|re.S)
@@ -335,7 +335,6 @@ def parse_inventory_html(path):
             amt = float(cleaned[15])
         except: continue
         if qty <= 0: continue
-        # 嘗試解析日均銷
         daily = 0.0
         if daily_col is not None:
             try: daily = float(cleaned[daily_col])
@@ -344,27 +343,46 @@ def parse_inventory_html(path):
         b = brands[brand]
         b['qty'] += qty; b['amt'] += amt; b[g] += amt
         if sku not in b['skus']:
-            b['skus'][sku] = {'name': name[:30], 'qty':0, 'amt':0, 'daily':0.0}
+            b['skus'][sku] = {'name': name[:30], 'qty':0, 'amt':0, 'daily':0.0, 'wh':{}}
         b['skus'][sku]['qty'] += qty
         b['skus'][sku]['amt'] += amt
-        b['skus'][sku]['daily'] += daily  # 跨倉加總日均銷
+        if daily > 0:
+            b['skus'][sku]['daily'] = daily  # 全公司日均銷，各倉相同，直接覆寫
+        # 各倉明細
+        if g not in b['skus'][sku]['wh']:
+            b['skus'][sku]['wh'][g] = {'qty':0, 'amt':0}
+        b['skus'][sku]['wh'][g]['qty'] += qty
+        b['skus'][sku]['wh'][g]['amt'] += amt
+
+    def sku_days(v, qty_override=None):
+        d = v['daily']
+        if d <= 0: return None
+        q = qty_override if qty_override is not None else v['qty']
+        return round(q / d) if q > 0 else None
+
+    def sku_wh(v):
+        result = {}
+        for k in ['tainan','kaohsiung','tp','km','cvs']:
+            w = v['wh'].get(k)
+            if w and w['qty'] > 0:
+                result[k] = {'q': int(w['qty']), 'a': int(w['amt']),
+                              'd': sku_days(v, w['qty'])}
+        return result
+
     result = []
     for code, d in sorted(brands.items(), key=lambda x:-x[1]['amt']):
         skus = d['skus']
         topQ = sorted(skus.items(), key=lambda x:-x[1]['qty'])[:30]
         topA = sorted(skus.items(), key=lambda x:-x[1]['amt'])[:30]
-        def sku_days(v):
-            # 優先用 DERP 日均銷計算天數，日均銷=0 時回 None
-            if v['daily'] > 0:
-                return round(v['qty'] / v['daily'])
-            return None
         result.append({
             'code':code, 'label':BRAND_NAMES.get(code,code),
             'qty':int(d['qty']), 'amt':int(d['amt']),
             'tainan':int(d['tainan']), 'kaohsiung':int(d['kaohsiung']),
             'tp':int(d['tp']), 'km':int(d['km']), 'cvs':int(d['cvs']),
-            'topQ':[{'s':k,'n':v['name'],'q':int(v['qty']),'a':int(v['amt']),'d':sku_days(v)} for k,v in topQ],
-            'topA':[{'s':k,'n':v['name'],'q':int(v['qty']),'a':int(v['amt']),'d':sku_days(v)} for k,v in topA],
+            'topQ':[{'s':k,'n':v['name'],'q':int(v['qty']),'a':int(v['amt']),
+                     'd':sku_days(v),'wh':sku_wh(v)} for k,v in topQ],
+            'topA':[{'s':k,'n':v['name'],'q':int(v['qty']),'a':int(v['amt']),
+                     'd':sku_days(v),'wh':sku_wh(v)} for k,v in topA],
         })
     total_amt = sum(d['amt'] for d in result)
     print(f"  ✓ 庫存: {len(result)} 品牌  ${total_amt/1e6:.1f}M  日均銷欄={'col'+str(daily_col) if daily_col else '未偵測'}")
@@ -1024,10 +1042,19 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     # ── 庫存 (INV_BRANDS / INV_WH) ──
     if inv_data:
         def jstr(v): return str(v).replace("'","`")
+        def wh_js(wh):
+            if not wh: return '{}'
+            parts = []
+            for k in ['tainan','kaohsiung','tp','km','cvs']:
+                if k in wh:
+                    w = wh[k]
+                    d_str = str(w['d']) if w['d'] is not None else 'null'
+                    parts.append(f"{k}:{{q:{w['q']},a:{w['a']},d:{d_str}}}")
+            return '{'+','.join(parts)+'}'
         brand_lines = []
         for b in inv_data:
-            tq = ','.join(f"{{s:'{jstr(x['s'])}',n:'{jstr(x['n'])}',q:{x['q']},a:{x['a']},d:{x['d'] if x['d'] is not None else 'null'}}}" for x in b['topQ'])
-            ta = ','.join(f"{{s:'{jstr(x['s'])}',n:'{jstr(x['n'])}',q:{x['q']},a:{x['a']},d:{x['d'] if x['d'] is not None else 'null'}}}" for x in b['topA'])
+            tq = ','.join(f"{{s:'{jstr(x['s'])}',n:'{jstr(x['n'])}',q:{x['q']},a:{x['a']},d:{x['d'] if x['d'] is not None else 'null'},wh:{wh_js(x.get('wh',{}))}}}" for x in b['topQ'])
+            ta = ','.join(f"{{s:'{jstr(x['s'])}',n:'{jstr(x['n'])}',q:{x['q']},a:{x['a']},d:{x['d'] if x['d'] is not None else 'null'},wh:{wh_js(x.get('wh',{}))}}}" for x in b['topA'])
             brand_lines.append(
                 f"  {{code:'{b['code']}',label:'{b['label']}',qty:{b['qty']},amt:{b['amt']},"
                 f"tainan:{b['tainan']},kaohsiung:{b['kaohsiung']},tp:{b['tp']},km:{b['km']},cvs:{b['cvs']},"

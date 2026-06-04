@@ -350,8 +350,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
       <div class="card">
         <div class="ct">品牌 SKU 庫存明細</div>
-        <div class="cs" style="margin-bottom:8px">各品牌 Full SKU List · 依金額排序 · 點選品牌切換</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="inv-brand-tabs"></div>
+        <div class="cs" style="margin-bottom:8px">依金額排序 · Top 30 · 點選品牌 / 倉庫切換</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="inv-brand-tabs"></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="inv-wh-tabs"></div>
         <div style="overflow-x:auto">
           <table><thead><tr><th>#</th><th>SKU</th><th>品名</th><th>數量</th><th>金額(未稅)</th><th>庫存天數</th></tr></thead><tbody id="tb-inv-sku"></tbody></table>
         </div>
@@ -1381,17 +1382,30 @@ const builds={
       }
     }}));
 
-    // Brand tabs
+    // Brand tabs + 倉庫 tabs
     let activeBrand=INV_BRANDS[0];
     const tabs=document.getElementById('inv-brand-tabs');
     tabs.innerHTML=INV_BRANDS.map((b,i)=>
       `<button onclick="invSelectBrand(${i})" id="invtab-${i}" style="padding:3px 10px;border-radius:20px;font-size:10px;cursor:pointer;border:1px solid var(--border2);background:${i===0?'var(--accent)':'transparent'};color:${i===0?'#fff':'var(--text2)'};">${b.code}</button>`
+    ).join('');
+    const WH_TAB_LIST=[
+      {k:'all',  label:'全倉'},
+      {k:'tainan',    label:'台南'},
+      {k:'kaohsiung', label:'高雄'},
+      {k:'tp',        label:'桃園'},
+      {k:'km',        label:'康是美'},
+      {k:'cvs',       label:'CVS'},
+    ];
+    const whTabs=document.getElementById('inv-wh-tabs');
+    whTabs.innerHTML=WH_TAB_LIST.map((w,i)=>
+      `<button onclick="invSelectWh('${w.k}')" id="invwhtab-${w.k}" style="padding:2px 9px;border-radius:20px;font-size:10px;cursor:pointer;border:1px solid var(--border2);background:${i===0?'#2a4080':'transparent'};color:${i===0?'#a8d0ff':'var(--text2)'};">${w.label}</button>`
     ).join('');
     renderInvTabs(0);
   }
 };
 
 let _invBrandIdx=0;
+let _invWhKey='all';
 function invSelectBrand(i){
   _invBrandIdx=i;
   document.querySelectorAll('[id^="invtab-"]').forEach((el,j)=>{
@@ -1400,17 +1414,33 @@ function invSelectBrand(i){
   });
   renderInvTabs(i);
 }
+function invSelectWh(k){
+  _invWhKey=k;
+  document.querySelectorAll('[id^="invwhtab-"]').forEach(el=>{
+    const active=el.id===`invwhtab-${k}`;
+    el.style.background=active?'#2a4080':'transparent';
+    el.style.color=active?'#a8d0ff':'var(--text2)';
+  });
+  renderInvTabs(_invBrandIdx);
+}
 function renderInvTabs(i){
   const b=INV_BRANDS[i];
   const tb=document.getElementById('tb-inv-sku');
+  const wk=_invWhKey;
   const rows=b.topA.map((x,j)=>{
-    // x.d = DERP 原始庫存天數（數量÷日均銷），null表無銷售紀錄
-    const days=x.d!=null?x.d:null;
-    const daysHtml=days===null?'<span style="color:#4a5580">—</span>'
+    let q,a,days;
+    if(wk==='all'){
+      q=x.q; a=x.a; days=x.d;
+    } else {
+      const w=x.wh&&x.wh[wk];
+      if(!w||w.q<=0) return '';   // 此倉無庫存，跳過
+      q=w.q; a=w.a; days=w.d;
+    }
+    const daysHtml=days==null?'<span style="color:#4a5580">—</span>'
       :`<span style="font-weight:700;color:${days>90?'#e05a4f':days>60?'#e0b84f':'#4caf82'}">${days}天</span>`;
-    return `<tr><td><span class="rk rn">${j+1}</span></td><td class="mn" style="font-size:10px">${x.s}</td><td style="font-size:11px">${x.n}</td><td class="mn">${x.q.toLocaleString()}</td><td class="mn">${fmt(x.a)}</td><td class="mn">${daysHtml}</td></tr>`;
-  });
-  tb.innerHTML=rows.join('');
+    return `<tr><td><span class="rk rn">${j+1}</span></td><td class="mn" style="font-size:10px">${x.s}</td><td style="font-size:11px">${x.n}</td><td class="mn">${q.toLocaleString()}</td><td class="mn">${fmt(a)}</td><td class="mn">${daysHtml}</td></tr>`;
+  }).filter(r=>r!=='');
+  tb.innerHTML=rows.length?rows.join(''):'<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px">此倉無庫存</td></tr>';
 }
 
 function renderStoreTb(data){
