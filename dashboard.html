@@ -1403,11 +1403,11 @@ function invSelectBrand(i){
 function renderInvTabs(i){
   const b=INV_BRANDS[i];
   const tb=document.getElementById('tb-inv-sku');
-  const dailyBrand=b._dailyB||0;
-  // 依金額排序，加庫存天數
   const rows=b.topA.map((x,j)=>{
-    const days=dailyBrand>0?Math.round(x.a/dailyBrand):null;
-    const daysHtml=days===null?'—':`<span style="font-weight:700;color:${days>90?'#e05a4f':days>60?'#e0b84f':'#4caf82'}">${days}天</span>`;
+    // x.d = DERP 原始庫存天數（數量÷日均銷），null表無銷售紀錄
+    const days=x.d!=null?x.d:null;
+    const daysHtml=days===null?'<span style="color:#4a5580">—</span>'
+      :`<span style="font-weight:700;color:${days>90?'#e05a4f':days>60?'#e0b84f':'#4caf82'}">${days}天</span>`;
     return `<tr><td><span class="rk rn">${j+1}</span></td><td class="mn" style="font-size:10px">${x.s}</td><td style="font-size:11px">${x.n}</td><td class="mn">${x.q.toLocaleString()}</td><td class="mn">${fmt(x.a)}</td><td class="mn">${daysHtml}</td></tr>`;
   });
   tb.innerHTML=rows.join('');

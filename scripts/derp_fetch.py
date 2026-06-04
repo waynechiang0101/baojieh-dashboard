@@ -313,6 +313,17 @@ def parse_inventory_html(path):
         'qty':0,'amt':0,'tainan':0,'kaohsiung':0,'tp':0,'km':0,'cvs':0,'other':0,
         'skus':{}
     })
+    # 先偵測 header row 的欄位順序，找出「日均銷」的 index
+    daily_col = None
+    for row in rows[:10]:
+        cells = re.findall(r'<T[DH][^>]*>(.*?)</T[DH]>', row, re.I|re.S)
+        cleaned_h = [re.sub(r'<[^>]+>','',c).strip() for c in cells]
+        for i,h in enumerate(cleaned_h):
+            if '日均' in h:
+                daily_col = i
+                break
+        if daily_col is not None:
+            break
     for row in rows[6:]:
         cells = re.findall(r'<T[DH][^>]*>(.*?)</T[DH]>', row, re.I|re.S)
         cleaned = [re.sub(r'<[^>]+>','',c).strip() for c in cells]
@@ -324,28 +335,39 @@ def parse_inventory_html(path):
             amt = float(cleaned[15])
         except: continue
         if qty <= 0: continue
+        # 嘗試解析日均銷
+        daily = 0.0
+        if daily_col is not None:
+            try: daily = float(cleaned[daily_col])
+            except: pass
         g = _wh_group(wh)
         b = brands[brand]
         b['qty'] += qty; b['amt'] += amt; b[g] += amt
         if sku not in b['skus']:
-            b['skus'][sku] = {'name': name[:30], 'qty':0, 'amt':0}
+            b['skus'][sku] = {'name': name[:30], 'qty':0, 'amt':0, 'daily':0.0}
         b['skus'][sku]['qty'] += qty
         b['skus'][sku]['amt'] += amt
+        b['skus'][sku]['daily'] += daily  # 跨倉加總日均銷
     result = []
     for code, d in sorted(brands.items(), key=lambda x:-x[1]['amt']):
         skus = d['skus']
         topQ = sorted(skus.items(), key=lambda x:-x[1]['qty'])[:30]
         topA = sorted(skus.items(), key=lambda x:-x[1]['amt'])[:30]
+        def sku_days(v):
+            # 優先用 DERP 日均銷計算天數，日均銷=0 時回 None
+            if v['daily'] > 0:
+                return round(v['qty'] / v['daily'])
+            return None
         result.append({
             'code':code, 'label':BRAND_NAMES.get(code,code),
             'qty':int(d['qty']), 'amt':int(d['amt']),
             'tainan':int(d['tainan']), 'kaohsiung':int(d['kaohsiung']),
             'tp':int(d['tp']), 'km':int(d['km']), 'cvs':int(d['cvs']),
-            'topQ':[{'s':k,'n':v['name'],'q':int(v['qty']),'a':int(v['amt'])} for k,v in topQ],
-            'topA':[{'s':k,'n':v['name'],'q':int(v['qty']),'a':int(v['amt'])} for k,v in topA],
+            'topQ':[{'s':k,'n':v['name'],'q':int(v['qty']),'a':int(v['amt']),'d':sku_days(v)} for k,v in topQ],
+            'topA':[{'s':k,'n':v['name'],'q':int(v['qty']),'a':int(v['amt']),'d':sku_days(v)} for k,v in topA],
         })
     total_amt = sum(d['amt'] for d in result)
-    print(f"  ✓ 庫存: {len(result)} 品牌  ${total_amt/1e6:.1f}M")
+    print(f"  ✓ 庫存: {len(result)} 品牌  ${total_amt/1e6:.1f}M  日均銷欄={'col'+str(daily_col) if daily_col else '未偵測'}")
     return result
 
 
@@ -1004,8 +1026,8 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         def jstr(v): return str(v).replace("'","`")
         brand_lines = []
         for b in inv_data:
-            tq = ','.join(f"{{s:'{jstr(x['s'])}',n:'{jstr(x['n'])}',q:{x['q']},a:{x['a']}}}" for x in b['topQ'])
-            ta = ','.join(f"{{s:'{jstr(x['s'])}',n:'{jstr(x['n'])}',q:{x['q']},a:{x['a']}}}" for x in b['topA'])
+            tq = ','.join(f"{{s:'{jstr(x['s'])}',n:'{jstr(x['n'])}',q:{x['q']},a:{x['a']},d:{x['d'] if x['d'] is not None else 'null'}}}" for x in b['topQ'])
+            ta = ','.join(f"{{s:'{jstr(x['s'])}',n:'{jstr(x['n'])}',q:{x['q']},a:{x['a']},d:{x['d'] if x['d'] is not None else 'null'}}}" for x in b['topA'])
             brand_lines.append(
                 f"  {{code:'{b['code']}',label:'{b['label']}',qty:{b['qty']},amt:{b['amt']},"
                 f"tainan:{b['tainan']},kaohsiung:{b['kaohsiung']},tp:{b['tp']},km:{b['km']},cvs:{b['cvs']},"
