@@ -1428,19 +1428,22 @@ function renderInvTabs(i){
   const b=INV_BRANDS[i];
   const tb=document.getElementById('tb-inv-sku');
   const wk=_invWhKey;
-  const rows=b.topA.map((x,j)=>{
-    let q,a,days;
-    if(wk==='all'){
-      q=x.q; a=x.a; days=x.d;
-    } else {
-      const w=x.wh&&x.wh[wk];
-      if(!w||w.q<=0) return '';   // 此倉無庫存，跳過
-      q=w.q; a=w.a; days=w.d;
-    }
-    const daysHtml=days==null?'<span style="color:#4a5580">—</span>'
-      :`<span style="font-weight:700;color:${days>90?'#e05a4f':days>60?'#e0b84f':'#4caf82'}">${days}天</span>`;
-    return `<tr><td><span class="rk rn">${j+1}</span></td><td class="mn" style="font-size:10px">${x.s}</td><td style="font-size:11px">${x.n}</td><td class="mn">${q.toLocaleString()}</td><td class="mn">${fmt(a)}</td><td class="mn">${daysHtml}</td></tr>`;
-  }).filter(r=>r!=='');
+  let list;
+  if(wk==='all'){
+    // 全倉：按總金額排序（topA 本來就是）
+    list=b.topA.map(x=>({...x, _q:x.q, _a:x.a, _d:x.d}));
+  } else {
+    // 單倉：只取該倉有庫存的，按該倉金額重新排序
+    list=b.topA
+      .filter(x=>x.wh&&x.wh[wk]&&x.wh[wk].q>0)
+      .map(x=>({...x, _q:x.wh[wk].q, _a:x.wh[wk].a, _d:x.wh[wk].d}))
+      .sort((a,b)=>b._a-a._a);
+  }
+  const rows=list.map((x,j)=>{
+    const daysHtml=x._d==null?'<span style="color:#4a5580">—</span>'
+      :`<span style="font-weight:700;color:${x._d>90?'#e05a4f':x._d>60?'#e0b84f':'#4caf82'}">${x._d}天</span>`;
+    return `<tr><td><span class="rk rn">${j+1}</span></td><td class="mn" style="font-size:10px">${x.s}</td><td style="font-size:11px">${x.n}</td><td class="mn">${x._q.toLocaleString()}</td><td class="mn">${fmt(x._a)}</td><td class="mn">${daysHtml}</td></tr>`;
+  });
   tb.innerHTML=rows.length?rows.join(''):'<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px">此倉無庫存</td></tr>';
 }
 
