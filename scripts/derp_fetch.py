@@ -334,8 +334,8 @@ def parse_inventory_html(path):
     result = []
     for code, d in sorted(brands.items(), key=lambda x:-x[1]['amt']):
         skus = d['skus']
-        topQ = sorted(skus.items(), key=lambda x:-x[1]['qty'])[:5]
-        topA = sorted(skus.items(), key=lambda x:-x[1]['amt'])[:5]
+        topQ = sorted(skus.items(), key=lambda x:-x[1]['qty'])[:30]
+        topA = sorted(skus.items(), key=lambda x:-x[1]['amt'])[:30]
         result.append({
             'code':code, 'label':BRAND_NAMES.get(code,code),
             'qty':int(d['qty']), 'amt':int(d['amt']),

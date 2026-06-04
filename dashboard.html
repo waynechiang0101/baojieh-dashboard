@@ -340,7 +340,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
       <div class="g2">
         <div class="card"><div class="ct">品牌庫存金額排行</div><div class="cs">未稅金額</div><div style="position:relative;height:300px"><canvas id="c-inv-brand" role="img" aria-label="品牌庫存">品牌庫存</canvas></div></div>
-        <div class="card"><div class="ct">倉庫分布（堆疊）</div><div class="cs">各品牌 × 倉庫（金額）</div><div style="position:relative;height:300px"><canvas id="c-inv-wh" role="img" aria-label="倉庫分布">倉庫分布</canvas></div></div>
+        <div class="card"><div class="ct">倉庫分布（堆疊）</div><div class="cs">各品牌 × 倉庫（金額）· 橫向堆疊</div><div style="position:relative;height:420px"><canvas id="c-inv-wh" role="img" aria-label="倉庫分布">倉庫分布</canvas></div></div>
       </div>
       <!-- 庫存週轉天數 -->
       <div class="card" style="margin-bottom:14px">
@@ -349,18 +349,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div id="inv-turnover" style="margin-top:10px"></div>
       </div>
       <div class="card">
-        <div class="ct">品牌 Top SKU 明細</div>
-        <div class="cs" style="margin-bottom:8px">各品牌最高庫存數量 / 金額 Top 5 SKU · 點選品牌切換</div>
+        <div class="ct">品牌 SKU 庫存明細</div>
+        <div class="cs" style="margin-bottom:8px">各品牌 Full SKU List · 依金額排序 · 點選品牌切換</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="inv-brand-tabs"></div>
-        <div class="g2" style="margin-bottom:8px">
-          <div>
-            <div style="font-size:11px;color:var(--text2);margin-bottom:6px">▲ 數量 Top 5</div>
-            <table><thead><tr><th>#</th><th>SKU</th><th>品名</th><th>數量</th><th>金額(未稅)</th></tr></thead><tbody id="tb-inv-topq"></tbody></table>
-          </div>
-          <div>
-            <div style="font-size:11px;color:var(--text2);margin-bottom:6px">▲ 金額 Top 5</div>
-            <table><thead><tr><th>#</th><th>SKU</th><th>品名</th><th>金額(未稅)</th><th>數量</th></tr></thead><tbody id="tb-inv-topa"></tbody></table>
-          </div>
+        <div style="overflow-x:auto">
+          <table><thead><tr><th>#</th><th>SKU</th><th>品名</th><th>數量</th><th>金額(未稅)</th><th>庫存天數</th></tr></thead><tbody id="tb-inv-sku"></tbody></table>
         </div>
       </div>
     </div>
@@ -1358,18 +1351,30 @@ const builds={
     },options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
       scales:{x:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:9}}},y:{grid:{display:false},ticks:{font:{size:9}}}}}}));
 
-    // Stacked warehouse chart
+    // Stacked warehouse chart — horizontal for easier brand comparison
     const whKeys=['tainan','kaohsiung','tp','km','cvs'];
     charts.inv.push(new Chart('c-inv-wh',{type:'bar',data:{
-      labels:top12.map(b=>b.code),
+      labels:top12.map(b=>`${b.code} ${b.label}`),
       datasets:whKeys.map(k=>({
         label:WH_LABELS[k],
         data:top12.map(b=>b[k]),
         backgroundColor:WH_COLORS[k],
-        stack:'s',borderRadius:k==='tainan'?4:0
+        stack:'s',
+        borderRadius:2
       }))
-    },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,font:{size:10}}}},
-      scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:9}}},y:{stacked:true,grid:gc,ticks:{callback:v=>fmt(v),font:{size:9}}}}}}));
+    },options:{
+      indexAxis:'y',
+      responsive:true,maintainAspectRatio:false,
+      animation:{duration:700,easing:'easeOutQuart'},
+      plugins:{
+        legend:{labels:{boxWidth:10,font:{size:10},padding:10}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${fmt(ctx.raw)}`}}
+      },
+      scales:{
+        x:{stacked:true,grid:gc,ticks:{callback:v=>fmt(v),font:{size:9}}},
+        y:{stacked:true,grid:{display:false},ticks:{font:{size:9}}}
+      }
+    }}));
 
     // Brand tabs
     let activeBrand=INV_BRANDS[0];
@@ -1392,10 +1397,24 @@ function invSelectBrand(i){
 }
 function renderInvTabs(i){
   const b=INV_BRANDS[i];
-  const tq=document.getElementById('tb-inv-topq');
-  const ta=document.getElementById('tb-inv-topa');
-  tq.innerHTML=b.topQ.map((x,j)=>`<tr><td><span class="rk rn">${j+1}</span></td><td class="mn" style="font-size:10px">${x.s}</td><td style="font-size:11px">${x.n}</td><td class="mn">${x.q.toLocaleString()}</td><td class="mn">${fmt(x.a)}</td></tr>`).join('');
-  ta.innerHTML=b.topA.map((x,j)=>`<tr><td><span class="rk rn">${j+1}</span></td><td class="mn" style="font-size:10px">${x.s}</td><td style="font-size:11px">${x.n}</td><td class="mn">${fmt(x.a)}</td><td class="mn">${x.q.toLocaleString()}</td></tr>`).join('');
+  const tb=document.getElementById('tb-inv-sku');
+  // 計算品牌日均銷售（用同一邏輯：季累計 ÷ qDays）
+  const today=new Date();
+  const qStart=new Date(today.getFullYear(),3,1);
+  const qDays=Math.max(1,Math.round((today-qStart)/(1000*60*60*24)));
+  const brandMap={};
+  BRANDS.forEach((bk,j)=>{ brandMap[bk]=j; });
+  const brandQ5=BRANDS.map((_,j)=>REPS.reduce((s,r)=>s+(r.b[j]||0),0));
+  const bi=brandMap[b.code];
+  const bQ5=bi!==undefined?brandQ5[bi]:0;
+  const dailyBrand=bQ5>0?bQ5/qDays:0;
+  // 合併 topA（依金額排序）並加庫存天數
+  const rows=b.topA.map((x,j)=>{
+    const days=dailyBrand>0?Math.round(x.a/dailyBrand):null;
+    const daysHtml=days===null?'—':`<span style="font-weight:700;color:${days>90?'#e05a4f':days>60?'#e0b84f':'#4caf82'}">${days}天</span>`;
+    return `<tr><td><span class="rk rn">${j+1}</span></td><td class="mn" style="font-size:10px">${x.s}</td><td style="font-size:11px">${x.n}</td><td class="mn">${x.q.toLocaleString()}</td><td class="mn">${fmt(x.a)}</td><td class="mn">${daysHtml}</td></tr>`;
+  });
+  tb.innerHTML=rows.join('');
 }
 
 function renderStoreTb(data){
