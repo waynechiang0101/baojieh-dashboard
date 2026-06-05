@@ -18,7 +18,12 @@ _ly      = _today.replace(year=_today.year - 1)
 today    = _today.strftime("%Y/%m/%d")
 q_start  = f"{_today.year}/04/01"
 mo_start = f"{_today.year}/{_today.month:02d}/01"
-m_end    = f"{_today.year}/04/30"
+
+# 上個完整月份（動態）
+_prev_m      = (_today.replace(day=1) - __import__('datetime').timedelta(days=1))
+m_end        = f"{_prev_m.year}/{_prev_m.month:02d}/{_prev_m.day:02d}"
+m_start      = f"{_prev_m.year}/{_prev_m.month:02d}/01"
+
 ly_today  = _ly.strftime("%Y/%m/%d")
 ly_qstart = f"{_ly.year}/04/01"
 ly_mostart = f"{_ly.year}/{_ly.month:02d}/01"
@@ -773,7 +778,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     km_pct = round(km_mo/total_mo*100, 1) if total_mo else 0
     km_mo_chg = round((km_mo/km_apr-1)*100, 1) if km_apr else 0
     sub_kpi('康是美本月', fm(km_mo), f'↑ +{km_mo_chg}% vs 上月' if km_mo_chg >= 0 else f'↓ {km_mo_chg}% vs 上月')
-    sub_kpi('康是美四月', fm(km_apr), '完整月份')
+    sub_kpi('康是美上月', fm(km_apr), '完整月份')
     sub_kpi('康是美分點數', f'{km_cnt}', '康是美門市')
     sub_kpi('康是美佔比', f'{km_pct}%', '高度集中' if km_pct > 40 else '佔全公司')
 
@@ -781,7 +786,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     cvs_pct = round(cvs_mo/total_mo*100, 1) if total_mo else 0
     cvs_mo_chg = round((cvs_mo/cvs_apr-1)*100, 1) if cvs_apr else 0
     sub_kpi('CVS本月', fm(cvs_mo), f'↑ +{cvs_mo_chg}% vs 上月' if cvs_mo_chg >= 0 else f'↓ {cvs_mo_chg}% vs 上月')
-    sub_kpi('CVS四月', fm(cvs_apr), '完整月份')
+    sub_kpi('CVS上月', fm(cvs_apr), '完整月份')
     sub_kpi('CVS門市數', f'{cvs_cnt}', '便利商店')
     sub_kpi('CVS佔比', f'{cvs_pct}%', '佔全公司')
 
@@ -789,7 +794,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     xb_pct = round(xb_mo/total_mo*100, 1) if total_mo else 0
     xb_mo_chg = round((xb_mo/xb_apr-1)*100, 1) if xb_apr else 0
     sub_kpi('小北本月', fm(xb_mo), f'↑ +{xb_mo_chg}% vs 上月' if xb_mo_chg >= 0 else f'↓ {xb_mo_chg}% vs 上月')
-    sub_kpi('小北四月', fm(xb_apr), '完整月份')
+    sub_kpi('小北上月', fm(xb_apr), '完整月份')
     sub_kpi('小北分點數', f'{xb_cnt}', '小北門市')
     sub_kpi('小北佔比', f'{xb_pct}%', '佔全公司')
 
@@ -1111,7 +1116,7 @@ def main():
     print("[下載 本期]")
     data_q  = dl_sales(s, q_start,  today,  "季累計")
     data_mo = dl_sales(s, mo_start, today,  "本月")
-    data_m  = dl_sales(s, q_start,  m_end,  "4月全月")
+    data_m  = dl_sales(s, m_start, m_end, "上月全月")
 
     print("\n[下載 去年同期 IYA]")
     data_iya_q  = dl_sales(s, ly_qstart,  ly_today, "去年季累計")
@@ -1126,7 +1131,7 @@ def main():
     print("\n[解析]")
     q      = parse_xls(data_q);      print(f"  季累計  → 集團:{len(q.get('grp',{}))} 門市:{len(q.get('store',{}))} 業務:{len(q.get('rep',{}))}")
     mo     = parse_xls(data_mo);     print(f"  本月    → 集團:{len(mo.get('grp',{}))}")
-    m      = parse_xls(data_m);      print(f"  4月全月 → 集團:{len(m.get('grp',{}))}")
+    m      = parse_xls(data_m);      print(f"  上月全月 → 集團:{len(m.get('grp',{}))}")
     iya_q  = parse_xls(data_iya_q);  print(f"  去年季  → 集團:{len(iya_q.get('grp',{}))}")
     iya_mo = parse_xls(data_iya_mo); print(f"  去年月  → 集團:{len(iya_mo.get('grp',{}))}")
     pays_list, uncollected = parse_local_payment_xls()
