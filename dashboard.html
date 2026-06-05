@@ -148,7 +148,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="ptabs">
           <button class="ptab on" id="grp-p-s3" onclick="setGrpPeriod('s3',this)">本月業績</button>
           <button class="ptab" id="grp-p-s5" onclick="setGrpPeriod('s5',this)">季累計</button>
-          <button class="ptab" id="grp-p-s4" onclick="setGrpPeriod('s4',this)">4月全月</button>
+          <button class="ptab" id="grp-p-s4" onclick="setGrpPeriod('s4',this)">上月全月</button>
         </div>
       </div>
       <div class="krow">
@@ -161,8 +161,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="card"><div class="ct">集團業績排行 Top 15</div><div class="cs" id="grp-cs">季累計（4/1－05/14）</div><div style="position:relative;height:320px"><canvas id="c-grp" role="img" aria-label="集團排行">集團排行</canvas></div></div>
         <div class="card"><div class="ct">前5大 vs 其餘</div><div class="cs">業績集中度</div><div style="position:relative;height:320px"><canvas id="c-grp-pie" role="img" aria-label="集團佔比">集團佔比</canvas></div></div>
       </div>
-      <div class="card"><div class="ct">集團排行明細</div><div class="cs" style="margin-bottom:10px">含4月 vs 季累計對比</div>
-        <table><thead><tr><th>#</th><th>集團名稱</th><th>4月業績</th><th>本月業績</th><th>本月IYA</th><th>季累計</th><th>季IYA</th><th>品牌Top3</th></tr></thead><tbody id="tb-grp"></tbody></table>
+      <div class="card"><div class="ct">集團排行明細</div><div class="cs" style="margin-bottom:10px">含上月 vs 季累計對比</div>
+        <table><thead><tr><th>#</th><th>集團名稱</th><th>上月業績</th><th>本月業績</th><th>本月IYA</th><th>季累計</th><th>季IYA</th><th>品牌Top3</th></tr></thead><tbody id="tb-grp"></tbody></table>
       </div>
     </div>
 
@@ -175,8 +175,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <span style="font-size:11px;color:var(--text3)" id="store-cnt">Top 100 門市</span>
       </div>
       <div class="card" style="margin-bottom:12px"><div class="ct">個別門市 Top 15</div><div class="cs">季累計含稅</div><div style="position:relative;height:320px"><canvas id="c-store" role="img" aria-label="門市排行">門市排行</canvas></div></div>
-      <div class="card"><div class="ct">個別門市完整明細</div><div class="cs" style="margin-bottom:10px">含4月 vs 季累計 · 集團歸屬 · 成長率</div>
-        <table><thead><tr><th>#</th><th>門市名稱</th><th>所屬集團</th><th>業務</th><th>通路</th><th>本月</th><th>本月IYA</th><th>4月</th><th>季累計</th><th>季IYA</th><th>品牌Top3</th></tr></thead><tbody id="tb-store"></tbody></table>
+      <div class="card"><div class="ct">個別門市完整明細</div><div class="cs" style="margin-bottom:10px">含上月 vs 季累計 · 集團歸屬 · 成長率</div>
+        <table><thead><tr><th>#</th><th>門市名稱</th><th>所屬集團</th><th>業務</th><th>通路</th><th>本月</th><th>本月IYA</th><th>上月</th><th>季累計</th><th>季IYA</th><th>品牌Top3</th></tr></thead><tbody id="tb-store"></tbody></table>
       </div>
     </div>
 
@@ -186,17 +186,17 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="psub">全部分點業績 · 真實資料來源：季P&G</div>
       <div class="krow">
         <div class="kpi"><div class="kl">康是美本月</div><div class="kv">$6,343,937</div><div class="ks up">↓ -88.5% vs 上月</div></div>
-        <div class="kpi"><div class="kl">康是美四月</div><div class="kv">$27,698,896</div><div class="ks">完整月份</div></div>
+        <div class="kpi"><div class="kl">康是美上月</div><div class="kv">$27,698,896</div><div class="ks">完整月份</div></div>
         <div class="kpi"><div class="kl">康是美分點數</div><div class="kv">25</div><div class="ks">康是美門市</div></div>
         <div class="kpi"><div class="kl">康是美佔比</div><div class="kv">28.1%</div><div class="ks dn">佔全公司</div></div>
       </div>
       <div class="g2">
-        <div class="card"><div class="ct">分點業績 Top 20</div><div class="cs">4月 vs 季累計</div><div style="position:relative;height:380px"><canvas id="c-km" role="img" aria-label="康是美分點">康是美分點</canvas></div></div>
+        <div class="card"><div class="ct">分點業績 Top 20</div><div class="cs">上月 vs 季累計</div><div style="position:relative;height:380px"><canvas id="c-km" role="img" aria-label="康是美分點">康是美分點</canvas></div></div>
         <div class="card"><div class="ct">Top 5 vs 其餘</div><div class="cs">季累計集中度</div><div style="position:relative;height:380px"><canvas id="c-km-pie" role="img" aria-label="分點佔比">分點佔比</canvas></div></div>
       </div>
-      <div class="card"><div class="ct">康是美分點完整明細</div><div class="cs" style="margin-bottom:10px">4月 vs 季累計 · 成長率 · 佔集團比</div>
+      <div class="card"><div class="ct">康是美分點完整明細</div><div class="cs" style="margin-bottom:10px">上月 vs 季累計 · 成長率 · 佔集團比</div>
         <div class="scroll-wrap">
-          <table><thead><tr><th>#</th><th>門市</th><th>業務</th><th>本月</th><th>本月IYA</th><th>4月</th><th>季累計</th><th>季IYA</th><th>品牌Top3</th></tr></thead><tbody id="tb-km"></tbody></table>
+          <table><thead><tr><th>#</th><th>門市</th><th>業務</th><th>本月</th><th>本月IYA</th><th>上月</th><th>季累計</th><th>季IYA</th><th>品牌Top3</th></tr></thead><tbody id="tb-km"></tbody></table>
         </div>
       </div>
     </div>
@@ -207,14 +207,14 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="psub">便利商店通路業績 · 真實資料</div>
       <div class="krow">
         <div class="kpi"><div class="kl">CVS本月</div><div class="kv">$1,019,900</div><div class="ks up">↓ -71.2% vs 上月</div></div>
-        <div class="kpi"><div class="kl">CVS四月</div><div class="kv">$4,621,343</div><div class="ks">完整月份</div></div>
+        <div class="kpi"><div class="kl">CVS上月</div><div class="kv">$4,621,343</div><div class="ks">完整月份</div></div>
         <div class="kpi"><div class="kl">CVS門市數</div><div class="kv">38</div><div class="ks">便利商店</div></div>
         <div class="kpi"><div class="kl">CVS佔比</div><div class="kv">4.5%</div><div class="ks">佔全公司</div></div>
       </div>
-      <div class="card" style="margin-bottom:12px"><div class="ct">CVS門市業績排行</div><div class="cs">4月 vs 季累計</div><div style="position:relative;height:300px"><canvas id="c-cvs" role="img" aria-label="CVS">CVS</canvas></div></div>
-      <div class="card"><div class="ct">CVS門市明細</div><div class="cs" style="margin-bottom:10px">4月 vs 季累計 · 成長率</div>
+      <div class="card" style="margin-bottom:12px"><div class="ct">CVS門市業績排行</div><div class="cs">上月 vs 季累計</div><div style="position:relative;height:300px"><canvas id="c-cvs" role="img" aria-label="CVS">CVS</canvas></div></div>
+      <div class="card"><div class="ct">CVS門市明細</div><div class="cs" style="margin-bottom:10px">上月 vs 季累計 · 成長率</div>
         <div class="scroll-wrap">
-          <table><thead><tr><th>#</th><th>門市</th><th>業務</th><th>本月</th><th>本月IYA</th><th>4月</th><th>季累計</th><th>季IYA</th><th>品牌Top3</th></tr></thead><tbody id="tb-cvs"></tbody></table>
+          <table><thead><tr><th>#</th><th>門市</th><th>業務</th><th>本月</th><th>本月IYA</th><th>上月</th><th>季累計</th><th>季IYA</th><th>品牌Top3</th></tr></thead><tbody id="tb-cvs"></tbody></table>
         </div>
       </div>
     </div>
@@ -225,17 +225,17 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="psub">小北通路各分店業績 · 真實資料</div>
       <div class="krow">
         <div class="kpi"><div class="kl">小北本月</div><div class="kv">$1,563,840</div><div class="ks up">↓ -66.0% vs 上月</div></div>
-        <div class="kpi"><div class="kl">小北四月</div><div class="kv">$5,517,061</div><div class="ks">完整月份</div></div>
+        <div class="kpi"><div class="kl">小北上月</div><div class="kv">$5,517,061</div><div class="ks">完整月份</div></div>
         <div class="kpi"><div class="kl">小北分點數</div><div class="kv">111</div><div class="ks">小北門市</div></div>
         <div class="kpi"><div class="kl">小北佔比</div><div class="kv">6.9%</div><div class="ks">佔全公司</div></div>
       </div>
       <div class="g2">
-        <div class="card"><div class="ct">小北各分店業績</div><div class="cs">4月 vs 季累計</div><div style="position:relative;height:340px"><canvas id="c-xb" role="img" aria-label="小北">小北</canvas></div></div>
+        <div class="card"><div class="ct">小北各分店業績</div><div class="cs">上月 vs 季累計</div><div style="position:relative;height:340px"><canvas id="c-xb" role="img" aria-label="小北">小北</canvas></div></div>
         <div class="card"><div class="ct">Top 5 vs 其餘</div><div class="cs">季累計集中度</div><div style="position:relative;height:340px"><canvas id="c-xb-pie" role="img" aria-label="小北佔比">小北佔比</canvas></div></div>
       </div>
-      <div class="card" style="margin-top:12px"><div class="ct">小北分店明細</div><div class="cs" style="margin-bottom:10px">4月 vs 季累計 · 成長率 · 佔集團比</div>
+      <div class="card" style="margin-top:12px"><div class="ct">小北分店明細</div><div class="cs" style="margin-bottom:10px">上月 vs 季累計 · 成長率 · 佔集團比</div>
         <div class="scroll-wrap">
-          <table><thead><tr><th>#</th><th>分店</th><th>業務</th><th>本月</th><th>本月IYA</th><th>4月</th><th>季累計</th><th>季IYA</th><th>品牌Top3</th></tr></thead><tbody id="tb-xb"></tbody></table>
+          <table><thead><tr><th>#</th><th>分店</th><th>業務</th><th>本月</th><th>本月IYA</th><th>上月</th><th>季累計</th><th>季IYA</th><th>品牌Top3</th></tr></thead><tbody id="tb-xb"></tbody></table>
         </div>
       </div>
       <div class="card" style="margin-top:12px">
@@ -254,13 +254,13 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <!-- 通路別 -->
     <div class="pg" id="pg-cust-channel">
       <div class="ptitle">通路別分析</div>
-      <div class="psub">AC 尼爾森通路分類 · 4月 vs 季累計</div>
+      <div class="psub">AC 尼爾森通路分類 · 上月 vs 季累計</div>
       <div class="g2">
-        <div class="card"><div class="ct">通路業績排行</div><div class="cs">4月 vs 季累計對比</div><div style="position:relative;height:300px"><canvas id="c-ch" role="img" aria-label="通路排行">通路排行</canvas></div></div>
+        <div class="card"><div class="ct">通路業績排行</div><div class="cs">上月 vs 季累計對比</div><div style="position:relative;height:300px"><canvas id="c-ch" role="img" aria-label="通路排行">通路排行</canvas></div></div>
         <div class="card"><div class="ct">通路業績佔比</div><div class="cs">季累計</div><div style="position:relative;height:300px"><canvas id="c-ch-pie" role="img" aria-label="通路佔比">通路佔比</canvas></div></div>
       </div>
-      <div class="card"><div class="ct">通路明細</div><div class="cs" style="margin-bottom:10px">4月 vs 季累計 · 成長率 · 佔比</div>
-        <table><thead><tr><th>#</th><th>通路類型</th><th>4月業績</th><th>季累計</th><th>成長</th><th>佔比</th></tr></thead><tbody id="tb-ch"></tbody></table>
+      <div class="card"><div class="ct">通路明細</div><div class="cs" style="margin-bottom:10px">上月 vs 季累計 · 成長率 · 佔比</div>
+        <table><thead><tr><th>#</th><th>通路類型</th><th>上月業績</th><th>季累計</th><th>成長</th><th>佔比</th></tr></thead><tbody id="tb-ch"></tbody></table>
       </div>
     </div>
 
@@ -280,7 +280,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="pg" id="pg-brand">
       <div class="ptitle">品牌排行</div><div class="psub">P&G 各品牌業績 · 客戶維度 × 業務維度</div>
       <div class="g2">
-        <div class="card"><div class="ct">品牌總業績排行</div><div class="cs">4月 / 5月 / 去年4月</div><div style="position:relative;height:260px"><canvas id="c-brand" role="img" aria-label="品牌排行">品牌排行</canvas></div></div>
+        <div class="card"><div class="ct">品牌總業績排行</div><div class="cs">上月 / 本月 / 去年上月</div><div style="position:relative;height:260px"><canvas id="c-brand" role="img" aria-label="品牌排行">品牌排行</canvas></div></div>
         <div class="card"><div class="ct">品牌月趨勢</div><div class="cs">近5個月各品牌走勢</div><div style="position:relative;height:260px"><canvas id="c-btrend" role="img" aria-label="品牌趨勢">品牌趨勢</canvas></div></div>
       </div>
       <div class="g2">
@@ -300,7 +300,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
       <div class="g2">
         <div class="card"><div class="ct">業務 IYA 對比</div><div class="cs">今年 vs 去年同月</div><div style="position:relative;height:240px"><canvas id="c-riya" role="img" aria-label="業務IYA">業務IYA</canvas></div></div>
-        <div class="card"><div class="ct">集團客戶 IYA 排行</div><div class="cs">4月→季累計成長率</div><div style="position:relative;height:240px"><canvas id="c-ciya" role="img" aria-label="客戶IYA">客戶IYA</canvas></div></div>
+        <div class="card"><div class="ct">集團客戶 IYA 排行</div><div class="cs">上月→季累計成長率</div><div style="position:relative;height:240px"><canvas id="c-ciya" role="img" aria-label="客戶IYA">客戶IYA</canvas></div></div>
       </div>
     </div>
 
@@ -1021,7 +1021,7 @@ const builds={
     const vals=GRP.map(g=>g.s3||0);  // 以本月為主軸
     const qvals=GRP.map(g=>g[p]||0);
     const total=vals.reduce((s,v)=>s+v,0);
-    const lbl={'s3':'本月業績','s5':'季累計（4/1至今）','s4':'4月全月'};
+    const lbl={'s3':'本月業績','s5':'季累計（4/1至今）','s4':'上月全月'};
     document.getElementById('grp-cs').textContent='本月業績';
     const shortName=n=>n.replace('股份有限公司(總公司)','').replace('有限公司','').replace(/^[A-Z]\d+-/,'');
     charts['cust-group'].push(new Chart('c-grp',{type:'bar',data:{labels:GRP.map(g=>shortName(g.n)),datasets:[
@@ -1186,7 +1186,7 @@ const builds={
     charts['cust-channel']=[];
     charts['cust-channel'].push(new Chart('c-ch',{type:'bar',data:{labels:CHS.map(c=>c.n),datasets:[
       {label:'季累計',data:CHS.map(c=>c.s5),backgroundColor:'#4fa3e0',borderRadius:3,barPercentage:.55},
-      {label:'4月',data:CHS.map(c=>c.s4),backgroundColor:'rgba(79,163,224,.3)',borderRadius:3,barPercentage:.55},
+      {label:'上月',data:CHS.map(c=>c.s4),backgroundColor:'rgba(79,163,224,.3)',borderRadius:3,barPercentage:.55},
     ]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,font:{size:10}}}},scales:{x:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:10}}}}}}));
     const chT=CHS.reduce((s,c)=>s+c.s5,0);
     const top5c=CHS.slice(0,5),oc=CHS.slice(5).reduce((s,c)=>s+c.s5,0);
@@ -1266,9 +1266,9 @@ const builds={
   brand(){
     charts.brand=[];
     charts.brand.push(new Chart('c-brand',{type:'bar',data:{labels:BRANDS,datasets:[
-      {label:'4月',data:BAPR,backgroundColor:'rgba(79,163,224,.35)',borderRadius:3},
+      {label:'上月',data:BAPR,backgroundColor:'rgba(79,163,224,.35)',borderRadius:3},
       {label:'5月',data:BMAY,backgroundColor:'#4fa3e0',borderRadius:3},
-      {label:'去年4月',data:BIYA_,backgroundColor:'rgba(136,135,128,.25)',borderRadius:3},
+      {label:'去年上月',data:BIYA_,backgroundColor:'rgba(136,135,128,.25)',borderRadius:3},
     ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:8,font:{size:10}}}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:gc,ticks:{callback:v=>fmt(v),font:{size:10}}}}}}));
     charts.brand.push(new Chart('c-btrend',{type:'line',data:{labels:['1月','2月','3月','4月','5月'],datasets:[
       {label:'PAMPS',data:[2800000,2400000,2900000,13614285,8411807],borderColor:'#4fa3e0',tension:.4,fill:false,pointRadius:3},
