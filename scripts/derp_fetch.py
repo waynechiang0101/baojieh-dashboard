@@ -505,14 +505,23 @@ def parse_local_payment_xls():
 
 # ── 讀取業績追踨 Excel (數字對齊 XLS) ────────────────────────
 def parse_xls_performance():
-    """解析 ~/Downloads/*業績追踨*.xls，回傳 dict 或 None。"""
-    import glob, xlrd as _xlrd
+    """解析 ~/Downloads/*業績追踨*.xls，回傳 dict 或 None。
+    用檔名的月份數字排序（115-06 > 115-05），不用 mtime，避免舊檔被開過後搶先。
+    """
+    import glob, xlrd as _xlrd, re as _re
     pattern = os.path.expanduser("~/Downloads/*業績追踨*.xls")
-    files = sorted(glob.glob(pattern), key=os.path.getmtime)
+    files = glob.glob(pattern)
     if not files:
         print("  ⚠ 找不到業績追踨 XLS，通路 KPI 改用 DERP 資料")
         return None
-    path = files[-1]
+    def xls_sort_key(p):
+        # 抓檔名裡的月份數字，e.g. 115-06 → 6，115-05 → 5
+        m = _re.search(r'115-(\d+)', os.path.basename(p))
+        seq_m = _re.search(r'\(1\)-(\d+)', os.path.basename(p))
+        month = int(m.group(1)) if m else 0
+        seq   = int(seq_m.group(1)) if seq_m else 0
+        return (month, seq)
+    path = sorted(files, key=xls_sort_key)[-1]
     print(f"  讀取業績追踨: {os.path.basename(path)}")
     try:
         wb = _xlrd.open_workbook(path)
@@ -842,7 +851,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     for n, s5 in grp_s:
         gb = grp_brands_q.get(n, {})
         lines.append(
-            f"  {{n:'{esc(n)}',s5:{int(s5)},s4:{int(grp_m.get(n,int(s5*.85)))},"
+            f"  {{n:'{esc(n)}',s5:{int(s5)},s4:{int(grp_m.get(n,0))},"
             f"s3:{int(grp_mo.get(n,0))},iya:{int(iya_grp_data.get(n,0))},"
             f"iya3:{int(iya_mo_grp.get(n,0))},br:{top5_brands(gb)}}}"
         )
@@ -863,7 +872,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         iy3 = int(iya_mo_store.get(n,{}).get('amt',0))
         lines.append(
             f"  {{s:'{esc(n)}',g:'{esc(d['grp'])}',r:'{esc(d['rep'])}',ch:'{esc(d['ch'])}',"
-            f"v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',d['amt']*.85))},"
+            f"v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',0))},"
             f"v3:{v3},iy5:{iy5},iy3:{iy3},br:{br}}}"
         )
     html = re.sub(r'const STORES=\[[\s\S]*?\];',
@@ -871,7 +880,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
 
     # ── CHS ──
     ch_s = sorted(ch_q.items(), key=lambda x:-x[1])[:10]
-    lines = [f"  {{n:'{esc(n)}',s5:{int(v)},s4:{int(ch_m.get(n,v*.85))}}}"
+    lines = [f"  {{n:'{esc(n)}',s5:{int(v)},s4:{int(ch_m.get(n,0))}}}"
              for n,v in ch_s]
     html = re.sub(r'const CHS=\[[\s\S]*?\];',
                   'const CHS=[\n'+',\n'.join(lines)+'\n];', html)
@@ -889,7 +898,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         iy5 = int(iya_q_store.get(n,{}).get('amt',0))
         iy3 = int(iya_mo_store.get(n,{}).get('amt',0))
         lines.append(
-            f"  {{s:'{unif_label(n)}',r:'{esc(d['rep'])}',v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',d['amt']*.85))},"
+            f"  {{s:'{unif_label(n)}',r:'{esc(d['rep'])}',v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',0))},"
             f"v3:{v3},iy5:{iy5},iy3:{iy3},br:{br}}}"
         )
     if lines:
@@ -906,7 +915,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         iy5 = int(iya_q_store.get(n,{}).get('amt',0))
         iy3 = int(iya_mo_store.get(n,{}).get('amt',0))
         lines.append(
-            f"  {{s:'{esc(n[:22])}',r:'{esc(d['rep'])}',v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',d['amt']*.85))},"
+            f"  {{s:'{esc(n[:22])}',r:'{esc(d['rep'])}',v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',0))},"
             f"v3:{v3},iy5:{iy5},iy3:{iy3},br:{br}}}"
         )
     html = re.sub(r'const CVS_STORES=\[[\s\S]*?\];',
@@ -922,7 +931,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         iy5 = int(iya_q_store.get(n,{}).get('amt',0))
         iy3 = int(iya_mo_store.get(n,{}).get('amt',0))
         lines.append(
-            f"  {{s:'{esc(n[:22])}',r:'{esc(d['rep'])}',v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',d['amt']*.85))},"
+            f"  {{s:'{esc(n[:22])}',r:'{esc(d['rep'])}',v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',0))},"
             f"v3:{v3},iy5:{iy5},iy3:{iy3},br:{br}}}"
         )
     html = re.sub(r'const XB_STORES=\[[\s\S]*?\];',
