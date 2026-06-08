@@ -138,29 +138,41 @@ def login(page):
         print(f'  嘗試{attempt+1}失敗，重試...')
     return False
 
-# ── 抓取單一廠編資料 ──────────────────────────────
+# ── 抓取單一廠編資料（一次抓完，選500筆/頁）──────────────────────
 def fetch_supplier(page, supplier_id):
     page.locator('select').first.select_option(supplier_id)
     page.locator('button:has-text("查詢")').click()
     page.wait_for_load_state('networkidle', timeout=20000)
 
+    # 切換為每頁500筆（第二個 select 是每頁筆數）
+    try:
+        selects = page.locator('select').all()
+        if len(selects) >= 2:
+            selects[1].select_option('500')
+            page.wait_for_load_state('networkidle', timeout=15000)
+    except:
+        pass
+
     # 抓表頭（週期欄位）
     raw_headers = [th.inner_text().strip() for th in page.locator('table thead tr th').all()]
-    # 去重，取第一組
     seen = []; headers = []
     for h in raw_headers:
         if h not in seen:
             seen.append(h); headers.append(h)
     week_cols = [h for h in headers if '~' in h]
 
-    # 抓所有資料行
-    rows = []
+    # 抓所有資料行，去重（品號+條碼 為 key）
+    all_rows = []
+    seen_keys = set()
     for tr in page.locator('table tbody tr').all():
         cells = [td.inner_text().strip() for td in tr.locator('td').all()]
         if len(cells) >= 6:
-            rows.append(cells)
+            key = f"{cells[3]}_{cells[4]}"
+            if key not in seen_keys:
+                seen_keys.add(key)
+                all_rows.append(cells)
 
-    return week_cols, rows
+    return week_cols, all_rows
 
 # ── 主流程 ────────────────────────────────────────
 def fetch_all_km_sell():
