@@ -250,7 +250,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
       <div class="card" style="margin-top:12px">
         <div class="ct">⚠ 小北退步分店</div>
-        <div class="cs" style="margin-bottom:10px">本月業績 &lt; 去年同月 · 依缺口排序 · Top 50 · 目標＝去年同月業績</div>
+        <div class="cs" style="margin-bottom:10px">上月業績 &lt; 去年同月 · 依缺口排序 · 目標＝去年同月完整業績</div>
         <div class="scroll-wrap">
           <table><thead><tr>
             <th>#</th><th>分店</th><th>業務</th>
@@ -1579,13 +1579,13 @@ const builds={
 
     // ── 退步分店表 ──
     const tbD=document.getElementById('tb-xb-decline');
-    // 條件：去年同月有資料(iy3>0) 且 本月達成率 < 100%；依缺口（iy3-v3）降冪
+    // 條件：去年同月有資料(iy3>0) 且 上月達成率 < 100%；依缺口（iy3-v4）降冪
     const declined=XB_STORES
-      .filter(x=>x.iy3>0 && x.v3<x.iy3)
+      .filter(x=>x.iy3>0 && x.v4<x.iy3)
       .map(x=>({
         ...x,
-        gap: x.iy3 - x.v3,                                        // 本月缺口
-        moAch: Math.round(x.v3/x.iy3*100),                        // 本月達成%
+        gap: x.iy3 - x.v4,                                        // 上月缺口
+        moAch: Math.round(x.v4/x.iy3*100),                        // 上月達成%
         qAch: x.iy5>0 ? Math.round(x.v5/x.iy5*100) : null,       // 季達成%
       }))
       .sort((a, b) => b.gap - a.gap);

@@ -24,6 +24,13 @@ _prev_m      = (_today.replace(day=1) - __import__('datetime').timedelta(days=1)
 m_end        = f"{_prev_m.year}/{_prev_m.month:02d}/{_prev_m.day:02d}"
 m_start      = f"{_prev_m.year}/{_prev_m.month:02d}/01"
 
+# 去年上月（同月份，用於小北退步對比）
+_ly_prev_m   = _prev_m.replace(year=_prev_m.year - 1)
+import calendar as _cal
+ly_prev_m_last = _cal.monthrange(_ly_prev_m.year, _ly_prev_m.month)[1]
+ly_m_start   = f"{_ly_prev_m.year}/{_ly_prev_m.month:02d}/01"
+ly_m_end     = f"{_ly_prev_m.year}/{_ly_prev_m.month:02d}/{ly_prev_m_last:02d}"
+
 ly_today  = _ly.strftime("%Y/%m/%d")
 ly_qstart = f"{_ly.year}/04/01"
 ly_mostart = f"{_ly.year}/{_ly.month:02d}/01"
@@ -603,7 +610,7 @@ def parse_xls_performance():
 
 
 # ── 更新 dashboard.html ──────────────────────────────────
-def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=None, ar_reps=None, ar_unpaid=0, km_sell=None):
+def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=None, ar_reps=None, ar_unpaid=0, km_sell=None, iya_m=None):
     html = DASHBOARD.read_text(encoding='utf-8')
     def esc(s): return s.replace("'","`")
     def fm(n): return '$' + f"{int(round(n)):,}"
@@ -922,6 +929,8 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
                   'const CVS_STORES=[\n'+(',\n'.join(lines) if lines else '')+'\n];', html)
 
     # ── XB_STORES (小北，按本月排序) ──
+    # iy3 改為「去年上月全月」，讓退步分店表月初也有足夠資料（不再只有3家）
+    iya_m_store = iya_m.get('store', {}) if iya_m else {}
     xb_s = sorted(xb_stores.items(),
                   key=lambda x: -mo_store.get(x[0],{}).get('amt',0))[:50]
     lines = []
@@ -929,7 +938,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         br = top5_brands(d.get('brands',{}))
         v3 = int(mo_store.get(n,{}).get('amt',0))
         iy5 = int(iya_q_store.get(n,{}).get('amt',0))
-        iy3 = int(iya_mo_store.get(n,{}).get('amt',0))
+        iy3 = int(iya_m_store.get(n,{}).get('amt',0))  # 去年上月全月
         lines.append(
             f"  {{s:'{esc(n[:22])}',r:'{esc(d['rep'])}',v5:{int(d['amt'])},v4:{int(store_m.get(n,{}).get('amt',0))},"
             f"v3:{v3},iy5:{iy5},iy3:{iy3},br:{br}}}"
@@ -1147,7 +1156,8 @@ def main():
 
     print("\n[下載 去年同期 IYA]")
     data_iya_q  = dl_sales(s, ly_qstart,  ly_today, "去年季累計")
-    data_iya_mo = dl_sales(s, ly_mostart, ly_today, "去年本月")
+    data_iya_mo  = dl_sales(s, ly_mostart, ly_today, "去年本月")
+    data_iya_m   = dl_sales(s, ly_m_start, ly_m_end, "去年上月全月")
 
     print("\n[收款 Excel]")
     pays_list, uncollected = parse_local_payment_xls()
@@ -1160,7 +1170,8 @@ def main():
     mo     = parse_xls(data_mo);     print(f"  本月    → 集團:{len(mo.get('grp',{}))}")
     m      = parse_xls(data_m);      print(f"  上月全月 → 集團:{len(m.get('grp',{}))}")
     iya_q  = parse_xls(data_iya_q);  print(f"  去年季  → 集團:{len(iya_q.get('grp',{}))}")
-    iya_mo = parse_xls(data_iya_mo); print(f"  去年月  → 集團:{len(iya_mo.get('grp',{}))}")
+    iya_mo  = parse_xls(data_iya_mo);  print(f"  去年月  → 集團:{len(iya_mo.get('grp',{}))}")
+    iya_m   = parse_xls(data_iya_m);   print(f"  去年上月全月 → 集團:{len(iya_m.get('grp',{}))}")
     pays_list, uncollected = parse_local_payment_xls()
 
     if not q.get('grp'):
@@ -1186,7 +1197,7 @@ def main():
     except Exception as e:
         print(f"  ⚠ 康是美實銷抓取失敗: {e}")
 
-    update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data, ar_reps, ar_unpaid, km_sell)
+    update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data, ar_reps, ar_unpaid, km_sell, iya_m)
 
 
 if __name__ == "__main__":
