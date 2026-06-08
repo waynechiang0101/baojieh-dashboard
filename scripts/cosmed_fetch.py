@@ -138,13 +138,25 @@ def login(page):
         print(f'  嘗試{attempt+1}失敗，重試...')
     return False
 
-# ── 抓取單一廠編資料（翻頁抓完整資料）──────────────────────
+# ── 抓取單一廠編資料（每頁100筆翻頁）──────────────────────
 def fetch_supplier(page, supplier_id):
+    # 選廠編並查詢
     page.locator('select').first.select_option(supplier_id)
     page.locator('button:has-text("查詢")').click()
     page.wait_for_load_state('networkidle', timeout=20000)
+    page.wait_for_timeout(500)  # 等 AJAX 穩定
 
-    # 抓表頭（週期欄位）
+    # 設每頁 100 筆（查詢完才有這個 select）
+    try:
+        selects = page.locator('select').all()
+        if len(selects) >= 2:
+            selects[1].select_option('100')
+            page.wait_for_load_state('networkidle', timeout=10000)
+            page.wait_for_timeout(300)
+    except:
+        pass
+
+    # 抓表頭
     raw_headers = [th.inner_text().strip() for th in page.locator('table thead tr th').all()]
     seen = []; headers = []
     for h in raw_headers:
@@ -152,7 +164,7 @@ def fetch_supplier(page, supplier_id):
             seen.append(h); headers.append(h)
     week_cols = [h for h in headers if '~' in h]
 
-    # 取得總頁數（第三個 select 是頁碼）
+    # 取得頁碼 select（設 100 筆後頁數大幅減少）
     try:
         selects = page.locator('select').all()
         page_sel = selects[2] if len(selects) >= 3 else None
@@ -160,7 +172,6 @@ def fetch_supplier(page, supplier_id):
     except:
         page_options = ['1']
 
-    # 逐頁抓資料
     all_rows = []
     seen_keys = set()
 
@@ -173,16 +184,17 @@ def fetch_supplier(page, supplier_id):
                     seen_keys.add(key)
                     all_rows.append(cells)
 
-    # 抓第一頁
+    # 第一頁
     collect_rows()
 
-    # 翻頁
+    # 翻頁（如果有多頁）
     for pg in page_options[1:]:
         try:
             selects = page.locator('select').all()
             if len(selects) >= 3:
                 selects[2].select_option(pg)
                 page.wait_for_load_state('networkidle', timeout=10000)
+                page.wait_for_timeout(300)
                 collect_rows()
         except:
             break
