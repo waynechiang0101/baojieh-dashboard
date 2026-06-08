@@ -138,23 +138,12 @@ def login(page):
         print(f'  嘗試{attempt+1}失敗，重試...')
     return False
 
-# ── 抓取單一廠編資料（每頁100筆翻頁）──────────────────────
+# ── 抓取單一廠編資料（只用頁碼翻頁，不動 page size）──────────────────────
 def fetch_supplier(page, supplier_id):
-    # 選廠編並查詢
     page.locator('select').first.select_option(supplier_id)
     page.locator('button:has-text("查詢")').click()
     page.wait_for_load_state('networkidle', timeout=20000)
-    page.wait_for_timeout(500)  # 等 AJAX 穩定
-
-    # 設每頁 100 筆（查詢完才有這個 select）
-    try:
-        selects = page.locator('select').all()
-        if len(selects) >= 2:
-            selects[1].select_option('100')
-            page.wait_for_load_state('networkidle', timeout=10000)
-            page.wait_for_timeout(300)
-    except:
-        pass
+    page.wait_for_timeout(800)
 
     # 抓表頭
     raw_headers = [th.inner_text().strip() for th in page.locator('table thead tr th').all()]
@@ -163,14 +152,6 @@ def fetch_supplier(page, supplier_id):
         if h not in seen:
             seen.append(h); headers.append(h)
     week_cols = [h for h in headers if '~' in h]
-
-    # 取得頁碼 select（設 100 筆後頁數大幅減少）
-    try:
-        selects = page.locator('select').all()
-        page_sel = selects[2] if len(selects) >= 3 else None
-        page_options = [o.get_attribute('value') for o in page_sel.locator('option').all()] if page_sel else ['1']
-    except:
-        page_options = ['1']
 
     all_rows = []
     seen_keys = set()
@@ -184,18 +165,29 @@ def fetch_supplier(page, supplier_id):
                     seen_keys.add(key)
                     all_rows.append(cells)
 
-    # 第一頁
     collect_rows()
 
-    # 翻頁（如果有多頁）
-    for pg in page_options[1:]:
+    # 取頁碼選項（第三個 select：1,2,3...）
+    # 注意：不動第二個 select（page size），只翻頁碼
+    while True:
         try:
             selects = page.locator('select').all()
-            if len(selects) >= 3:
-                selects[2].select_option(pg)
-                page.wait_for_load_state('networkidle', timeout=10000)
-                page.wait_for_timeout(300)
-                collect_rows()
+            if len(selects) < 3:
+                break
+            page_sel = selects[2]
+            opts = page_sel.locator('option').all()
+            # 找目前選中的頁碼
+            current = page_sel.evaluate('el => el.value')
+            all_vals = [o.get_attribute('value') for o in opts]
+            if not all_vals or current == all_vals[-1]:
+                break
+            # 選下一頁
+            idx = all_vals.index(current)
+            next_pg = all_vals[idx + 1]
+            page_sel.select_option(next_pg)
+            page.wait_for_load_state('networkidle', timeout=10000)
+            page.wait_for_timeout(500)
+            collect_rows()
         except:
             break
 
