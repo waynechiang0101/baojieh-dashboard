@@ -138,21 +138,11 @@ def login(page):
         print(f'  嘗試{attempt+1}失敗，重試...')
     return False
 
-# ── 抓取單一廠編資料 ──────────────────────────────
+# ── 抓取單一廠編資料（翻頁抓完整資料）──────────────────────
 def fetch_supplier(page, supplier_id):
     page.locator('select').first.select_option(supplier_id)
     page.locator('button:has-text("查詢")').click()
     page.wait_for_load_state('networkidle', timeout=20000)
-
-    # 查詢結果出來後，把每頁設為 500 再重新查一次，抓完整資料
-    try:
-        selects = page.locator('select').all()
-        # 每頁 select 是第二個（廠編是第一個）
-        if len(selects) >= 2:
-            selects[1].select_option('500')
-            page.wait_for_load_state('networkidle', timeout=15000)
-    except:
-        pass
 
     # 抓表頭（週期欄位）
     raw_headers = [th.inner_text().strip() for th in page.locator('table thead tr th').all()]
@@ -162,16 +152,40 @@ def fetch_supplier(page, supplier_id):
             seen.append(h); headers.append(h)
     week_cols = [h for h in headers if '~' in h]
 
-    # 抓所有資料行，去重
+    # 取得總頁數（第三個 select 是頁碼）
+    try:
+        selects = page.locator('select').all()
+        page_sel = selects[2] if len(selects) >= 3 else None
+        page_options = [o.get_attribute('value') for o in page_sel.locator('option').all()] if page_sel else ['1']
+    except:
+        page_options = ['1']
+
+    # 逐頁抓資料
     all_rows = []
     seen_keys = set()
-    for tr in page.locator('table tbody tr').all():
-        cells = [td.inner_text().strip() for td in tr.locator('td').all()]
-        if len(cells) >= 6:
-            key = f"{cells[3]}_{cells[4]}"
-            if key not in seen_keys:
-                seen_keys.add(key)
-                all_rows.append(cells)
+
+    def collect_rows():
+        for tr in page.locator('table tbody tr').all():
+            cells = [td.inner_text().strip() for td in tr.locator('td').all()]
+            if len(cells) >= 6:
+                key = f"{cells[3]}_{cells[4]}"
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    all_rows.append(cells)
+
+    # 抓第一頁
+    collect_rows()
+
+    # 翻頁
+    for pg in page_options[1:]:
+        try:
+            selects = page.locator('select').all()
+            if len(selects) >= 3:
+                selects[2].select_option(pg)
+                page.wait_for_load_state('networkidle', timeout=10000)
+                collect_rows()
+        except:
+            break
 
     return week_cols, all_rows
 
