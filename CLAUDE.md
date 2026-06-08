@@ -130,3 +130,56 @@ const declined = XB_STORES
 - 年達成欄位（需要 DERP YTD 資料）
 - DERP 廠商 REST API 洽談中（2026-06，談判籌碼：看板商業化合作）
 - 月中達標預估、庫存預警 Telegram 推播（等 API）
+- 消化率：用 DERP SU（標準單位出貨數）÷ 康是美實銷件數（待做）
+
+## 康是美實銷模組（2026-06-08 新增）
+
+### 腳本
+`scripts/cosmed_fetch.py` — playwright + Claude Vision 讀驗證碼自動登入，每次跑 `derp_fetch.py` 自動帶上。
+
+```bash
+# 手動只跑實銷
+ANTHROPIC_API_KEY=xxx python3 scripts/cosmed_fetch.py
+```
+
+### P&G 廠編（排除非P&G）
+| 廠編 | 品牌 |
+|---|---|
+| 8604171183 | OLAY PRO X |
+| 8604171186 | ORALB/BRAUN |
+| 8604171187 | ARIEL |
+| 8604171189 | GLT 吉列 |
+| 8604171191 | CREST |
+| 8604171192 | OLAY 歐蕾 |
+| 8604171193 | WHSP 好自在 |
+| 8604171199 | Hair Care（HS/PNTN/PERT/HR） |
+
+排除：085804（一點絕）、065189（家樂氏）、203135
+
+### KM_SELL JS 結構
+```js
+{
+  weeks: ['20260601~20260607', ...],
+  by_brand_qty: {ARIEL: [件數,...], ...},
+  by_brand_amt: {ARIEL: [估算金額,...], ...},  // 件數 × 零售價
+  by_sku: [{brand, name, barcode, retail, weeks:[件數], amt_weeks:[估算金額]}, ...]
+}
+```
+
+### 零售價來源
+`~/Downloads/康是美門市實銷資料*.xlsx` → sheet `2026實銷資料`
+- col5 = 條碼，col10 = 零售價，col9 = 成本(含稅)
+- 542 筆有價格，28 筆無（新品或獨家包裝）
+- 新增 SKU 直接在這個 xlsx 補充即可
+
+### DERP XLS 欄位結構（dsrDailySales）
+每個品牌佔 4 欄：`箱數 | 含稅金額 | SU | GIV`
+- **SU**（Standard Unit）= 標準單位出貨數，跟實銷件數同單位 → 可做消化率（待實作）
+
+### 數字口徑對照
+| 數字 | 來源 | 口徑 |
+|---|---|---|
+| 看板業績 | DERP dsrDailySales | 和清價，全通路 |
+| 業績追踨XLS | 610.82 業務員銷售 | 和清價，業務管轄通路 |
+| 康是美實銷件數 | 康是美供應商平台 | 消費者實際購買 |
+| 康是美實銷金額 | 件數 × 零售價 | 估算，供參考 |
