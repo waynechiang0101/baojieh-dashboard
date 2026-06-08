@@ -1113,8 +1113,9 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         by_amt_js     = _json.dumps(km_sell['by_brand_amt'], ensure_ascii=False)
         sku_lines = []
         for s in km_sell['by_sku']:
+            bc = s['barcode'].split('\n')[0].strip().replace("'", '')  # 取第一個條碼，清換行
             sku_lines.append(
-                f"  {{brand:'{esc(s['brand'])}',name:'{esc(s['name'])}',barcode:'{s['barcode']}',"
+                f"  {{brand:'{esc(s['brand'])}',name:'{esc(s['name'])}',barcode:'{bc}',"
                 f"retail:{s['retail']},weeks:{s['weeks']},amt_weeks:{s['amt_weeks']}}}"
             )
         by_sku_js = '[\n' + ',\n'.join(sku_lines) + '\n]'
