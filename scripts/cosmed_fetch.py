@@ -138,15 +138,16 @@ def login(page):
         print(f'  嘗試{attempt+1}失敗，重試...')
     return False
 
-# ── 抓取單一廠編資料（一次抓完，選500筆/頁）──────────────────────
+# ── 抓取單一廠編資料 ──────────────────────────────
 def fetch_supplier(page, supplier_id):
     page.locator('select').first.select_option(supplier_id)
     page.locator('button:has-text("查詢")').click()
     page.wait_for_load_state('networkidle', timeout=20000)
 
-    # 切換為每頁500筆（第二個 select 是每頁筆數）
+    # 查詢結果出來後，把每頁設為 500 再重新查一次，抓完整資料
     try:
         selects = page.locator('select').all()
+        # 每頁 select 是第二個（廠編是第一個）
         if len(selects) >= 2:
             selects[1].select_option('500')
             page.wait_for_load_state('networkidle', timeout=15000)
@@ -161,7 +162,7 @@ def fetch_supplier(page, supplier_id):
             seen.append(h); headers.append(h)
     week_cols = [h for h in headers if '~' in h]
 
-    # 抓所有資料行，去重（品號+條碼 為 key）
+    # 抓所有資料行，去重
     all_rows = []
     seen_keys = set()
     for tr in page.locator('table tbody tr').all():
