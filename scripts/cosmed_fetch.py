@@ -6,7 +6,7 @@
 用法：python3 scripts/cosmed_fetch.py
 輸出：~/Downloads/康是美實銷_YYYYMM.xlsx
 """
-import os, json, re, base64
+import os, json, re, base64, glob
 from datetime import datetime
 from playwright.sync_api import sync_playwright
 import anthropic
@@ -17,6 +17,47 @@ from openpyxl.styles import PatternFill, Font, Alignment
 COSMED_USER = '860417111'
 COSMED_PASS = 'Pj86041711'
 ANTHROPIC_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
+
+# 價格表來源（條碼→零售價/成本）
+PRICE_XLSX_PATTERN = os.path.expanduser('~/Downloads/康是美門市實銷資料*.xlsx')
+
+def load_price_map():
+    """從康是美實銷 xlsx 讀取 SKU 零售價和成本，以條碼為 key。"""
+    files = sorted(glob.glob(PRICE_XLSX_PATTERN), key=os.path.getmtime, reverse=True)
+    if not files:
+        print('  ⚠ 找不到康是美實銷價格表')
+        return {}
+    path = files[0]
+    print(f'  讀取價格表: {os.path.basename(path)}')
+    try:
+        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+        sh = wb['2026實銷資料']
+        price_map = {}
+        hdr_row = None
+        for i in range(1, 10):
+            row = [str(sh.cell(i, j).value or '') for j in range(1, 12)]
+            if '條碼' in row:
+                hdr_row = i
+                break
+        if not hdr_row:
+            return {}
+        for i in range(hdr_row + 1, sh.max_row + 1):
+            barcode = str(sh.cell(i, 5).value or '').strip()
+            retail  = sh.cell(i, 10).value
+            cost    = sh.cell(i, 9).value
+            if barcode and retail:
+                try:
+                    price_map[barcode] = {
+                        'retail': float(retail),
+                        'cost':   float(cost) if cost else 0.0
+                    }
+                except:
+                    pass
+        print(f'  ✓ 價格表: {len(price_map)} 筆 SKU')
+        return price_map
+    except Exception as e:
+        print(f'  ⚠ 價格表讀取失敗: {e}')
+        return {}
 
 # 保留的 P&G 廠編（排除 085804/065189/203135）
 PG_SUPPLIERS = [
@@ -140,6 +181,9 @@ def fetch_all_km_sell():
     """
     from collections import defaultdict
 
+    # 讀價格表
+    price_map = load_price_map()
+
     all_rows = []
     week_cols = []
 
@@ -166,7 +210,14 @@ def fetch_all_km_sell():
             for row in rows:
                 if len(row) >= 6:
                     name = row[5]
+                    barcode = row[3] if len(row) > 3 else ''
                     brand = detect_brand(name, brand_default)
+                    # 條碼可能多行（換行分隔），取第一個
+                    bc_key = barcode.split('\n')[0].strip()
+                    price_info = price_map.get(bc_key, {})
+                    retail = price_info.get('retail', 0.0)
+                    cost   = price_info.get('cost', 0.0)
+
                     week_vals = []
                     for w in row[6:6+len(week_cols)]:
                         try:
@@ -175,11 +226,13 @@ def fetch_all_km_sell():
                             week_vals.append(0)
                     all_rows.append({
                         'supplier_id': row[1] if len(row) > 1 else sid,
-                        'brand': brand,
-                        'barcode': row[3] if len(row) > 3 else '',
-                        'item_no': row[4] if len(row) > 4 else '',
-                        'name': name,
-                        'weeks': week_vals,
+                        'brand':    brand,
+                        'barcode':  barcode,
+                        'item_no':  row[4] if len(row) > 4 else '',
+                        'name':     name,
+                        'retail':   retail,   # 零售價（0 = 無資料）
+                        'cost':     cost,     # 成本含稅
+                        'weeks':    week_vals,
                     })
             print(f'    {sid}: {len(rows)}筆')
 
@@ -188,18 +241,37 @@ def fetch_all_km_sell():
     if not week_cols:
         return None
 
-    # 彙總 by brand
-    by_brand = defaultdict(lambda: [0] * len(week_cols))
+    # 彙總 by brand：件數 + 估算金額（件數 × 零售價）
+    by_brand_qty = defaultdict(lambda: [0] * len(week_cols))
+    by_brand_amt = defaultdict(lambda: [0.0] * len(week_cols))
+    no_price_count = 0
+
     for row in all_rows:
-        for i, v in enumerate(row['weeks']):
+        for i, qty in enumerate(row['weeks']):
             if i < len(week_cols):
-                by_brand[row['brand']][i] += v
+                by_brand_qty[row['brand']][i] += qty
+                if row['retail'] > 0:
+                    by_brand_amt[row['brand']][i] += qty * row['retail']
+                else:
+                    no_price_count += 1 if i == 0 else 0
+
+    if no_price_count:
+        print(f'  ⚠ {no_price_count} 筆 SKU 無零售價，金額估算不含這些')
 
     print(f'  ✓ 康是美實銷: {len(all_rows)}筆 SKU, {len(week_cols)}週')
     return {
-        'weeks': week_cols,
-        'by_brand': {b: list(v) for b, v in by_brand.items()},
-        'by_sku': all_rows,
+        'weeks':        week_cols,
+        'by_brand_qty': {b: list(v) for b, v in by_brand_qty.items()},
+        'by_brand_amt': {b: [round(v) for v in vals] for b, vals in by_brand_amt.items()},
+        'by_sku': [{
+            'brand':   s['brand'],
+            'name':    s['name'][:30],
+            'barcode': s['barcode'],
+            'retail':  s['retail'],
+            'weeks':   s['weeks'],
+            'amt_weeks': [round(q * s['retail']) if s['retail'] > 0 else 0
+                          for q in s['weeks']],
+        } for s in all_rows],
     }
 
 

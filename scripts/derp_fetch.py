@@ -1099,16 +1099,19 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     # ── 康是美實銷 KM_SELL ──
     if km_sell:
         import json as _json
-        weeks_js   = _json.dumps(km_sell['weeks'], ensure_ascii=False)
-        by_brand_js = _json.dumps(km_sell['by_brand'], ensure_ascii=False)
+        weeks_js      = _json.dumps(km_sell['weeks'], ensure_ascii=False)
+        by_qty_js     = _json.dumps(km_sell['by_brand_qty'], ensure_ascii=False)
+        by_amt_js     = _json.dumps(km_sell['by_brand_amt'], ensure_ascii=False)
         sku_lines = []
         for s in km_sell['by_sku']:
             sku_lines.append(
-                f"  {{brand:'{esc(s['brand'])}',name:'{esc(s['name'][:30])}',barcode:'{s['barcode']}',weeks:{s['weeks']}}}"
+                f"  {{brand:'{esc(s['brand'])}',name:'{esc(s['name'])}',barcode:'{s['barcode']}',"
+                f"retail:{s['retail']},weeks:{s['weeks']},amt_weeks:{s['amt_weeks']}}}"
             )
         by_sku_js = '[\n' + ',\n'.join(sku_lines) + '\n]'
         html = re.sub(r'const KM_SELL=\{[^;]*\};',
-                      f'const KM_SELL={{weeks:{weeks_js},by_brand:{by_brand_js},by_sku:{by_sku_js}}};', html)
+                      f'const KM_SELL={{weeks:{weeks_js},by_brand_qty:{by_qty_js},by_brand_amt:{by_amt_js},by_sku:{by_sku_js}}};',
+                      html, flags=re.S)
         print(f'  ✓ KM_SELL 寫入: {len(km_sell["by_sku"])}筆 SKU')
 
     # ── 日期 ──
