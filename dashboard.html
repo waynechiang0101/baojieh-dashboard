@@ -1156,8 +1156,7 @@ const builds={
         moAch: Math.round(x.v3/x.iy3*100),                        // 本月達成%
         qAch: x.iy5>0 ? Math.round(x.v5/x.iy5*100) : null,       // 季達成%
       }))
-      .sort((a,b)=>b.gap-a.gap)
-      .slice(0,50);
+      .sort((a, b) => b.gap - a.gap);
     tbD.innerHTML='';
     if(!declined.length){
       tbD.innerHTML='<tr><td colspan="10" style="text-align:center;color:#4caf82;padding:16px">目前無退步分店 🎉</td></tr>';
