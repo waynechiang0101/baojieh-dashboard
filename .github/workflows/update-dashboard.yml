@@ -22,12 +22,21 @@ jobs:
           cache: 'pip'
 
       - name: 安裝套件
-        run: pip install requests xlrd openpyxl
+        run: pip install requests xlrd openpyxl anthropic playwright
+
+      - name: 安裝 Playwright 瀏覽器（週一才需要）
+        if: github.event_name == 'workflow_dispatch' || github.event.schedule != ''
+        run: |
+          DAY=$(date +%u)
+          if [ "$DAY" = "1" ]; then
+            playwright install chromium
+          fi
 
       - name: 執行更新腳本
         env:
           DERP_USER: ${{ secrets.DERP_USER }}
           DERP_PASS: ${{ secrets.DERP_PASS }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python scripts/derp_fetch.py
 
       - name: 提交更新

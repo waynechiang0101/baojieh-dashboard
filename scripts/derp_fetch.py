@@ -1189,14 +1189,18 @@ def main():
     except Exception as e:
         print(f"  ⚠ 庫存下載失敗（業績仍正常更新）: {e}")
 
-    print("\n[康是美實銷]")
+    # 康是美實銷：每週一才抓（週銷量，7天更新一次，不需要每天）
     km_sell = None
-    try:
-        sys.path.insert(0, os.path.dirname(__file__))
-        from cosmed_fetch import fetch_all_km_sell
-        km_sell = fetch_all_km_sell()
-    except Exception as e:
-        print(f"  ⚠ 康是美實銷抓取失敗: {e}")
+    if _today.weekday() == 0:  # 0 = 週一
+        print("\n[康是美實銷]（週一更新）")
+        try:
+            sys.path.insert(0, os.path.dirname(__file__))
+            from cosmed_fetch import fetch_all_km_sell
+            km_sell = fetch_all_km_sell()
+        except Exception as e:
+            print(f"  ⚠ 康是美實銷抓取失敗: {e}")
+    else:
+        print(f"\n[康是美實銷] 跳過（今天{['一','二','三','四','五','六','日'][_today.weekday()]}，週一才更新）")
 
     update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data, ar_reps, ar_unpaid, km_sell, iya_m)
 
