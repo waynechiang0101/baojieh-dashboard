@@ -185,8 +185,7 @@ def fetch_supplier(page, supplier_id):
             idx = all_vals.index(current)
             next_pg = all_vals[idx + 1]
             page_sel.select_option(next_pg)
-            page.wait_for_load_state('networkidle', timeout=10000)
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(2000)  # 背景請求太多，networkidle會timeout
             collect_rows()
         except:
             break
