@@ -192,6 +192,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div id="km-sell-weeks" style="font-size:10px;color:var(--text3);margin-bottom:8px"></div>
         <div style="position:relative;height:260px"><canvas id="c-km-sell" role="img" aria-label="康是美實銷">康是美實銷</canvas></div>
         <div id="km-sell-table" style="margin-top:12px;overflow-x:auto"></div>
+        <div id="km-sell-sku" style="margin-top:10px;overflow-x:auto;display:none"></div>
       </div>
 
       <div class="krow">
@@ -1454,21 +1455,79 @@ const builds={
       }});
       charts['cust-km'].push(_chart);
 
+      function buildSkuPanel(brand, mode){
+        const skuDiv = document.getElementById('km-sell-sku');
+        const isAmt = mode==='amt';
+        const color = SELL_COLORS[brand]||'#667788';
+        const skus = sell.by_sku.filter(s=>s.brand===brand);
+        if(!skus.length){ skuDiv.style.display='none'; return; }
+
+        // 每個SKU的週合計
+        const skuTotals = skus.map(s=>{
+          const qty = s.weeks.reduce((a,b)=>a+b,0);
+          const amt = s.amt_weeks.reduce((a,b)=>a+b,0);
+          return {...s, totalQty:qty, totalAmt:amt};
+        }).sort((a,b)=>b.totalQty-a.totalQty);
+
+        const grandQty = skuTotals.reduce((a,s)=>a+s.totalQty,0);
+        const grandAmt = skuTotals.reduce((a,s)=>a+s.totalAmt,0);
+
+        let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:12px;font-weight:700;color:${color}">▼ ${brand} SKU 明細（${skuTotals.length} 筆）</span>
+          <button onclick="document.getElementById('km-sell-sku').style.display='none'"
+            style="font-size:10px;color:var(--text3);background:transparent;border:none;cursor:pointer">✕ 關閉</button>
+        </div>`;
+        html += '<table><thead><tr><th>#</th><th>品名</th>';
+        html += wLabels.map(w=>`<th>${w}<br><span style="font-size:9px;color:var(--text3)">件</span></th>`).join('');
+        html += '<th>合計件數</th><th>估算金額</th><th>單價</th></tr></thead><tbody>';
+
+        skuTotals.forEach((s,i)=>{
+          const rn = i<3?`r${i+1}`:'rn';
+          const priceStr = s.retail>0?`$${s.retail}`:'—';
+          html += `<tr>
+            <td><span class="rk ${rn}">${i+1}</span></td>
+            <td style="font-size:11px">${s.name}</td>`;
+          html += s.weeks.map(q=>`<td class="mn">${q>0?q.toLocaleString():'—'}</td>`).join('');
+          html += `<td class="mn" style="font-weight:700;color:${color}">${s.totalQty.toLocaleString()}</td>
+            <td class="mn">${s.totalAmt>0?'$'+s.totalAmt.toLocaleString():'—'}</td>
+            <td class="mn" style="color:var(--text3)">${priceStr}</td>
+          </tr>`;
+        });
+
+        // 合計行
+        html += `<tr style="border-top:1px solid var(--border2)">
+          <td colspan="2"><strong>合計</strong></td>`;
+        wLabels.forEach((_,i)=>{
+          const colSum = skuTotals.reduce((a,s)=>a+(s.weeks[i]||0),0);
+          html += `<td class="mn" style="font-weight:700">${colSum.toLocaleString()}</td>`;
+        });
+        html += `<td class="mn" style="font-weight:700;color:${color}">${grandQty.toLocaleString()}</td>
+          <td class="mn" style="font-weight:700;color:${color}">${grandAmt>0?'$'+grandAmt.toLocaleString():'—'}</td>
+          <td></td></tr>`;
+        html += '</tbody></table>';
+
+        skuDiv.innerHTML = html;
+        skuDiv.style.display = 'block';
+        skuDiv.scrollIntoView({behavior:'smooth', block:'nearest'});
+      }
+
+      let _activeBrand = null;
+
       function buildTable(mode){
         const tbl = document.getElementById('km-sell-table');
         const isAmt = mode==='amt';
-        let html = '<table><thead><tr><th>品牌</th>' +
+        let html = '<table><thead><tr><th>品牌 <span style="font-size:9px;color:var(--text3)">點擊查看SKU</span></th>' +
           wLabels.map(w=>`<th>${w}</th>`).join('') + '<th>合計</th></tr></thead><tbody>';
         brands.forEach(b => {
           const vals = isAmt ? (sell.by_brand_amt[b]||[]) : sell.by_brand_qty[b];
           const total = vals.reduce((s,v)=>s+v, 0);
           const color = SELL_COLORS[b]||'#667788';
           const fmt = v => isAmt ? '$'+Math.round(v).toLocaleString() : v.toLocaleString();
-          html += `<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${color};margin-right:5px"></span><strong>${b}</strong></td>`;
+          html += `<tr style="cursor:pointer" onclick="window._kmSellClick('${b}')" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background=''">
+            <td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${color};margin-right:5px"></span><strong>${b}</strong> <span style="font-size:9px;color:var(--text3)">▶</span></td>`;
           html += vals.map(v=>`<td class="mn">${fmt(v)}</td>`).join('');
           html += `<td class="mn" style="font-weight:700;color:${color}">${fmt(total)}</td></tr>`;
         });
-        // 合計行
         const totals = sell.weeks.map((_,i) => brands.reduce((s,b)=>{
           const arr = isAmt ? (sell.by_brand_amt[b]||[]) : sell.by_brand_qty[b];
           return s+(arr[i]||0);
@@ -1480,6 +1539,16 @@ const builds={
         html += `<td class="mn" style="font-weight:700;color:#4fa3e0">${fmt2(grand)}</td></tr>`;
         html += '</tbody></table>';
         tbl.innerHTML = html;
+        // 掛 global handler
+        window._kmSellClick = (brand) => {
+          if(_activeBrand === brand){
+            document.getElementById('km-sell-sku').style.display='none';
+            _activeBrand = null;
+          } else {
+            _activeBrand = brand;
+            buildSkuPanel(brand, _mode);
+          }
+        };
       }
       buildTable('qty');
     })();
