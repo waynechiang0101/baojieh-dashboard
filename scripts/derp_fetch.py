@@ -603,7 +603,7 @@ def parse_xls_performance():
 
 
 # ── 更新 dashboard.html ──────────────────────────────────
-def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=None, ar_reps=None, ar_unpaid=0):
+def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=None, ar_reps=None, ar_unpaid=0, km_sell=None):
     html = DASHBOARD.read_text(encoding='utf-8')
     def esc(s): return s.replace("'","`")
     def fm(n): return '$' + f"{int(round(n)):,}"
@@ -1096,6 +1096,21 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         sub_kpi('桃園倉庫存', fm(wh_totals['桃園']), 'TP主貨倉')
         sub_kpi('康是美倉庫存', fm(wh_totals['康是美']), '康是美寄倉')
 
+    # ── 康是美實銷 KM_SELL ──
+    if km_sell:
+        import json as _json
+        weeks_js   = _json.dumps(km_sell['weeks'], ensure_ascii=False)
+        by_brand_js = _json.dumps(km_sell['by_brand'], ensure_ascii=False)
+        sku_lines = []
+        for s in km_sell['by_sku']:
+            sku_lines.append(
+                f"  {{brand:'{esc(s['brand'])}',name:'{esc(s['name'][:30])}',barcode:'{s['barcode']}',weeks:{s['weeks']}}}"
+            )
+        by_sku_js = '[\n' + ',\n'.join(sku_lines) + '\n]'
+        html = re.sub(r'const KM_SELL=\{[^;]*\};',
+                      f'const KM_SELL={{weeks:{weeks_js},by_brand:{by_brand_js},by_sku:{by_sku_js}}};', html)
+        print(f'  ✓ KM_SELL 寫入: {len(km_sell["by_sku"])}筆 SKU')
+
     # ── 日期 ──
     td     = _today.strftime("%Y/%m/%d")
     mo_lbl = _today.strftime("%m/%d")
@@ -1159,7 +1174,16 @@ def main():
     except Exception as e:
         print(f"  ⚠ 庫存下載失敗（業績仍正常更新）: {e}")
 
-    update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data, ar_reps, ar_unpaid)
+    print("\n[康是美實銷]")
+    km_sell = None
+    try:
+        sys.path.insert(0, os.path.dirname(__file__))
+        from cosmed_fetch import fetch_all_km_sell
+        km_sell = fetch_all_km_sell()
+    except Exception as e:
+        print(f"  ⚠ 康是美實銷抓取失敗: {e}")
+
+    update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data, ar_reps, ar_unpaid, km_sell)
 
 
 if __name__ == "__main__":

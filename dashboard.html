@@ -184,6 +184,16 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="pg" id="pg-cust-km">
       <div class="ptitle">康是美（統一藥品）分點</div>
       <div class="psub">全部分點業績 · 真實資料來源：季P&G</div>
+
+      <!-- 實銷區塊 -->
+      <div class="card" style="margin-bottom:14px" id="km-sell-card">
+        <div class="ct">康是美實銷週趨勢</div>
+        <div class="cs">各品牌週實銷件數（康是美供應商平台）· 自動更新</div>
+        <div id="km-sell-weeks" style="font-size:10px;color:var(--text3);margin-bottom:8px"></div>
+        <div style="position:relative;height:260px"><canvas id="c-km-sell" role="img" aria-label="康是美實銷">康是美實銷</canvas></div>
+        <div id="km-sell-table" style="margin-top:12px;overflow-x:auto"></div>
+      </div>
+
       <div class="krow">
         <div class="kpi"><div class="kl">康是美本月</div><div class="kv">$6,624,842</div><div class="ks up">↓ -88.0% vs 上月</div></div>
         <div class="kpi"><div class="kl">康是美上月</div><div class="kv">$55,363,012</div><div class="ks">完整月份</div></div>
@@ -729,6 +739,9 @@ const INV_WH=[
   {name:'CVS',amt:6001381}
 ];
 
+// ── 康是美實銷（cosmed_fetch.py 自動更新）────────────────────────────────
+const KM_SELL={weeks:[],by_brand:{},by_sku:[]};
+
 // ── XLS 通路明細 ──────────────────────────────────────────────────────────
 const XLS_BIZ=[
   {n:'藥房業務',v:3465796.0},
@@ -1066,6 +1079,71 @@ const builds={
 
   'cust-km'(){
     charts['cust-km']=[];
+
+    // ── 實銷週趨勢 ──
+    (function(){
+      const sell = KM_SELL;
+      if(!sell || !sell.weeks || !sell.weeks.length){
+        document.getElementById('km-sell-card').style.display='none';
+        return;
+      }
+      // 週期標籤簡化：20260601~20260607 → 6/1~6/7
+      const wLabels = sell.weeks.map(w => {
+        const m = w.match(/\d{4}(\d{2})(\d{2})~\d{4}(\d{2})(\d{2})/);
+        return m ? `${parseInt(m[1])}/${parseInt(m[2])}~${parseInt(m[3])}/${parseInt(m[4])}` : w;
+      });
+      document.getElementById('km-sell-weeks').textContent = '週期：' + wLabels.join(' | ');
+
+      // 品牌顏色
+      const SELL_COLORS = {
+        'ARIEL':'#4fa3e0','WHSP':'#e07ab8','OLAY':'#f0d060','HS':'#4caf82',
+        'PNTN':'#e07a4f','PERT':'#97c459','HR':'#b06fa8','ORALB':'#4a9be0',
+        'CREST':'#e05a4f','GLT':'#60c0d0','BRAUN':'#8892b0','OTHER':'#445566'
+      };
+      const brands = Object.keys(sell.by_brand).sort();
+      const datasets = brands.map(b => ({
+        label: b,
+        data: sell.by_brand[b],
+        backgroundColor: (SELL_COLORS[b]||'#667788') + 'bb',
+        borderColor: SELL_COLORS[b]||'#667788',
+        borderWidth: 1,
+        borderRadius: 3,
+      }));
+      charts['cust-km'].push(new Chart('c-km-sell',{type:'bar',data:{
+        labels: wLabels,
+        datasets: datasets
+      },options:{
+        responsive:true, maintainAspectRatio:false,
+        animation:{duration:600,easing:'easeOutQuart'},
+        plugins:{legend:{labels:{boxWidth:8,font:{size:10},padding:8}}},
+        scales:{
+          x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},
+          y:{stacked:true,grid:gc,ticks:{callback:v=>v.toLocaleString(),font:{size:10}}}
+        }
+      }}));
+
+      // 品牌彙總表
+      const tbl = document.getElementById('km-sell-table');
+      let html = '<table><thead><tr><th>品牌</th>' +
+        wLabels.map(w=>`<th>${w}</th>`).join('') + '<th>合計</th></tr></thead><tbody>';
+      brands.forEach(b => {
+        const vals = sell.by_brand[b];
+        const total = vals.reduce((s,v)=>s+v,0);
+        const color = SELL_COLORS[b]||'#667788';
+        html += `<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${color};margin-right:5px"></span><strong>${b}</strong></td>`;
+        html += vals.map(v=>`<td class="mn">${v.toLocaleString()}</td>`).join('');
+        html += `<td class="mn" style="font-weight:700;color:${color}">${total.toLocaleString()}</td></tr>`;
+      });
+      // 合計行
+      const totals = sell.weeks.map((_,i) => brands.reduce((s,b)=>s+(sell.by_brand[b][i]||0),0));
+      const grandTotal = totals.reduce((s,v)=>s+v,0);
+      html += `<tr style="border-top:1px solid var(--border2)"><td><strong>合計</strong></td>`;
+      html += totals.map(v=>`<td class="mn" style="font-weight:700">${v.toLocaleString()}</td>`).join('');
+      html += `<td class="mn" style="font-weight:700;color:#4fa3e0">${grandTotal.toLocaleString()}</td></tr>`;
+      html += '</tbody></table>';
+      tbl.innerHTML = html;
+    })();
+
     if(!UNIF.length)return;
     const kmT=UNIF.reduce((s,u)=>s+(u.v3||0),0);
     charts['cust-km'].push(new Chart('c-km',{type:'bar',data:{labels:UNIF.slice(0,20).map(u=>u.s),datasets:[
