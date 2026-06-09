@@ -74,7 +74,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="ns" style="margin-top:10px">客戶</div>
     <div class="ni" onclick="sp('cust-group',this)"><div class="ndot" style="background:var(--pg)"></div>集團排行</div>
     <div class="ni" onclick="sp('cust-store',this)"><div class="ndot" style="background:#5dc8c8"></div>個別門市</div>
-    <div class="ni" onclick="sp('cust-km',this)"><div class="ndot" style="background:#e07ab8"></div>康是美分點</div>
+    <div class="ni" onclick="sp('cust-km',this)"><div class="ndot" style="background:#e07ab8"></div>康是美</div>
     <div class="ni" onclick="sp('cust-cvs',this)"><div class="ndot" style="background:#97c459"></div>CVS 門市</div>
     <div class="ni" onclick="sp('cust-xb',this)"><div class="ndot" style="background:#e07a4f"></div>小北各店</div>
     <div class="ni" onclick="sp('cust-channel',this)"><div class="ndot" style="background:var(--amber)"></div>通路別</div>
@@ -182,8 +182,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- 康是美分點 -->
     <div class="pg" id="pg-cust-km">
-      <div class="ptitle">康是美（統一藥品）分點</div>
-      <div class="psub">全部分點業績 · 真實資料來源：季P&G</div>
+      <div class="ptitle">康是美</div>
+      <div class="psub">康是美通路業績 · 真實資料來源：DERP</div>
 
       <!-- 實銷區塊 -->
       <div class="card" style="margin-bottom:14px" id="km-sell-card">
@@ -205,7 +205,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="card"><div class="ct">分點業績 Top 20</div><div class="cs">上月 vs 季累計</div><div style="position:relative;height:380px"><canvas id="c-km" role="img" aria-label="康是美分點">康是美分點</canvas></div></div>
         <div class="card"><div class="ct">Top 5 vs 其餘</div><div class="cs">季累計集中度</div><div style="position:relative;height:380px"><canvas id="c-km-pie" role="img" aria-label="分點佔比">分點佔比</canvas></div></div>
       </div>
-      <div class="card"><div class="ct">康是美分點完整明細</div><div class="cs" style="margin-bottom:10px">上月 vs 季累計 · 成長率 · 佔集團比</div>
+      <div class="card"><div class="ct">康是美分點明細</div><div class="cs" style="margin-bottom:10px">上月 vs 季累計 · 成長率 · 佔集團比</div>
         <div class="scroll-wrap">
           <table><thead><tr><th>#</th><th>門市</th><th>業務</th><th>本月</th><th>本月IYA</th><th>上月</th><th>季累計</th><th>季IYA</th><th>品牌Top3</th></tr></thead><tbody id="tb-km"></tbody></table>
         </div>
