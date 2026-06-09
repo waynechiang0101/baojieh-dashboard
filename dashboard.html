@@ -1509,18 +1509,25 @@ const builds={
         </div>`;
         html += '<table><thead><tr><th>#</th><th>品名</th>';
         html += wLabels.map(w=>`<th>${w}<br><span style="font-size:9px;color:var(--text3)">件</span></th>`).join('');
-        html += '<th>合計件數</th><th>估算金額</th><th>單價</th></tr></thead><tbody>';
+        html += '<th>合計件數</th><th>估算收入</th><th>成本/件</th><th>估算毛利</th></tr></thead><tbody>';
 
         skuTotals.forEach((s,i)=>{
           const rn = i<3?`r${i+1}`:'rn';
-          const priceStr = s.retail>0?`$${s.retail}`:'—';
+          const cost = s.cost||0;
+          const grossAmt = s.amt_weeks.reduce((a,b)=>a+b,0);
+          const costAmt = cost>0 ? Math.round(cost*s.totalQty) : 0;
+          const profit = grossAmt>0&&costAmt>0 ? grossAmt-costAmt : null;
+          const profitColor = profit===null?'var(--text3)':profit>0?'#4caf82':'#e05a4f';
+          const costStr = cost>0?`$${cost}`:'—';
+          const profitStr = profit===null?'—':`$${profit.toLocaleString()}`;
           html += `<tr>
             <td><span class="rk ${rn}">${i+1}</span></td>
             <td style="font-size:11px">${s.name}</td>`;
           html += s.weeks.map(q=>`<td class="mn">${q>0?q.toLocaleString():'—'}</td>`).join('');
           html += `<td class="mn" style="font-weight:700;color:${color}">${s.totalQty.toLocaleString()}</td>
-            <td class="mn">${s.totalAmt>0?'$'+s.totalAmt.toLocaleString():'—'}</td>
-            <td class="mn" style="color:var(--text3)">${priceStr}</td>
+            <td class="mn">${grossAmt>0?'$'+grossAmt.toLocaleString():'—'}</td>
+            <td class="mn" style="color:var(--text3)">${costStr}</td>
+            <td class="mn" style="font-weight:700;color:${profitColor}">${profitStr}</td>
           </tr>`;
         });
 
@@ -1531,9 +1538,15 @@ const builds={
           const colSum = skuTotals.reduce((a,s)=>a+(s.weeks[i]||0),0);
           html += `<td class="mn" style="font-weight:700">${colSum.toLocaleString()}</td>`;
         });
+        const totalGross = skuTotals.reduce((a,s)=>a+s.amt_weeks.reduce((x,y)=>x+y,0),0);
+        const totalCost  = skuTotals.reduce((a,s)=>s.cost>0?a+Math.round(s.cost*s.totalQty):a,0);
+        const totalProfit = totalGross>0&&totalCost>0 ? totalGross-totalCost : null;
+        const tpColor = totalProfit===null?'var(--text3)':totalProfit>0?'#4caf82':'#e05a4f';
         html += `<td class="mn" style="font-weight:700;color:${color}">${grandQty.toLocaleString()}</td>
-          <td class="mn" style="font-weight:700;color:${color}">${grandAmt>0?'$'+grandAmt.toLocaleString():'—'}</td>
-          <td></td></tr>`;
+          <td class="mn" style="font-weight:700">${totalGross>0?'$'+totalGross.toLocaleString():'—'}</td>
+          <td></td>
+          <td class="mn" style="font-weight:700;color:${tpColor}">${totalProfit!==null?'$'+totalProfit.toLocaleString():'—'}</td>
+        </tr>`;
         html += '</tbody></table>';
 
         skuDiv.innerHTML = html;

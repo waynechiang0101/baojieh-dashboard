@@ -1116,7 +1116,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
             bc = s['barcode'].split('\n')[0].strip().replace("'", '')  # 取第一個條碼，清換行
             sku_lines.append(
                 f"  {{brand:'{esc(s['brand'])}',name:'{esc(s['name'])}',barcode:'{bc}',"
-                f"retail:{s['retail']},weeks:{s['weeks']},amt_weeks:{s['amt_weeks']}}}"
+                f"retail:{s['retail']},cost:{s.get('cost',0)},weeks:{s['weeks']},amt_weeks:{s['amt_weeks']}}}"
             )
         by_sku_js = '[\n' + ',\n'.join(sku_lines) + '\n]'
         html = re.sub(r'const KM_SELL=\{[^;]*\};',
