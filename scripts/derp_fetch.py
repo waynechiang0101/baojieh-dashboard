@@ -795,7 +795,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     km_mo_chg = round((km_mo/km_apr-1)*100, 1) if km_apr else 0
     sub_kpi('康是美本月', fm(km_mo), f'↑ +{km_mo_chg}% vs 上月' if km_mo_chg >= 0 else f'↓ {km_mo_chg}% vs 上月')
     sub_kpi('康是美上月', fm(km_apr), '完整月份')
-    sub_kpi('康是美分點數', f'{km_cnt}', '康是美門市')
+    # 康是美分點數已拿掉（送貨點非實際門市數）
     sub_kpi('康是美佔比', f'{km_pct}%', '高度集中' if km_pct > 40 else '佔全公司')
 
     # ── CVS KPIs ──
