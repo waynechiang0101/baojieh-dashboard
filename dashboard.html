@@ -1464,11 +1464,11 @@ const builds={
         return b;
       };
       btnRow.appendChild(mkBtn('件數', 'qty'));
-      btnRow.appendChild(mkBtn('估算金額', 'amt'));
+      btnRow.appendChild(mkBtn('估算收入', 'amt'));
       btnRow.appendChild(document.createTextNode('\u00a0\u00a0'));
       const note = document.createElement('span');
       note.style.cssText='font-size:10px;color:var(--text3);align-self:center';
-      note.textContent='估算金額 = 件數 × 現行零售價（供參考）';
+      note.textContent='估算收入 = 件數 × 現行零售價（供參考）';
       btnRow.appendChild(note);
       document.getElementById('km-sell-card').insertBefore(btnRow, document.getElementById('km-sell-weeks'));
 
