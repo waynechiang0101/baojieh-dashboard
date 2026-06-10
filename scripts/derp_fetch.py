@@ -651,8 +651,91 @@ def parse_xls_performance():
     }
 
 
+# ── 庫存健康預警（紅黃綠燈）──────────────────────────────
+def parse_inventory_health(path):
+    """從 327-50 庫存報表算燈號。主力倉（主貨倉/出貨倉/康是美倉）按庫存天數分級：
+    60+黃 / 90+橘 / 120+紅(D級出清) / 180+黑；無動銷(日均銷=0)與下架品直接進D級。
+    即期倉/壞品倉獨立統計。"""
+    from collections import defaultdict
+    with open(path,'rb') as f:
+        content = f.read().decode('utf-8', errors='replace')
+    rows = re.findall(r'<TR[^>]*>(.*?)</TR>', content, re.I|re.S)
+
+    def is_main(wh):   return ('主貨倉' in wh or '出貨倉' in wh or wh.strip() == '康是美倉')
+    def is_expiry(wh): return '即期' in wh
+    def is_damaged(wh):return '壞品' in wh
+
+    skus = {}          # 產品編號 → 主力倉彙總
+    exp_skus = defaultdict(lambda: {'q':0,'a':0.0,'n':'','b':'','wh':set()})
+    dmg_skus = defaultdict(lambda: {'q':0,'a':0.0,'n':'','b':'','wh':set()})
+
+    for row in rows[6:]:
+        cells = re.findall(r'<T[DH][^>]*>(.*?)</T[DH]>', row, re.I|re.S)
+        c = [re.sub(r'<[^>]+>','',x).strip() for x in cells]
+        if len(c) < 16: continue
+        sku, name, status, brand, wh = c[0], c[2], c[3], c[4] or '其他', c[5]
+        if brand in SKIP_INV_BRANDS and brand != '其他': continue
+        if '合計' in sku: continue
+        try:
+            qty = float(c[11]); amt = float(c[15])
+        except: continue
+        if qty <= 0: continue
+        try: daily = float(c[7])
+        except: daily = 0.0
+
+        if is_expiry(wh):
+            e = exp_skus[sku]; e['q'] += qty; e['a'] += amt; e['n'] = name[:30]; e['b'] = brand; e['wh'].add(wh)
+        elif is_damaged(wh):
+            e = dmg_skus[sku]; e['q'] += qty; e['a'] += amt; e['n'] = name[:30]; e['b'] = brand; e['wh'].add(wh)
+        elif is_main(wh):
+            if sku not in skus:
+                skus[sku] = {'n':name[:30],'b':brand,'st':status,'q':0,'a':0.0,'daily':0.0}
+            s = skus[sku]
+            s['q'] += qty; s['a'] += amt
+            if daily > 0: s['daily'] = daily   # 全公司日均銷，各倉相同
+
+    light_sum = {k:{'n':0,'amt':0} for k in ['yellow','orange','red','black']}
+    brand_sum = defaultdict(lambda: {'y':0,'o':0,'r':0,'k':0,'exp':0,'dmg':0})
+    dlist = []
+    for sku, s in skus.items():
+        d = round(s['q']/s['daily']) if s['daily'] > 0 else None
+        delisted = '下架' in s['st']
+        if d is None or d >= 180: lk = 'black'
+        elif d >= 120: lk = 'red'
+        elif d >= 90:  lk = 'orange'
+        elif d >= 60:  lk = 'yellow'
+        else: lk = None
+        if delisted and lk not in ('red','black'): lk = 'red'   # 下架品有庫存直接進D級
+        if lk is None: continue
+        light_sum[lk]['n'] += 1; light_sum[lk]['amt'] += s['a']
+        bk = {'yellow':'y','orange':'o','red':'r','black':'k'}[lk]
+        brand_sum[s['b']][bk] += s['a']
+        if lk in ('red','black'):
+            dlist.append({'s':sku,'n':s['n'],'b':s['b'],'q':int(s['q']),
+                          'a':int(s['a']),'d':d,'st':'下架' if delisted else ('無動銷' if d is None else '')})
+
+    for e in exp_skus.values(): brand_sum[e['b']]['exp'] += e['a']
+    for e in dmg_skus.values(): brand_sum[e['b']]['dmg'] += e['a']
+
+    dlist.sort(key=lambda x:-x['a'])
+    top = lambda dd: sorted(
+        [{'n':v['n'],'b':v['b'],'q':int(v['q']),'a':int(v['a']),'wh':'/'.join(sorted(v['wh']))} for v in dd.values()],
+        key=lambda x:-x['a'])[:12]
+    return {
+        'light':  {k:{'n':v['n'],'amt':int(v['amt'])} for k,v in light_sum.items()},
+        'brands': sorted([{'b':b,**{k:int(v[k]) for k in ['y','o','r','k','exp','dmg']}}
+                          for b,v in brand_sum.items() if sum(v.values())>0],
+                         key=lambda x:-(x['r']+x['k'])),
+        'expiry_total':  int(sum(e['a'] for e in exp_skus.values())),
+        'damaged_total': int(sum(e['a'] for e in dmg_skus.values())),
+        'dlist': dlist[:60],
+        'expiry_top':  top(exp_skus),
+        'damaged_top': top(dmg_skus),
+    }
+
+
 # ── 更新 dashboard.html ──────────────────────────────────
-def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=None, ar_reps=None, ar_unpaid=0, km_sell=None, iya_m=None):
+def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=None, ar_reps=None, ar_unpaid=0, km_sell=None, iya_m=None, inv_health=None):
     html = DASHBOARD.read_text(encoding='utf-8')
     def esc(s): return s.replace("'","`")
     def fm(n): return '$' + f"{int(round(n)):,}"
@@ -1147,6 +1230,14 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         sub_kpi('桃園倉庫存', fm(wh_totals['桃園']), 'TP主貨倉')
         sub_kpi('康是美倉庫存', fm(wh_totals['康是美']), '康是美寄倉')
 
+    # ── 庫存健康預警 INV_HEALTH ──
+    if inv_health:
+        import json as _json
+        html = re.sub(r'const INV_HEALTH=\{[\s\S]*?\};',
+                      'const INV_HEALTH=' + _json.dumps(inv_health, ensure_ascii=False) + ';',
+                      html)
+        print(f"  ✓ INV_HEALTH 寫入: D級 {len(inv_health['dlist'])} SKU, 即期 {inv_health['expiry_total']:,}, 壞品 {inv_health['damaged_total']:,}")
+
     # ── 康是美實銷 KM_SELL ──
     if km_sell:
         import json as _json
@@ -1223,12 +1314,14 @@ def main():
 
     print("\n[庫存下載]")
     inv_data = None
+    inv_health = None
     try:
         ws = get_web_session()
         if ws:
             inv_path = dl_inventory(ws)
             if inv_path:
                 inv_data = parse_inventory_html(inv_path)
+                inv_health = parse_inventory_health(inv_path)
     except Exception as e:
         print(f"  ⚠ 庫存下載失敗（業績仍正常更新）: {e}")
 
@@ -1253,7 +1346,7 @@ def main():
     else:
         print(f"\n[康是美實銷] 跳過（今天{['一','二','三','四','五','六','日'][_today.weekday()]}，週一才更新）")
 
-    update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data, ar_reps, ar_unpaid, km_sell, iya_m)
+    update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data, ar_reps, ar_unpaid, km_sell, iya_m, inv_health)
 
 
 if __name__ == "__main__":
