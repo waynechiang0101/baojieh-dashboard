@@ -123,7 +123,17 @@ const declined = XB_STORES
 - `BizPlan/dsrDailySales` — 業績 XLS
 - `3.IN/derp-327-50.jsp` — 庫存 HTML-XLS（~45MB streaming）
 - `4.FN/derp-421-00.jsp` + `derp-421-14-1.jsp` — 應收帳款
+- `6.BR/derp-610-24.jsp` — 客戶品項銷售 CSV（POST `*pageCmd=PrintCSV`，品項級出貨明細）
 - `CCderp.jsp` — 登入 POST，accountID=86041711
+
+## 康是美消化率（2026-06-10 新增）
+
+- **SU 不能用**：SU 與實銷件數單位不一致（各品牌換算倍數不同），且看板業務不看 SU
+- 正解：610-24 的 `totalQty` 欄 = **件數**，與實銷同單位（驗證：720件=30箱×箱入數24）
+- `fetch_km_ship(d0,d1)`：抓 610-24 CSV → 篩 `soldToCode=110`（統一藥品）→ 品牌彙總淨出貨件數（SR 退貨扣回、BRAUN 併 ORALB）
+- 消化率 = 4週實銷件數 ÷ 同期出貨件數，>100% 去庫存、<100% 堆庫存
+- 口徑限制：DERP 出貨到統一藥品 3 個物流中心（中壢/高雄仁武/西園，分點=廠編），**含網購**；實銷不含網購 → 消化率偏保守（偏低）。網購無法從 DERP 端排除
+- 每週一隨 cosmed_fetch 一起更新，寫入 `KM_SELL.ship_by_brand`
 
 ## 待辦
 

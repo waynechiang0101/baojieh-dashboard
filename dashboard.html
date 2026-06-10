@@ -188,7 +188,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <!-- 實銷區塊 -->
       <div class="card" style="margin-bottom:14px" id="km-sell-card">
         <div class="ct">康是美實銷週趨勢</div>
-        <div class="cs">各品牌週實銷件數（康是美供應商平台）· 自動更新</div>
+        <div class="cs">各品牌週實銷件數（康是美供應商平台）· 自動更新 · 消化率 = 4週實銷件數 ÷ 同期DERP出貨件數（&gt;100% 去庫存、&lt;100% 堆庫存，出貨含網購故偏保守）</div>
         <div id="km-sell-weeks" style="font-size:10px;color:var(--text3);margin-bottom:8px"></div>
         <div style="position:relative;height:260px"><canvas id="c-km-sell" role="img" aria-label="康是美實銷">康是美實銷</canvas></div>
         <div id="km-sell-table" style="margin-top:12px;overflow-x:auto"></div>
@@ -741,7 +741,7 @@ const INV_WH=[
 ];
 
 // ── 康是美實銷（cosmed_fetch.py 自動更新）────────────────────────────────
-const KM_SELL={weeks:["20260511~20260517", "20260518~20260524", "20260525~20260531", "20260601~20260607"],by_brand_qty:{"OLAY": [2752, 1878, 1682, 1583], "ORALB": [4537, 6353, 5940, 5439], "CREST": [2287, 2562, 2311, 2196], "ARIEL": [1970, 1996, 2837, 1680], "LENOR": [919, 1217, 1043, 939], "FBRZ": [3040, 4446, 3919, 3494], "BOLD": [107, 99, 87, 61], "GLT": [952, 902, 883, 904], "WHSP": [8545, 12288, 11517, 10529], "HR": [2414, 2387, 2246, 2195], "HS": [1614, 1871, 1726, 1634], "PNTN": [5866, 5379, 4842, 4634], "PERT": [420, 547, 446, 408], "HAIR": [0, 0, 0, 1]},by_brand_amt:{"ORALB": [1262786, 1505331, 1226398, 1137010], "CREST": [518798, 575720, 520736, 490218], "ARIEL": [627900, 633514, 936553, 537250], "LENOR": [214189, 288782, 248528, 230630], "FBRZ": [575540, 792554, 710981, 636146], "BOLD": [33493, 30601, 27263, 18489], "GLT": [359340, 370479, 335788, 356627], "OLAY": [3500996, 1988522, 1753868, 1691409], "WHSP": [1069309, 1795943, 1678165, 1479612], "HR": [1108276, 1088313, 1022034, 1004285], "HS": [534980, 609495, 553323, 526749], "PNTN": [1557099, 1689416, 1513892, 1460739], "PERT": [84040, 110753, 88584, 80492], "HAIR": [0, 0, 0, 399]},by_sku:[
+const KM_SELL={weeks:["20260511~20260517", "20260518~20260524", "20260525~20260531", "20260601~20260607"],by_brand_qty:{"OLAY": [2752, 1878, 1682, 1583], "ORALB": [4537, 6353, 5940, 5439], "CREST": [2287, 2562, 2311, 2196], "ARIEL": [1970, 1996, 2837, 1680], "LENOR": [919, 1217, 1043, 939], "FBRZ": [3040, 4446, 3919, 3494], "BOLD": [107, 99, 87, 61], "GLT": [952, 902, 883, 904], "WHSP": [8545, 12288, 11517, 10529], "HR": [2414, 2387, 2246, 2195], "HS": [1614, 1871, 1726, 1634], "PNTN": [5866, 5379, 4842, 4634], "PERT": [420, 547, 446, 408], "HAIR": [0, 0, 0, 1]},by_brand_amt:{"ORALB": [1262786, 1505331, 1226398, 1137010], "CREST": [518798, 575720, 520736, 490218], "ARIEL": [627900, 633514, 936553, 537250], "LENOR": [214189, 288782, 248528, 230630], "FBRZ": [575540, 792554, 710981, 636146], "BOLD": [33493, 30601, 27263, 18489], "GLT": [359340, 370479, 335788, 356627], "OLAY": [3500996, 1988522, 1753868, 1691409], "WHSP": [1069309, 1795943, 1678165, 1479612], "HR": [1108276, 1088313, 1022034, 1004285], "HS": [534980, 609495, 553323, 526749], "PNTN": [1557099, 1689416, 1513892, 1460739], "PERT": [84040, 110753, 88584, 80492], "HAIR": [0, 0, 0, 399]},ship_by_brand:{"ORALB": 22209, "SAMPLE": 55, "OLAY": 4439, "CREST": 9831, "DISPLAY": 10, "POSM": 13, "GLT": 2321, "PAMPS": 21, "WHSP": 29553, "FBRZ": 8251, "LENOR": 1124, "ARIEL": 19971, "BOLD": -25, "HR": 612, "PNTN": 7375, "PERT": 499, "HS": 4677},by_sku:[
   {brand:'OLAY',name:'PRO X BY OLAY淡紋修護黑管精華30ML',barcode:'4987176391087',retail:0.0,weeks:[3, 1, 6, 6],amt_weeks:[0, 0, 0, 0]},
   {brand:'OLAY',name:'PRO X BY OLAY淡紋修護黑管精華優惠組',barcode:'4987176395467',retail:0.0,weeks:[5, 2, 6, 7],amt_weeks:[0, 0, 0, 0]},
   {brand:'OLAY',name:'PROX BY OLAY專研面膜5片裝',barcode:'4987176391070',retail:0.0,weeks:[0, 4, 3, 4],amt_weeks:[0, 0, 0, 0]},
@@ -1559,8 +1559,21 @@ const builds={
       function buildTable(mode){
         const tbl = document.getElementById('km-sell-table');
         const isAmt = mode==='amt';
+        const SHIP = sell.ship_by_brand || {};
+        const hasShip = !isAmt && Object.keys(SHIP).length > 0;
+        const digCell = (qty, ship) => {
+          if(ship === undefined) return '<td class="mn" style="color:var(--text3)">—</td><td class="mn" style="color:var(--text3)">—</td>';
+          let rateHtml = '—';
+          if(ship > 0){
+            const r = Math.round(qty/ship*100);
+            const c = r>=100 ? '#4caf82' : r>=70 ? 'var(--text)' : r>=40 ? '#e0a04f' : '#e05a4f';
+            rateHtml = `<span style="color:${c};font-weight:700">${r}%</span>`;
+          }
+          return `<td class="mn">${ship.toLocaleString()}</td><td class="mn">${rateHtml}</td>`;
+        };
         let html = '<table><thead><tr><th>品牌 <span style="font-size:9px;color:var(--text3)">點擊查看SKU</span></th>' +
-          wLabels.map(w=>`<th>${w}</th>`).join('') + '<th>合計</th></tr></thead><tbody>';
+          wLabels.map(w=>`<th>${w}</th>`).join('') + '<th>合計</th>' +
+          (hasShip ? '<th>同期出貨</th><th>消化率</th>' : '') + '</tr></thead><tbody>';
         brands.forEach(b => {
           const vals = isAmt ? (sell.by_brand_amt[b]||[]) : sell.by_brand_qty[b];
           const total = vals.reduce((s,v)=>s+v, 0);
@@ -1569,7 +1582,9 @@ const builds={
           html += `<tr style="cursor:pointer" onclick="window._kmSellClick('${b}')" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background=''">
             <td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${color};margin-right:5px"></span><strong>${b}</strong> <span style="font-size:9px;color:var(--text3)">▶</span></td>`;
           html += vals.map(v=>`<td class="mn">${fmt(v)}</td>`).join('');
-          html += `<td class="mn" style="font-weight:700;color:${color}">${fmt(total)}</td></tr>`;
+          html += `<td class="mn" style="font-weight:700;color:${color}">${fmt(total)}</td>`;
+          if(hasShip) html += digCell(total, SHIP[b]);
+          html += '</tr>';
         });
         const totals = sell.weeks.map((_,i) => brands.reduce((s,b)=>{
           const arr = isAmt ? (sell.by_brand_amt[b]||[]) : sell.by_brand_qty[b];
@@ -1579,7 +1594,12 @@ const builds={
         const fmt2 = v => isAmt ? '$'+Math.round(v).toLocaleString() : v.toLocaleString();
         html += `<tr style="border-top:1px solid var(--border2)"><td><strong>合計</strong></td>`;
         html += totals.map(v=>`<td class="mn" style="font-weight:700">${fmt2(v)}</td>`).join('');
-        html += `<td class="mn" style="font-weight:700;color:#4fa3e0">${fmt2(grand)}</td></tr>`;
+        html += `<td class="mn" style="font-weight:700;color:#4fa3e0">${fmt2(grand)}</td>`;
+        if(hasShip){
+          const shipTotal = brands.reduce((s,b)=>s+(SHIP[b]||0), 0);
+          html += digCell(grand, shipTotal).replace(/<td class="mn">/g,'<td class="mn" style="font-weight:700">');
+        }
+        html += '</tr>';
         html += '</tbody></table>';
         tbl.innerHTML = html;
         // 掛 global handler

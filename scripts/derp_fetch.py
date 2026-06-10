@@ -194,6 +194,48 @@ def dl_sales(s, d0, d1, label):
     return b''
 
 
+# ── 康是美出貨件數（610-24 客戶品項銷售，CSV）──────────────
+def fetch_km_ship(d0, d1):
+    """抓 610-24 品項級出貨明細，回傳康是美（soldToCode=110）各品牌淨出貨件數。
+    totalQty 單位 = 件（與實銷件數同單位）；SR 退貨扣回；BRAUN 併入 ORALB。"""
+    import csv, io
+    s = _post_login(os.environ.get("DERP_USER","user34"), os.environ.get("DERP_PASS","user34"))
+    data = {
+        '*listOMD':'','*fixSupplierNo':'','gLCategorySelect':'',
+        '*customerNoStart':ACCOUNT_ID,'*soldToCode':'','*soldToCodeName':'',
+        '*customerNoEnd':'','*customerName':'','*customerNoMerge':'',
+        '*transDateStart':d0,'*transDateEnd':d1,
+        '*warehouseStart':'','*warehouseStartName':'',
+        '*saleType':'0','*goldenSkuFlag':'2',
+        '*brandCodeStart':'','*brandCodeMerge':'',
+        '*transType':'0','*subSegMent':'','*subSegMentMerge':'',
+        '*itemNoEnd':'','*itemNoMerge':'','*itemNoStart':'','*itemDesc':'',
+        '*box1View':'','*box2View':'',
+        '*pageCmd':'PrintCSV','*maxKeyValue':'','*minKeyValue':'',
+        '*rowsPerPage':'20','*indexSelected':'','*keySelected':'',
+        'execCode':'0','execMsg':'','actionCode':'0','focusField':'',
+        'urlAlter':'','urlYes':'','urlNo':'',
+        'derpPage':'derp-610-24','accountID':ACCOUNT_ID,'dataOwner':'','appSysName':'derp',
+    }
+    print(f"  康是美出貨 610-24 {d0}~{d1}...")
+    r = s.post(f'{BASE_URL}/6.BR/derp-610-24.jsp', data=data, verify=False, timeout=600,
+               headers={'Referer':f'{BASE_URL}/6.BR/derp-610-24.jsp'})
+    print(f"    ✓ {len(r.content)//1024}KB")
+    ship = {}
+    rows = csv.DictReader(io.StringIO(r.content.decode('utf-8-sig', errors='replace')))
+    for x in rows:
+        if (x.get('soldToCode') or '').strip() != '110': continue
+        try: q = float(x.get('totalQty') or 0)
+        except ValueError: continue
+        if x.get('txnType') == 'SR': q = -abs(q)
+        b = (x.get('brandCode') or '').strip()
+        if b == 'BRAUN': b = 'ORALB'
+        ship[b] = ship.get(b, 0) + q
+    ship = {b: round(q) for b, q in ship.items()}
+    print(f"    ✓ 康是美淨出貨 {len(ship)} 品牌")
+    return ship
+
+
 # ── 解析銷售 XLS ─────────────────────────────────────────
 def parse_xls(data):
     import xlrd
@@ -1111,6 +1153,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         weeks_js      = _json.dumps(km_sell['weeks'], ensure_ascii=False)
         by_qty_js     = _json.dumps(km_sell['by_brand_qty'], ensure_ascii=False)
         by_amt_js     = _json.dumps(km_sell['by_brand_amt'], ensure_ascii=False)
+        ship_js       = _json.dumps(km_sell.get('ship_by_brand', {}), ensure_ascii=False)
         sku_lines = []
         for s in km_sell['by_sku']:
             bc = s['barcode'].split('\n')[0].strip().replace("'", '')  # 取第一個條碼，清換行
@@ -1120,7 +1163,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
             )
         by_sku_js = '[\n' + ',\n'.join(sku_lines) + '\n]'
         html = re.sub(r'const KM_SELL=\{[^;]*\};',
-                      f'const KM_SELL={{weeks:{weeks_js},by_brand_qty:{by_qty_js},by_brand_amt:{by_amt_js},by_sku:{by_sku_js}}};',
+                      f'const KM_SELL={{weeks:{weeks_js},by_brand_qty:{by_qty_js},by_brand_amt:{by_amt_js},ship_by_brand:{ship_js},by_sku:{by_sku_js}}};',
                       html, flags=re.S)
         print(f'  ✓ KM_SELL 寫入: {len(km_sell["by_sku"])}筆 SKU')
 
@@ -1199,6 +1242,14 @@ def main():
             km_sell = fetch_all_km_sell()
         except Exception as e:
             print(f"  ⚠ 康是美實銷抓取失敗: {e}")
+        if km_sell and km_sell.get('weeks'):
+            try:
+                w0 = km_sell['weeks'][0].split('~')[0]
+                w1 = km_sell['weeks'][-1].split('~')[1]
+                km_sell['ship_by_brand'] = fetch_km_ship(
+                    f'{w0[:4]}/{w0[4:6]}/{w0[6:]}', f'{w1[:4]}/{w1[4:6]}/{w1[6:]}')
+            except Exception as e:
+                print(f"  ⚠ 康是美出貨(610-24)抓取失敗: {e}")
     else:
         print(f"\n[康是美實銷] 跳過（今天{['一','二','三','四','五','六','日'][_today.weekday()]}，週一才更新）")
 
