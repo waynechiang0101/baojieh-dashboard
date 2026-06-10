@@ -45,10 +45,10 @@ def load_price_map():
             barcode = str(sh.cell(i, 5).value or '').strip()
             retail  = sh.cell(i, 10).value
             cost    = sh.cell(i, 9).value
-            if barcode and retail:
+            if barcode and (retail or cost):
                 try:
                     price_map[barcode] = {
-                        'retail': float(retail),
+                        'retail': float(retail) if retail else 0.0,
                         'cost':   float(cost) if cost else 0.0
                     }
                 except:
@@ -271,7 +271,7 @@ def fetch_all_km_sell():
     if not week_cols:
         return None
 
-    # 彙總 by brand：件數 + 估算金額（件數 × 零售價）
+    # 彙總 by brand：件數 + 預估銷售額（件數 × 康是美進貨價 = 寶捷出貨價）
     by_brand_qty = defaultdict(lambda: [0] * len(week_cols))
     by_brand_amt = defaultdict(lambda: [0.0] * len(week_cols))
     no_price_count = 0
@@ -280,13 +280,13 @@ def fetch_all_km_sell():
         for i, qty in enumerate(row['weeks']):
             if i < len(week_cols):
                 by_brand_qty[row['brand']][i] += qty
-                if row['retail'] > 0:
-                    by_brand_amt[row['brand']][i] += qty * row['retail']
+                if row['cost'] > 0:
+                    by_brand_amt[row['brand']][i] += qty * row['cost']
                 else:
                     no_price_count += 1 if i == 0 else 0
 
     if no_price_count:
-        print(f'  ⚠ {no_price_count} 筆 SKU 無零售價，金額估算不含這些')
+        print(f'  ⚠ {no_price_count} 筆 SKU 無進貨價，銷售額估算不含這些')
 
     print(f'  ✓ 康是美實銷: {len(all_rows)}筆 SKU, {len(week_cols)}週')
     return {
@@ -298,8 +298,9 @@ def fetch_all_km_sell():
             'name':    s['name'][:30],
             'barcode': s['barcode'],
             'retail':  s['retail'],
+            'cost':    s['cost'],
             'weeks':   s['weeks'],
-            'amt_weeks': [round(q * s['retail']) if s['retail'] > 0 else 0
+            'amt_weeks': [round(q * s['cost']) if s['cost'] > 0 else 0
                           for q in s['weeks']],
         } for s in all_rows],
     }
