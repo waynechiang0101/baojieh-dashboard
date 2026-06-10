@@ -183,3 +183,30 @@ ANTHROPIC_API_KEY=xxx python3 scripts/cosmed_fetch.py
 | 業績追踨XLS | 610.82 業務員銷售 | 和清價，業務管轄通路 |
 | 康是美實銷件數 | 康是美供應商平台 | 消費者實際購買 |
 | 康是美實銷金額 | 件數 × 零售價 | 估算，供參考 |
+
+## Session 記錄 2026-06-09（Hermes）
+
+### 今天完成
+1. **康是美頁面統一**：標籤/標題全改「康是美」，拿掉分點圖、分點數KPI，只保留分點明細表
+2. **實銷翻頁修正**：改用頁碼select+wait_for_timeout(2000)，不用networkidle（背景請求太多會timeout）。HR=105筆/ARIEL=78筆，全部324筆完整
+3. **SKU明細新增欄位**：估算收入、成本/件、估算毛利（收入-成本×件數，綠/紅色顯示）
+4. **實銷改每週一抓**：`if _today.weekday() == 0` 才跑cosmed_fetch，其他天跳過，節省時間
+5. **ANTHROPIC_API_KEY**：已用 `gh secret set` 自動加入GitHub secrets，workflow 週一可正常跑
+6. **文字統一**：估算金額→估算收入
+
+### 待處理
+- CREST/ORALB/OLAY 部分SKU無成本資料（需補充xlsx）
+- 消化率：DERP SU出貨數 ÷ 康是美實銷件數（待實作）
+- 小北退步分店年達成（需要DERP YTD資料）
+
+### 口徑備注（經銷商視角）
+- 看板業績 = 和清價（寶捷實際收款）✓
+- 成本/件 = 康是美實銷xlsx的「成本(含稅)」
+- 估算毛利 = 估算收入 - 成本×件數（供參考，非精確P&L）
+- GIV = P&G發票面額，對寶捷沒有直接管理意義
+
+### cosmed_fetch.py 關鍵pitfall
+- 翻頁用頁碼select（第三個select），不動page size select
+- 翻頁等待用 `wait_for_timeout(2000)`，不用 `wait_for_load_state('networkidle')` 
+- 頁碼select在查詢完才出現（初始只有1個select）
+- barcode欄位可能含換行符（多條碼SKU），序列化時要 `.split('\n')[0]` 清掉
