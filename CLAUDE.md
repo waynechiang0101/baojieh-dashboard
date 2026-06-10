@@ -192,7 +192,7 @@ ANTHROPIC_API_KEY=xxx python3 scripts/cosmed_fetch.py
 | 看板業績 | DERP dsrDailySales | 和清價，全通路 |
 | 業績追踨XLS | 610.82 業務員銷售 | 和清價，業務管轄通路 |
 | 康是美實銷件數 | 康是美供應商平台 | 消費者實際購買 |
-| 康是美實銷金額 | 件數 × 零售價 | 估算，供參考 |
+| 康是美預估銷售額 | 件數 × 進貨價（xlsx成本含稅欄） | 寶捷出貨價視角；**不要用零售價**（2026-06-10 Wayne指正） |
 
 ## Session 記錄 2026-06-09（Hermes）
 
