@@ -689,13 +689,17 @@ def parse_inventory_health(path):
             e = dmg_skus[sku]; e['q'] += qty; e['a'] += amt; e['n'] = name[:30]; e['b'] = brand; e['wh'].add(wh)
         elif is_main(wh):
             if sku not in skus:
-                skus[sku] = {'n':name[:30],'b':brand,'st':status,'q':0,'a':0.0,'daily':0.0}
+                skus[sku] = {'n':name[:30],'b':brand,'st':status,'q':0,'a':0.0,'daily':0.0,'wh':{}}
             s = skus[sku]
             s['q'] += qty; s['a'] += amt
             if daily > 0: s['daily'] = daily   # 全公司日均銷，各倉相同
+            g = _wh_group(wh)
+            s['wh'][g] = s['wh'].get(g, 0) + amt
 
+    WH_NAMES = {'tainan':'台南','kaohsiung':'高雄','tp':'桃園','km':'康是美倉','cvs':'CVS','other':'其他'}
     light_sum = {k:{'n':0,'amt':0} for k in ['yellow','orange','red','black']}
     brand_sum = defaultdict(lambda: {'y':0,'o':0,'r':0,'k':0,'exp':0,'dmg':0})
+    wh_sum    = defaultdict(lambda: {'y':0,'o':0,'r':0,'k':0})
     dlist = []
     for sku, s in skus.items():
         d = round(s['q']/s['daily']) if s['daily'] > 0 else None
@@ -710,9 +714,14 @@ def parse_inventory_health(path):
         light_sum[lk]['n'] += 1; light_sum[lk]['amt'] += s['a']
         bk = {'yellow':'y','orange':'o','red':'r','black':'k'}[lk]
         brand_sum[s['b']][bk] += s['a']
+        for g, ga in s['wh'].items():
+            wh_sum[WH_NAMES.get(g, g)][bk] += ga
         if lk in ('red','black'):
+            whs = sorted(s['wh'].items(), key=lambda x:-x[1])
+            wh_label = '/'.join(WH_NAMES.get(g, g) for g, _ in whs[:2])
             dlist.append({'s':sku,'n':s['n'],'b':s['b'],'q':int(s['q']),
-                          'a':int(s['a']),'d':d,'st':'下架' if delisted else ('無動銷' if d is None else '')})
+                          'a':int(s['a']),'d':d,'wh':wh_label,
+                          'st':'下架' if delisted else ('無動銷' if d is None else '')})
 
     for e in exp_skus.values(): brand_sum[e['b']]['exp'] += e['a']
     for e in dmg_skus.values(): brand_sum[e['b']]['dmg'] += e['a']
@@ -723,6 +732,9 @@ def parse_inventory_health(path):
         key=lambda x:-x['a'])[:12]
     return {
         'light':  {k:{'n':v['n'],'amt':int(v['amt'])} for k,v in light_sum.items()},
+        'whs':    sorted([{'w':w,**{k:int(v[k]) for k in ['y','o','r','k']}}
+                          for w,v in wh_sum.items()],
+                         key=lambda x:-(x['r']+x['k'])),
         'brands': sorted([{'b':b,**{k:int(v[k]) for k in ['y','o','r','k','exp','dmg']}}
                           for b,v in brand_sum.items() if sum(v.values())>0],
                          key=lambda x:-(x['r']+x['k'])),
