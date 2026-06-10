@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>寶捷實業 業績儀表板 v4.1</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -59,6 +64,28 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .srch:focus{border-color:var(--accent)}
 .scroll-wrap{max-height:520px;overflow-y:auto;border-radius:6px}
 .scroll-wrap::-webkit-scrollbar{width:4px}.scroll-wrap::-webkit-scrollbar-track{background:var(--bg3)}.scroll-wrap::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ── 手機版（≤768px）：側欄變頂部橫滑膠囊列、KPI 兩欄、卡片單欄 ── */
+@media (max-width:768px){
+  .layout{display:block}
+  .sidebar{display:flex;overflow-x:auto;padding:8px 10px;gap:6px;border-right:none;border-bottom:1px solid var(--border);position:sticky;top:48px;z-index:99;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .sidebar::-webkit-scrollbar{display:none}
+  .ns{display:none}
+  .ni{flex-shrink:0;border-left:none;border:1px solid var(--border2);border-radius:20px;padding:6px 13px;white-space:nowrap;font-size:12px}
+  .ni.on{border-color:var(--accent);background:rgba(108,142,245,.15)}
+  .main{padding:12px}
+  .ptitle{font-size:16px}
+  .psub{font-size:11px;margin-bottom:12px}
+  .krow,.krow5{grid-template-columns:repeat(2,1fr);gap:8px}
+  .g2,.g3,.g3r{grid-template-columns:1fr}
+  .kpi{padding:10px 12px}
+  .kv{font-size:17px}
+  .card{padding:12px;overflow-x:auto}
+  th,td{padding:5px 6px}
+  .topbar{padding:0 12px;gap:8px}
+  .dtag{font-size:10px}
+  .srch{width:130px}
+}
 </style>
 </head>
 <body>
