@@ -651,6 +651,71 @@ def parse_xls_performance():
     }
 
 
+# ── 退貨分析（寶捷ERP退貨憑單口徑，月報XLS）────────────────
+def parse_returns_xls():
+    """讀月報「P&G銷貨退回比較表/排行榜」XLS（Downloads 遞迴找最新）。
+    口徑：寶捷ERP退貨憑單（Wayne 2026-06-11 裁定，不用DERP SR）。"""
+    import glob as _glob, xlrd
+    def newest(pat):
+        fs = _glob.glob(os.path.expanduser(f'~/Downloads/**/{pat}'), recursive=True)
+        return max(fs, key=os.path.getmtime) if fs else None
+
+    cmp_f = newest('*P&G銷貨退回比較表*.xls')
+    if not cmp_f:
+        return None
+    wb = xlrd.open_workbook(cmp_f, on_demand=True)
+
+    # 月度×分類×年（2026/2025/2024）
+    sh = wb.sheet_by_name('2025&2024&2023&2022比較表')
+    def n(v):
+        try: return int(float(v))
+        except: return 0
+    monthly = {}
+    for yi, col0 in [('2026', 0), ('2025', 6), ('2024', 12)]:
+        rows = []
+        for i in range(2, 14):
+            rows.append({'total': n(sh.cell_value(i, col0+1)), 'store': n(sh.cell_value(i, col0+2)),
+                         'reject': n(sh.cell_value(i, col0+3)), 'other': n(sh.cell_value(i, col0+4))})
+        monthly[yi] = rows
+
+    # 業務×月：實際退貨 + 佔比（退貨÷出貨）
+    sh2 = wb.sheet_by_name('2026分析總表')
+    reps = []
+    for i in range(2, sh2.nrows):
+        name = str(sh2.cell_value(i, 0)).strip()
+        if not name.startswith('MS'): continue
+        mo, pct = [], []
+        for m in range(12):
+            ret = sh2.cell_value(i, 1+m*2)
+            p   = sh2.cell_value(i, 2+m*2)
+            ret = float(ret) if isinstance(ret, (int,float)) else 0
+            p   = float(p) if isinstance(p, (int,float)) and p < 1 else None
+            mo.append(round(ret)); pct.append(round(p*100, 2) if (p is not None and ret > 0) else None)
+        if sum(mo) > 0:
+            reps.append({'n': name.split('.')[-1], 'code': name.split('.')[0],
+                         'mo': mo, 'pct': pct, 'total': sum(mo)})
+    reps.sort(key=lambda x: -x['total'])
+
+    # TOP 退貨客戶（排行榜 XLS 年度累計）
+    top_cust = []
+    rank_f = newest('*P&G銷貨退回排行榜*.xls')
+    if rank_f:
+        wb2 = xlrd.open_workbook(rank_f, on_demand=True)
+        for sn in wb2.sheet_names():
+            if '2026' in sn and '前50' in sn:
+                s3 = wb2.sheet_by_name(sn)
+                for i in range(3, min(s3.nrows, 33)):
+                    cn = str(s3.cell_value(i, 1)).strip()
+                    if not cn: continue
+                    top_cust.append({'c': cn, 'a': n(s3.cell_value(i, 2)),
+                                     'rep': str(s3.cell_value(i, 3)).strip().split('.')[-1]})
+                break
+
+    print(f"  ✓ 退貨XLS: {os.path.basename(cmp_f)[:30]} 業務{len(reps)} 客戶{len(top_cust)}")
+    return {'monthly': monthly, 'reps': reps, 'top_cust': top_cust,
+            'src': '寶捷ERP退貨憑單（月報）'}
+
+
 # ── 庫存健康預警（紅黃綠燈）──────────────────────────────
 def parse_inventory_health(path):
     """從 327-50 庫存報表算燈號。主力倉（主貨倉/出貨倉/康是美倉）按庫存天數分級：
@@ -1241,6 +1306,18 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         sub_kpi('高雄倉庫存', fm(wh_totals['高雄']), '高雄主貨倉')
         sub_kpi('桃園倉庫存', fm(wh_totals['桃園']), 'TP主貨倉')
         sub_kpi('康是美倉庫存', fm(wh_totals['康是美']), '康是美寄倉')
+
+    # ── 退貨分析 RETURNS（月報XLS有更新才覆寫）──
+    try:
+        returns = parse_returns_xls()
+    except Exception as e:
+        returns = None
+        print(f"  ⚠ 退貨XLS解析失敗: {e}")
+    if returns:
+        import json as _json
+        html = re.sub(r'const RETURNS=\{[\s\S]*?\};',
+                      'const RETURNS=' + _json.dumps(returns, ensure_ascii=False) + ';',
+                      html)
 
     # ── 庫存健康預警 INV_HEALTH ──
     if inv_health:
