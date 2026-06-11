@@ -236,14 +236,16 @@ def fetch_km_inventory(page):
     for sid in PG_SUPPLIERS:
         rows = fetch_inventory_supplier(page, sid)
         for c in rows:
-            bc = c[2].split('\n')[0].strip()
-            if not bc: continue
-            inv[bc] = {
+            rec = {
                 'status': c[4][:1],          # 休配狀態碼（4=停售下架）
                 'transit': n(c[7]),          # 訂單在途量
                 'dc': n(c[8]),               # 物流庫存（三倉合計）
                 'wh': [n(c[9]), n(c[10]), n(c[11])],  # 北/南/西園
             }
+            # 多條碼 SKU：每個條碼都建索引
+            for bc in c[2].split('\n'):
+                bc = bc.strip()
+                if bc: inv[bc] = rec
         print(f'    庫存 {sid}: {len(rows)}筆')
     print(f'  ✓ DC庫存 {len(inv)} SKU')
     return inv
