@@ -679,11 +679,15 @@ def parse_returns_xls():
         monthly[yi] = rows
 
     # 業務×月：實際退貨 + 佔比（退貨÷出貨）
+    # 月報自身分段：「合計(以上不含小北)」之前 = 一般業務（品質係數適用）；
+    # 之後 = 特殊段（小北 / 林哲暉北寶總倉 / 吳建德金永發等政策性，不適用係數）
     sh2 = wb.sheet_by_name('2026分析總表')
-    reps = []
+    cut = sh2.nrows
     for i in range(2, sh2.nrows):
+        if '不含小北' in str(sh2.cell_value(i, 0)):
+            cut = i; break
+    def _rep_row(i):
         name = str(sh2.cell_value(i, 0)).strip()
-        if not name.startswith('MS'): continue
         mo, pct = [], []
         for m in range(12):
             ret = sh2.cell_value(i, 1+m*2)
@@ -691,10 +695,17 @@ def parse_returns_xls():
             ret = float(ret) if isinstance(ret, (int,float)) else 0
             p   = float(p) if isinstance(p, (int,float)) and p < 1 else None
             mo.append(round(ret)); pct.append(round(p*100, 2) if (p is not None and ret > 0) else None)
-        if sum(mo) > 0:
-            reps.append({'n': name.split('.')[-1], 'code': name.split('.')[0],
-                         'mo': mo, 'pct': pct, 'total': sum(mo)})
+        return name, mo, pct
+    reps, special = [], []
+    for i in range(2, sh2.nrows):
+        name, mo, pct = _rep_row(i)
+        if not name.startswith('MS') and name != '小北': continue
+        if sum(mo) <= 0: continue
+        item = {'n': name.split('.')[-1], 'code': name.split('.')[0] if '.' in name else '',
+                'mo': mo, 'pct': pct, 'total': sum(mo)}
+        (reps if i < cut else special).append(item)
     reps.sort(key=lambda x: -x['total'])
+    special.sort(key=lambda x: -x['total'])
 
     # TOP 退貨客戶（排行榜 XLS 年度累計）
     top_cust = []
@@ -711,8 +722,8 @@ def parse_returns_xls():
                                      'rep': str(s3.cell_value(i, 3)).strip().split('.')[-1]})
                 break
 
-    print(f"  ✓ 退貨XLS: {os.path.basename(cmp_f)[:30]} 業務{len(reps)} 客戶{len(top_cust)}")
-    return {'monthly': monthly, 'reps': reps, 'top_cust': top_cust,
+    print(f"  ✓ 退貨XLS: {os.path.basename(cmp_f)[:30]} 一般業務{len(reps)} 特殊段{len(special)} 客戶{len(top_cust)}")
+    return {'monthly': monthly, 'reps': reps, 'special': special, 'top_cust': top_cust,
             'src': '寶捷ERP退貨憑單（月報）'}
 
 
