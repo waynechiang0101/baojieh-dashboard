@@ -696,16 +696,24 @@ def parse_returns_xls():
             p   = float(p) if isinstance(p, (int,float)) and p < 1 else None
             mo.append(round(ret)); pct.append(round(p*100, 2) if (p is not None and ret > 0) else None)
         return name, mo, pct
-    reps, special = [], []
+    # 特殊段到「總計」列為止；之後的高雄/台南=倉別拆分、再後面的業務列=小北明細（與小北列重複，獨立存放）
+    total_row = sh2.nrows
+    for i in range(cut+1, sh2.nrows):
+        if str(sh2.cell_value(i, 0)).replace(' ','').strip() == '總計':
+            total_row = i; break
+    reps, special, xb_reps = [], [], []
     for i in range(2, sh2.nrows):
         name, mo, pct = _rep_row(i)
         if not name.startswith('MS') and name != '小北': continue
         if sum(mo) <= 0: continue
         item = {'n': name.split('.')[-1], 'code': name.split('.')[0] if '.' in name else '',
                 'mo': mo, 'pct': pct, 'total': sum(mo)}
-        (reps if i < cut else special).append(item)
+        if i < cut: reps.append(item)
+        elif i < total_row: special.append(item)
+        else: xb_reps.append(item)   # 小北業務明細（加總=小北列）
     reps.sort(key=lambda x: -x['total'])
     special.sort(key=lambda x: -x['total'])
+    xb_reps.sort(key=lambda x: -x['total'])
 
     # TOP 退貨客戶（排行榜 XLS 年度累計）
     top_cust = []
@@ -722,9 +730,9 @@ def parse_returns_xls():
                                      'rep': str(s3.cell_value(i, 3)).strip().split('.')[-1]})
                 break
 
-    print(f"  ✓ 退貨XLS: {os.path.basename(cmp_f)[:30]} 一般業務{len(reps)} 特殊段{len(special)} 客戶{len(top_cust)}")
-    return {'monthly': monthly, 'reps': reps, 'special': special, 'top_cust': top_cust,
-            'src': '寶捷ERP退貨憑單（月報）'}
+    print(f"  ✓ 退貨XLS: {os.path.basename(cmp_f)[:30]} 一般{len(reps)} 特殊{len(special)} 小北明細{len(xb_reps)} 客戶{len(top_cust)}")
+    return {'monthly': monthly, 'reps': reps, 'special': special, 'xb_reps': xb_reps,
+            'top_cust': top_cust, 'src': '寶捷ERP退貨憑單（月報）'}
 
 
 # ── 庫存健康預警（紅黃綠燈）──────────────────────────────
