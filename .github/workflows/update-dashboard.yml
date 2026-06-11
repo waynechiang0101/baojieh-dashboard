@@ -43,6 +43,6 @@ jobs:
         run: |
           git config user.name "Dashboard Bot"
           git config user.email "bot@bjworks.com"
-          git add dashboard.html
+          git add dashboard.html data/sr_pending.json
           git diff --cached --quiet || git commit -m "📊 自動更新看板 $(date +'%Y-%m-%d %H:%M')"
           git push

@@ -651,6 +651,52 @@ def parse_xls_performance():
     }
 
 
+# ── 退貨憑單清單（161-00-09 銷貨退回日報表，財報口徑）──────
+def fetch_sr_vouchers(d0, d1):
+    """抓 ERP 銷貨退回日報表（accountID=22884510，會計確認=財報數字），
+    按憑單彙總，供退貨原因登記頁使用。"""
+    s = _post_login(os.environ.get("DERP_USER","user34"), os.environ.get("DERP_PASS","user34"))
+    params = {
+        '*ReportType':'1','*orderDateStart':d0,'*orderDateEnd':d1,
+        '*deliveryDateStart':'','*deliveryDateEnd':'','*shipmentDateStart':'','*shipmentDateEnd':'',
+        '*selectedVANSale':'','*orderNo':'','*orderNoMerge':'','*returnNo':'','*returnNoMerge':'',
+        '*brandCode':'','*brandCodeMerge':'','*itemNo':'','*itemNoMerge':'','*barcode':'','*barcodeMerge':'',
+        '*selectedStatus':'','*orderSeqNo':'','*orderSeqNoMerge':'','*supplierNo':'','*supplierNoMerge':'',
+        '*territoryCode':'','*territoryMerge':'','*dsrNo':'','*dsrNoMerge':'',
+        '*soldToCode':'','*soldToCodeName':'','*customerNoStart':'','*customerNoMerge':'',
+        '*warehouse':'','*warehouseMerge':'',
+        '*pageCmd':'view','*maxKeyValue':'','*minKeyValue':'','*rowsPerPage':'14','*linePerPage':'20',
+        '*indexSelected':'','*keySelected':'','*rptFormat':'HTML','*rptLines':'','*rptOrientation':'',
+        '*rptPageSize':'','*rptGrayScale':'','*rptDraftMode':'','*rptFormatSelected':'','*rptLinesSelected':'',
+        'parmLines':'','*rptOrientationSelected':'','*rptPageSizeSelected':'','*rptGrayScaleSelected':'',
+        '*rptDraftModeSelected':'','execCode':'0','execMsg':'','actionCode':'0','focusField':'',
+        'urlAlter':'','urlYes':'','urlNo':'',
+        'accountID':'22884510','derpPage':'derp-161-00','*htmlPage':'derp-161-00','appSysName':'derp',
+    }
+    print(f"  退貨憑單 161-10 {d0}~{d1}...")
+    r = s.get(f'{BASE_URL}/1.SO/derp-161-10.jsp', params=params, verify=False, timeout=300,
+              headers={'Referer':f'{BASE_URL}/1.SO/derp-161-00.jsp'})
+    print(f"    ✓ {len(r.content)//1024}KB")
+    rows = re.findall(r'<TR[^>]*>(.*?)</TR>', r.text, re.I|re.S)
+    vouchers = {}
+    for row in rows:
+        c = [re.sub(r'<[^>]+>','',x).strip().replace('&nbsp;','') for x in
+             re.findall(r'<T[DH][^>]*>(.*?)</T[DH]>', row, re.I|re.S)]
+        if len(c) < 11 or not c[1].startswith('SR'): continue
+        try: amt = float(c[9].replace(',',''))
+        except: continue
+        no = c[1]
+        if no not in vouchers:
+            vouchers[no] = {'no':no,'date':c[0],'cust':c[2],'wh':c[3],'amt':0,'n':0,'first':c[6][:24],'note':c[10][:30]}
+        v = vouchers[no]
+        v['amt'] += amt; v['n'] += 1
+        if c[10] and not v['note']: v['note'] = c[10][:30]
+    out = sorted(vouchers.values(), key=lambda x: (x['date'], x['no']), reverse=True)
+    for v in out: v['amt'] = round(v['amt'])
+    print(f"    ✓ {len(out)} 張憑單")
+    return out
+
+
 # ── 退貨分析（寶捷ERP退貨憑單口徑，月報XLS）────────────────
 def parse_returns_xls():
     """讀月報「P&G銷貨退回比較表/排行榜」XLS（Downloads 遞迴找最新）。
@@ -1453,6 +1499,21 @@ def main():
                 print(f"  ⚠ 康是美出貨(610-24)抓取失敗: {e}")
     else:
         print(f"\n[康是美實銷] 跳過（今天{['一','二','三','四','五','六','日'][_today.weekday()]}，週一才更新）")
+
+    # 退貨憑單清單（登記頁資料源，當月+上月）
+    try:
+        import json as _json
+        from datetime import timedelta as _td
+        first_prev = (_today.replace(day=1) - _td(days=1)).replace(day=1)
+        vouchers = fetch_sr_vouchers(first_prev.strftime('%Y/%m/%d'), _today.strftime('%Y/%m/%d'))
+        _data_dir = DASHBOARD.parent / 'data'
+        os.makedirs(_data_dir, exist_ok=True)
+        (_data_dir / 'sr_pending.json').write_text(
+            _json.dumps({'updated': today, 'vouchers': vouchers}, ensure_ascii=False),
+            encoding='utf-8')
+        print(f"  ✓ data/sr_pending.json: {len(vouchers)} 張")
+    except Exception as e:
+        print(f"  ⚠ 退貨憑單清單失敗（不影響看板）: {e}")
 
     update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data, ar_reps, ar_unpaid, km_sell, iya_m, inv_health)
 

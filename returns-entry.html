@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f1117">
+<title>退貨原因登記 · 寶捷實業</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1117;--bg2:#161a24;--bg3:#1e2436;--border:#2a3050;--border2:#3a4570;--text:#e8eaf2;--text2:#8892b0;--text3:#4a5580;--green:#4caf82;--amber:#e0b84f;--red:#e05a4f;--accent:#6c8ef5;--mono:"IBM Plex Mono",monospace;--sans:"Noto Sans TC",sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh}
+.topbar{display:flex;align-items:center;gap:12px;padding:0 16px;height:48px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.back{font-size:12px;color:var(--text2);text-decoration:none}
+.logo{font-size:14px;font-weight:700}.logo span{color:var(--accent)}
+.wrap{max-width:760px;margin:0 auto;padding:16px}
+.note{font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:14px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.inp{padding:7px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:var(--bg2);color:var(--text);font-family:var(--sans);outline:none}
+.inp:focus{border-color:var(--accent)}
+.ftab{padding:5px 13px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid var(--border2);color:var(--text2);background:transparent}
+.ftab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.v{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:13px 14px;margin-bottom:10px}
+.v.done{opacity:.62}
+.vtop{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:3px}
+.vcust{font-weight:700;font-size:14px}
+.vamt{font-family:var(--mono);font-weight:700;font-size:15px}
+.vmeta{font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:9px}
+.btns{display:flex;gap:6px;flex-wrap:wrap}
+.cbtn{padding:7px 14px;border-radius:8px;font-size:13px;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--text2);font-family:var(--sans)}
+.cbtn.sel-店家退貨{background:rgba(76,175,130,.2);color:var(--green);border-color:var(--green)}
+.cbtn.sel-拒收\&劃單{background:rgba(224,184,79,.2);color:var(--amber);border-color:var(--amber)}
+.cbtn.sel-其他{background:rgba(224,90,79,.2);color:var(--red);border-color:var(--red)}
+.vnote{margin-top:8px;width:100%;display:none}
+.vby{font-size:11px;color:var(--text3);margin-top:6px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--accent);border-radius:10px;padding:10px 22px;font-size:13px;display:none;z-index:200}
+.gate{max-width:340px;margin:80px auto;text-align:center}
+.gate h2{margin-bottom:18px;font-size:18px}
+.gate .inp{width:100%;margin-bottom:10px;text-align:center}
+.gbtn{width:100%;padding:10px;border-radius:8px;background:var(--accent);color:#fff;border:none;font-size:14px;cursor:pointer;font-family:var(--sans)}
+.warn{background:rgba(224,184,79,.1);border:1px solid rgba(224,184,79,.4);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--amber);margin-bottom:14px;display:none}
+.count{font-size:12px;color:var(--text2);margin:6px 0 12px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="back" href="index.html">← 首頁</a>
+  <div class="logo">退貨原因登記 <span>SR</span></div>
+</div>
+
+<div class="gate" id="gate">
+  <h2>退貨原因登記</h2>
+  <input class="inp" id="g-name" placeholder="你的名字（必填）" autocomplete="name">
+  <input class="inp" id="g-pin" placeholder="通行碼" type="password">
+  <button class="gbtn" onclick="enter()">進入</button>
+</div>
+
+<div class="wrap" id="app" style="display:none">
+  <div class="warn" id="demo-warn">⚠ 後端尚未啟用（D1 未綁定），目前為示範模式——分類只存在這台裝置，不會同步給其他人。</div>
+  <div class="note">每張退貨憑單點一個原因即可。<b>店家退貨</b>=門市正常退貨；<b>拒收&劃單</b>=送錯/開錯/拒收；<b>其他</b>=政策性（總倉退貨、換包裝、即期回收等，請寫備註）。資料每日自動從 ERP 帶入（161-00-09 銷貨退回日報表）。</div>
+  <div class="bar">
+    <button class="ftab on" data-f="pending" onclick="setF(this)">待分類</button>
+    <button class="ftab" data-f="done" onclick="setF(this)">已分類</button>
+    <button class="ftab" data-f="all" onclick="setF(this)">全部</button>
+    <input class="inp" id="q" placeholder="搜尋客戶 / 單號" style="flex:1;min-width:140px" oninput="render()">
+  </div>
+  <div class="count" id="count"></div>
+  <div id="list"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const CLS = ['店家退貨','拒收&劃單','其他'];
+let DATA = [], SAVED = {}, FILTER = 'pending', DEMO = false, NAME = '', PIN = '';
+
+function enter(){
+  NAME = document.getElementById('g-name').value.trim();
+  PIN  = document.getElementById('g-pin').value.trim();
+  if(!NAME){ alert('請填名字'); return; }
+  localStorage.setItem('ret_name', NAME); localStorage.setItem('ret_pin', PIN);
+  document.getElementById('gate').style.display='none';
+  document.getElementById('app').style.display='block';
+  load();
+}
+
+async function load(){
+  const r = await fetch('data/sr_pending.json');
+  const d = await r.json();
+  DATA = d.vouchers;
+  try{
+    const api = await fetch('api/returns');
+    if(api.ok){
+      const j = await api.json();
+      (j.rows||[]).forEach(x=>SAVED[x.voucher_no]={cls:x.cls,note:x.note,by:x.filled_by});
+    } else throw 0;
+  }catch(e){
+    DEMO = true;
+    document.getElementById('demo-warn').style.display='block';
+    SAVED = JSON.parse(localStorage.getItem('ret_saved')||'{}');
+  }
+  render();
+}
+
+function setF(el){
+  document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on'); FILTER = el.dataset.f; render();
+}
+
+function render(){
+  const q = document.getElementById('q').value.trim();
+  const list = document.getElementById('list'); list.innerHTML='';
+  let shown=0, pending=0;
+  DATA.forEach(v=>{ if(!SAVED[v.no]) pending++; });
+  DATA.forEach(v=>{
+    const s = SAVED[v.no];
+    if(FILTER==='pending' && s) return;
+    if(FILTER==='done' && !s) return;
+    if(q && !v.cust.includes(q) && !v.no.includes(q)) return;
+    if(shown>=200) return;
+    shown++;
+    const div = document.createElement('div');
+    div.className = 'v'+(s?' done':'');
+    div.innerHTML = `
+      <div class="vtop"><span class="vcust">${v.cust}</span><span class="vamt">$${v.amt.toLocaleString()}</span></div>
+      <div class="vmeta">${v.date} · ${v.no} · ${v.wh} · ${v.n}項 · ${v.first}${v.note?' · 備:'+v.note:''}</div>
+      <div class="btns">${CLS.map(c=>
+        `<button class="cbtn ${s&&s.cls===c?'sel-'+c:''}" onclick="pick('${v.no}','${c}',this)">${c}</button>`).join('')}
+      </div>
+      <input class="inp vnote" id="note-${v.no}" placeholder="備註（政策性請說明：換包裝/總倉/即期…）"
+        value="${s&&s.note?s.note.replace(/"/g,'&quot;'):''}" onchange="renote('${v.no}',this.value)"
+        style="display:${s&&s.cls==='其他'?'block':'none'}">
+      ${s?`<div class="vby">✓ ${s.by||''} 已分類</div>`:''}`;
+    list.appendChild(div);
+  });
+  document.getElementById('count').textContent =
+    `待分類 ${pending} / 共 ${DATA.length} 張` + (shown>=200?'（僅顯示前200筆，請用搜尋）':'');
+}
+
+async function save(no, cls, note){
+  SAVED[no] = {cls, note: note||'', by: NAME};
+  if(DEMO){ localStorage.setItem('ret_saved', JSON.stringify(SAVED)); return true; }
+  const r = await fetch('api/returns', {method:'POST',
+    headers:{'content-type':'application/json','x-pin':PIN},
+    body: JSON.stringify({voucher_no:no, cls, note:note||'', filled_by:NAME})});
+  if(r.status===401){ alert('通行碼錯誤，請重新整理輸入'); delete SAVED[no]; return false; }
+  return r.ok;
+}
+
+async function pick(no, cls, btn){
+  const note = (document.getElementById('note-'+no)||{}).value||'';
+  if(await save(no, cls, note)){
+    toast(`✓ ${cls}`);
+    if(cls==='其他'){ // 留在原地讓他填備註
+      const card = btn.closest('.v');
+      card.querySelectorAll('.cbtn').forEach(b=>b.className='cbtn'+(b.textContent===cls?' sel-'+cls:''));
+      card.querySelector('.vnote').style.display='block';
+      card.classList.add('done');
+    } else render();
+  }
+}
+async function renote(no, val){
+  if(SAVED[no]) await save(no, SAVED[no].cls, val);
+}
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block';
+  clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none', 1200);
+}
+
+// 記住名字
+const savedName = localStorage.getItem('ret_name');
+if(savedName){ document.getElementById('g-name').value = savedName; }
+const savedPin = localStorage.getItem('ret_pin');
+if(savedPin){ document.getElementById('g-pin').value = savedPin; }
+</script>
+</body>
+</html>

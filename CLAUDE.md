@@ -152,6 +152,19 @@ const declined = XB_STORES
 - 2026-06-10 基準：黑燈 $125M（74% 總庫存！）、紅燈 $20M、壞品倉 $7.4M（OLAY 康是美退貨佔 $5.9M）
 - **新品追蹤未做**：需要「SKU+上市日+90天目標」清單，DERP 無此資料；iWMS（Wayne 提過有此系統）可能有進倉日期/效期，待取得存取方式後升級「真滯留天數」與效期級即期預警
 
+## 退貨原因登記系統（2026-06-11 新增）
+
+- 入口：index.html →「退貨原因登記」→ `returns-entry.html`（多人使用，填名字+通行碼）
+- 資料源：**161-00 第09 銷貨退回日報表**（`1.SO/derp-161-10.jsp`，GET，`*ReportType=1`，accountID=**22884510** 寶捷自家帳非P&G帳）——會計確認此口徑=財報數字
+- `fetch_sr_vouchers()` 每日抓上月1日~今日憑單 → `data/sr_pending.json`（workflow 已加 git add）
+- 後端：`functions/api/returns.js`（Cloudflare Pages Function + D1），分類存 returns_cls 表
+- **一次性設定（待 Wayne 在 Cloudflare dashboard 操作，未完成前頁面=示範模式只存本機）**：
+  1. Workers & Pages → D1 → Create database `baojieh-returns`
+  2. Pages 專案 → Settings → Functions → D1 bindings → 變數名 `DB` → 選該庫
+  3. Pages 專案 → Settings → Environment variables → `PIN` = 自訂通行碼
+- 分類選項對齊月報：店家退貨 / 拒收&劃單 / 其他（政策性，要備註）
+- 目的：取代助理事後人工登記，分類即時化 → 退貨分析可望全自動、月報退貨部分可由系統產出
+
 ## 康是美實銷模組（2026-06-08 新增）
 
 ### 腳本
