@@ -1672,7 +1672,9 @@ const builds={
         </div>`;
         html += '<table><thead><tr><th>#</th><th>品名</th>';
         html += wLabels.map(w=>`<th>${w}<br><span style="font-size:9px;color:var(--text3)">件</span></th>`).join('');
-        html += '<th>合計件數</th><th>進貨價/件</th><th>預估銷售額</th><th>零售價<br><span style="font-size:9px;color:var(--text3)">參考</span></th></tr></thead><tbody>';
+        const panelDc = skus.some(s=>s.dc!==undefined);
+        html += '<th>合計件數</th><th>進貨價/件</th><th>預估銷售額</th><th>零售價<br><span style="font-size:9px;color:var(--text3)">參考</span></th>' +
+          (panelDc?'<th>DC庫存</th><th>可賣週數</th>':'') + '</tr></thead><tbody>';
 
         skuTotals.forEach((s,i)=>{
           const rn = i<3?`r${i+1}`:'rn';
@@ -1680,13 +1682,23 @@ const builds={
           const grossAmt = s.amt_weeks.reduce((a,b)=>a+b,0);
           html += `<tr>
             <td><span class="rk ${rn}">${i+1}</span></td>
-            <td style="font-size:11px">${s.name}</td>`;
+            <td style="font-size:11px">${s.name}${s.kst==='4'?' <span style="font-size:9px;color:#e05a4f;border:1px solid #e05a4f;border-radius:3px;padding:0 3px">康停售</span>':''}</td>`;
           html += s.weeks.map(q=>`<td class="mn">${q>0?q.toLocaleString():'—'}</td>`).join('');
           html += `<td class="mn" style="font-weight:700;color:${color}">${s.totalQty.toLocaleString()}</td>
             <td class="mn">${cost>0?'$'+cost:'—'}</td>
             <td class="mn" style="font-weight:700">${grossAmt>0?'$'+grossAmt.toLocaleString():'—'}</td>
-            <td class="mn" style="color:var(--text3)">${s.retail>0?'$'+s.retail:'—'}</td>
-          </tr>`;
+            <td class="mn" style="color:var(--text3)">${s.retail>0?'$'+s.retail:'—'}</td>`;
+          if(panelDc){
+            if(s.dc===undefined) html += '<td class="mn" style="color:var(--text3)">—</td><td class="mn" style="color:var(--text3)">—</td>';
+            else {
+              const wkAvg = s.totalQty / s.weeks.length;
+              const w = wkAvg>0 ? s.dc/wkAvg : null;
+              const c = w===null?'var(--text3)':w>6?'#e05a4f':w>4?'#e0a04f':'#4caf82';
+              html += `<td class="mn">${s.dc.toLocaleString()}${s.transit>0?` <span style="font-size:9px;color:var(--text3)">+在途${s.transit}</span>`:''}</td>` +
+                `<td class="mn" style="color:${c};font-weight:700">${w===null?'—':w.toFixed(1)}</td>`;
+            }
+          }
+          html += `</tr>`;
         });
 
         // 合計行
@@ -1700,7 +1712,7 @@ const builds={
         html += `<td class="mn" style="font-weight:700;color:${color}">${grandQty.toLocaleString()}</td>
           <td></td>
           <td class="mn" style="font-weight:700">${totalGross>0?'$'+totalGross.toLocaleString():'—'}</td>
-          <td></td>
+          <td></td>` + (panelDc?'<td></td><td></td>':'') + `
         </tr>`;
         html += '</tbody></table>';
 
@@ -1716,6 +1728,24 @@ const builds={
         const isAmt = mode==='amt';
         const SHIP = sell.ship_by_brand || {};
         const hasShip = !isAmt && Object.keys(SHIP).length > 0;
+        // DC 庫存品牌彙總（by_sku 帶 dc 欄位才有）
+        const DC = {}; let hasDc = false;
+        sell.by_sku.forEach(s=>{
+          if(s.dc !== undefined){ hasDc = true; DC[s.brand] = (DC[s.brand]||0) + s.dc; }
+        });
+        hasDc = hasDc && !isAmt;
+        const dcCell = (b, total) => {
+          const dc = DC[b];
+          if(dc === undefined) return '<td class="mn" style="color:var(--text3)">—</td><td class="mn" style="color:var(--text3)">—</td>';
+          const wkAvg = total / sell.weeks.length;
+          let wkHtml = '—';
+          if(wkAvg > 0){
+            const w = dc / wkAvg;
+            const c = w > 6 ? '#e05a4f' : w > 4 ? '#e0a04f' : '#4caf82';
+            wkHtml = `<span style="color:${c};font-weight:700">${w.toFixed(1)}週</span>`;
+          }
+          return `<td class="mn">${dc.toLocaleString()}</td><td class="mn">${wkHtml}</td>`;
+        };
         const digCell = (qty, ship) => {
           if(ship === undefined) return '<td class="mn" style="color:var(--text3)">—</td><td class="mn" style="color:var(--text3)">—</td>';
           let rateHtml = '—';
@@ -1728,7 +1758,8 @@ const builds={
         };
         let html = '<table><thead><tr><th>品牌 <span style="font-size:9px;color:var(--text3)">點擊查看SKU</span></th>' +
           wLabels.map(w=>`<th>${w}</th>`).join('') + '<th>合計</th>' +
-          (hasShip ? '<th>同期出貨</th><th>消化率</th>' : '') + '</tr></thead><tbody>';
+          (hasShip ? '<th>同期出貨</th><th>消化率</th>' : '') +
+          (hasDc ? '<th>DC庫存</th><th>可賣週數</th>' : '') + '</tr></thead><tbody>';
         brands.forEach(b => {
           const vals = isAmt ? (sell.by_brand_amt[b]||[]) : sell.by_brand_qty[b];
           const total = vals.reduce((s,v)=>s+v, 0);
@@ -1739,6 +1770,7 @@ const builds={
           html += vals.map(v=>`<td class="mn">${fmt(v)}</td>`).join('');
           html += `<td class="mn" style="font-weight:700;color:${color}">${fmt(total)}</td>`;
           if(hasShip) html += digCell(total, SHIP[b]);
+          if(hasDc) html += dcCell(b, total);
           html += '</tr>';
         });
         const totals = sell.weeks.map((_,i) => brands.reduce((s,b)=>{
@@ -1753,6 +1785,12 @@ const builds={
         if(hasShip){
           const shipTotal = brands.reduce((s,b)=>s+(SHIP[b]||0), 0);
           html += digCell(grand, shipTotal).replace(/<td class="mn">/g,'<td class="mn" style="font-weight:700">');
+        }
+        if(hasDc){
+          const dcTotal = Object.values(DC).reduce((s,v)=>s+v, 0);
+          const wkAvg = grand / sell.weeks.length;
+          html += `<td class="mn" style="font-weight:700">${dcTotal.toLocaleString()}</td>` +
+            `<td class="mn" style="font-weight:700">${wkAvg>0?(dcTotal/wkAvg).toFixed(1)+'週':'—'}</td>`;
         }
         html += '</tr>';
         html += '</tbody></table>';

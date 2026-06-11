@@ -192,6 +192,63 @@ def fetch_supplier(page, supplier_id):
 
     return week_cols, all_rows
 
+# ── 庫存數量查詢（康是美 DC：捷盟北倉+南倉+西園倉）─────────
+def fetch_inventory_supplier(page, supplier_id):
+    """單一廠編的 DC 庫存。欄位：No.|品號|條碼|品名|北倉休配|南倉休配|西園倉休配|
+    訂單在途量|物流庫存|捷盟北倉|捷盟南倉|捷盟西園倉|庫存日期|供應商料號"""
+    page.locator('select').first.select_option(supplier_id)
+    page.locator('button:has-text("查詢")').click()
+    page.wait_for_timeout(2000)
+
+    all_rows, seen = [], set()
+    def collect():
+        for tr in page.locator('table tbody tr').all():
+            c = [td.inner_text().strip() for td in tr.locator('td').all()]
+            if len(c) >= 13 and c[1] not in seen:
+                seen.add(c[1])
+                all_rows.append(c)
+    collect()
+    while True:
+        try:
+            selects = page.locator('select').all()
+            if len(selects) < 3: break
+            page_sel = selects[2]
+            vals = [o.get_attribute('value') for o in page_sel.locator('option').all()]
+            cur = page_sel.evaluate('el => el.value')
+            if not vals or cur == vals[-1]: break
+            page_sel.select_option(vals[vals.index(cur)+1])
+            page.wait_for_timeout(2000)
+            collect()
+        except: break
+    return all_rows
+
+def fetch_km_inventory(page):
+    """全部 P&G 廠編的 DC 庫存，回傳 {條碼: {...}}（休配/在途/物流庫存/三倉）"""
+    page.locator('a:has-text("銷售庫存")').click()
+    page.wait_for_timeout(500)
+    page.locator('a:has-text("庫存數量查詢")').click()
+    page.wait_for_timeout(2500)
+
+    inv = {}
+    def n(v):
+        try: return int(str(v).replace(',',''))
+        except: return 0
+    for sid in PG_SUPPLIERS:
+        rows = fetch_inventory_supplier(page, sid)
+        for c in rows:
+            bc = c[2].split('\n')[0].strip()
+            if not bc: continue
+            inv[bc] = {
+                'status': c[4][:1],          # 休配狀態碼（4=停售下架）
+                'transit': n(c[7]),          # 訂單在途量
+                'dc': n(c[8]),               # 物流庫存（三倉合計）
+                'wh': [n(c[9]), n(c[10]), n(c[11])],  # 北/南/西園
+            }
+        print(f'    庫存 {sid}: {len(rows)}筆')
+    print(f'  ✓ DC庫存 {len(inv)} SKU')
+    return inv
+
+
 # ── 主流程 ────────────────────────────────────────
 def fetch_all_km_sell():
     """給 derp_fetch.py 呼叫，回傳康是美實銷彙總資料。
@@ -266,6 +323,13 @@ def fetch_all_km_sell():
                     })
             print(f'    {sid}: {len(rows)}筆')
 
+        # DC 庫存（同一個 session 順手抓）
+        dc_inv = {}
+        try:
+            dc_inv = fetch_km_inventory(page)
+        except Exception as e:
+            print(f'  ⚠ DC庫存抓取失敗（實銷不受影響）: {e}')
+
         browser.close()
 
     if not week_cols:
@@ -302,6 +366,10 @@ def fetch_all_km_sell():
             'weeks':   s['weeks'],
             'amt_weeks': [round(q * s['cost']) if s['cost'] > 0 else 0
                           for q in s['weeks']],
+            **({'dc': dc_inv[s['barcode'].split('\n')[0].strip()]['dc'],
+                'transit': dc_inv[s['barcode'].split('\n')[0].strip()]['transit'],
+                'kst': dc_inv[s['barcode'].split('\n')[0].strip()]['status']}
+               if s['barcode'].split('\n')[0].strip() in dc_inv else {}),
         } for s in all_rows],
     }
 
