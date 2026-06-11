@@ -2,7 +2,7 @@
 // 一次性設定（Cloudflare dashboard）：
 //   1. Workers & Pages → D1 → Create database「baojieh-returns」
 //   2. Pages 專案 → Settings → Functions → D1 bindings → 變數名 DB → 選該資料庫
-//   3. Pages 專案 → Settings → Environment variables → PIN = 自訂通行碼
+// （無通行碼設計 — Wayne 2026-06-11 決定，以登記人名字辨識即可）
 const SCHEMA = `CREATE TABLE IF NOT EXISTS returns_cls (
   voucher_no TEXT PRIMARY KEY,
   cls TEXT NOT NULL,
@@ -22,7 +22,6 @@ export async function onRequestGet({ env }) {
 
 export async function onRequestPost({ request, env }) {
   if (!env.DB) return json({ error: 'D1 未綁定' }, 503);
-  if (env.PIN && request.headers.get('x-pin') !== env.PIN) return json({ error: 'PIN 錯誤' }, 401);
   const b = await request.json();
   if (!b.voucher_no || !['店家退貨', '拒收&劃單', '其他'].includes(b.cls)) return json({ error: '參數錯誤' }, 400);
   await ensureTable(env.DB);

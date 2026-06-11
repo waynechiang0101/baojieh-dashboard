@@ -51,7 +51,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 <div class="gate" id="gate">
   <h2>退貨原因登記</h2>
   <input class="inp" id="g-name" placeholder="你的名字（必填）" autocomplete="name">
-  <input class="inp" id="g-pin" placeholder="通行碼" type="password">
   <button class="gbtn" onclick="enter()">進入</button>
 </div>
 
@@ -63,6 +62,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
     <button class="ftab" data-f="done" onclick="setF(this)">已分類</button>
     <button class="ftab" data-f="all" onclick="setF(this)">全部</button>
     <input class="inp" id="q" placeholder="搜尋客戶 / 單號" style="flex:1;min-width:140px" oninput="render()">
+    <button class="ftab" onclick="exportCsv()">⬇ 下載表單</button>
   </div>
   <div class="count" id="count"></div>
   <div id="list"></div>
@@ -75,9 +75,8 @@ let DATA = [], SAVED = {}, FILTER = 'pending', DEMO = false, NAME = '', PIN = ''
 
 function enter(){
   NAME = document.getElementById('g-name').value.trim();
-  PIN  = document.getElementById('g-pin').value.trim();
   if(!NAME){ alert('請填名字'); return; }
-  localStorage.setItem('ret_name', NAME); localStorage.setItem('ret_pin', PIN);
+  localStorage.setItem('ret_name', NAME);
   document.getElementById('gate').style.display='none';
   document.getElementById('app').style.display='block';
   load();
@@ -140,9 +139,8 @@ async function save(no, cls, note){
   SAVED[no] = {cls, note: note||'', by: NAME};
   if(DEMO){ localStorage.setItem('ret_saved', JSON.stringify(SAVED)); return true; }
   const r = await fetch('api/returns', {method:'POST',
-    headers:{'content-type':'application/json','x-pin':PIN},
+    headers:{'content-type':'application/json'},
     body: JSON.stringify({voucher_no:no, cls, note:note||'', filled_by:NAME})});
-  if(r.status===401){ alert('通行碼錯誤，請重新整理輸入'); delete SAVED[no]; return false; }
   return r.ok;
 }
 
@@ -161,6 +159,23 @@ async function pick(no, cls, btn){
 async function renote(no, val){
   if(SAVED[no]) await save(no, SAVED[no].cls, val);
 }
+function exportCsv(){
+  const esc = v => '"' + String(v==null?'':v).replace(/"/g,'""') + '"';
+  const lines = ['單據日期,單據編號,客戶名稱,倉庫,金額,品項數,退貨原因,備註,登記人'];
+  DATA.forEach(v=>{
+    const s = SAVED[v.no] || {};
+    lines.push([v.date, v.no, v.cust, v.wh, v.amt, v.n,
+                s.cls||'未分類', s.note||'', s.by||''].map(esc).join(','));
+  });
+  const blob = new Blob(['﻿'+lines.join('\r\n')], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const d = new Date();
+  a.download = `退貨分類_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('✓ 已下載');
+}
+
 function toast(msg){
   const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block';
   clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none', 1200);
@@ -169,8 +184,6 @@ function toast(msg){
 // 記住名字
 const savedName = localStorage.getItem('ret_name');
 if(savedName){ document.getElementById('g-name').value = savedName; }
-const savedPin = localStorage.getItem('ret_pin');
-if(savedPin){ document.getElementById('g-pin').value = savedPin; }
 </script>
 </body>
 </html>

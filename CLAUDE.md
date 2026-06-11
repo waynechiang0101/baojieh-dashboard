@@ -154,14 +154,13 @@ const declined = XB_STORES
 
 ## 退貨原因登記系統（2026-06-11 新增）
 
-- 入口：index.html →「退貨原因登記」→ `returns-entry.html`（多人使用，填名字+通行碼）
+- 入口：index.html →「退貨原因登記」→ `returns-entry.html`（多人使用，填名字即可，**無通行碼**—Wayne 2026-06-11 決定；有「⬇下載表單」匯出 CSV：單號/客戶/倉庫/金額/原因/備註/登記人）
 - 資料源：**161-00 第09 銷貨退回日報表**（`1.SO/derp-161-10.jsp`，GET，`*ReportType=1`，accountID=**22884510** 寶捷自家帳非P&G帳）——會計確認此口徑=財報數字
 - `fetch_sr_vouchers()` 每日抓上月1日~今日憑單 → `data/sr_pending.json`（workflow 已加 git add）
 - 後端：`functions/api/returns.js`（Cloudflare Pages Function + D1），分類存 returns_cls 表
 - **一次性設定（待 Wayne 在 Cloudflare dashboard 操作，未完成前頁面=示範模式只存本機）**：
   1. Workers & Pages → D1 → Create database `baojieh-returns`
   2. Pages 專案 → Settings → Functions → D1 bindings → 變數名 `DB` → 選該庫
-  3. Pages 專案 → Settings → Environment variables → `PIN` = 自訂通行碼
 - 分類選項對齊月報：店家退貨 / 拒收&劃單 / 其他（政策性，要備註）
 - 目的：取代助理事後人工登記，分類即時化 → 退貨分析可望全自動、月報退貨部分可由系統產出
 
