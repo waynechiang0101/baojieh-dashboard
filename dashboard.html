@@ -111,6 +111,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="ni" onclick="sp('iya',this)"><div class="ndot" style="background:#e07a4f"></div>IYA 對比</div>
     <div class="ns" style="margin-top:10px">財務</div>
     <div class="ni" onclick="sp('pay',this)"><div class="ndot" style="background:var(--red)"></div>收款狀況</div>
+    <div class="ni" onclick="sp('brandpl',this)"><div class="ndot" style="background:#4caf82"></div>品牌損益</div>
     <div class="ns" style="margin-top:10px">庫存</div>
     <div class="ni" onclick="sp('inv',this)"><div class="ndot" style="background:#f0d060"></div>公司庫存</div>
     <div class="ni" onclick="sp('inv-health',this)"><div class="ndot" style="background:#e05a4f"></div>庫存預警</div>
@@ -405,6 +406,45 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="inv-wh-tabs"></div>
         <div style="overflow-x:auto">
           <table><thead><tr><th>#</th><th>SKU</th><th>品名</th><th>數量</th><th>金額(未稅)</th><th>庫存天數</th></tr></thead><tbody id="tb-inv-sku"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 品牌損益 Brand P&L -->
+    <div class="pg" id="pg-brandpl">
+      <div class="ptitle">品牌損益（Brand P&L v1 保守版）</div>
+      <div class="psub">資料期間 2026年1~5月 · 對數驗證中 · 毛貢獻 = 淨收入 − 銷貨成本 + KBD分攤 · 未含 TFI/QDD/內部營運成本（人事/物流/倉租）</div>
+      <div class="krow" id="bpl-kpis"></div>
+      <div class="card" style="margin-bottom:14px">
+        <div class="ct">品牌毛貢獻彙總（1~5月）</div>
+        <div class="cs">按淨收入排序 · 貢獻率 = 毛貢獻 ÷ 淨收入</div>
+        <div style="overflow-x:auto">
+          <table><thead><tr><th>品牌</th><th>淨收入</th><th>退貨</th><th>銷貨成本</th><th>價差毛利%</th><th>KBD分攤</th><th>毛貢獻</th><th>貢獻率</th></tr></thead><tbody id="tb-bpl"></tbody></table>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <div class="ct">月度毛貢獻</div>
+        <div class="cs">各品牌逐月毛貢獻金額</div>
+        <div style="overflow-x:auto">
+          <table><thead id="th-bpl-mo"></thead><tbody id="tb-bpl-mo"></tbody></table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ct">KBD 分攤是怎麼算的（重要：跟 P&G 帳上數字會不同）</div>
+        <div class="cs">口徑說明 · 對數前必讀</div>
+        <div style="font-size:12px;line-height:1.9;color:var(--text2)">
+          <p style="margin-bottom:10px"><strong style="color:var(--text)">公式：KBD 分攤 = 當期實際賣出的 GIV（P&G發票面額） × 品類 KBD%</strong></p>
+          <p style="margin-bottom:10px"><strong style="color:var(--text)">舉例</strong>：1月進了 100 箱 ARIEL，進貨額 $100萬，Fabric 品類 KBD 13.4%——</p>
+          <table style="margin-bottom:12px;max-width:560px"><thead><tr><th></th><th>算法</th><th>KBD金額</th></tr></thead><tbody>
+            <tr><td><strong>P&G 帳上</strong></td><td>進貨就全額產生（進 100 箱給 100 箱的）</td><td class="mn">$134,000</td></tr>
+            <tr><td><strong>本表</strong></td><td>當月只賣出 70 箱，只認 70 箱的</td><td class="mn">$93,800</td></tr>
+            <tr><td colspan="2"><strong style="color:#e0a04f">差額（跟著倉庫裡 30 箱躺著）</strong></td><td class="mn" style="color:#e0a04f">$40,200</td></tr>
+          </tbody></table>
+          <p style="margin-bottom:8px"><strong style="color:var(--text)">為什麼只認賣出的部分？</strong>沒賣掉那 30 箱的 KBD 帳面上是收入，但貨還沒變成錢。若那 30 箱最後呆滯打折出清，這筆 KBD 是在填出清的虧損、不是利潤。先認列 = 把還沒賺到的錢當賺到了，正是「多進貨→帳面 KBD 變多→看起來有賺」的塞貨陷阱。</p>
+          <p style="margin-bottom:8px"><strong style="color:var(--text)">對數方法：</strong>不要直接對 KBD 總額（一定對不上，本表必然較小）。對兩個輸入：① 品類費率 ② 賣出量。輸入對，數字就對。</p>
+          <p style="margin-bottom:8px"><strong style="color:var(--text)">附帶指標：</strong>「P&G 帳上 KBD − 本表 KBD」= 躺在庫存裡未兌現的 KBD，數字越大代表塞貨越嚴重。</p>
+          <p style="margin-bottom:8px"><strong style="color:#e0a04f">結構性發現：</strong>純價差毛利僅約 4.6%（出貨價貼著進價賣，價差大多回流到通路），公司利潤幾乎全靠 KBD 撐起。意涵：① KBD 核銷率每掉 1 個百分點，直接吃掉獲利 ② 呆滯庫存拿不到 KBD 分攤，是雙重失血 ③ JBP 談 KBD 透明化不是錦上添花，是命脈。</p>
+          <p style="color:var(--text3);font-size:11px;margin-top:10px">KBD 費率 25/26：BABY 13.66%｜HAIR 19.95%｜SKIN 27.10%｜FEM 20.66%｜B&R(吉列) 18.36%｜Fabric(ARIEL/蘭諾/BOLD) 13.40%｜家清(風倍清) 22.66%｜OCM 27.16%｜OCP(電動) 35.16% · 收入已換算未稅（totalAmt÷1.05）· 銷貨成本以 2026-06-10 進價快照計算，歷史調價會有誤差 · KBD 為理論應得，實際入帳以 P&G 核銷為準</p>
         </div>
       </div>
     </div>
@@ -810,6 +850,9 @@ const INV_WH=[
   {name:'康是美',amt:52243361},
   {name:'CVS',amt:5854705}
 ];
+
+// ── 品牌損益 Brand P&L（v1 對數版，手動更新）─────────────────────────────
+const BRAND_PL={"period": "2026年1~5月", "months": ["1月", "2月", "3月", "4月", "5月"], "brands": [{"b": "PAMPS", "net": 79030028, "ret": 3274829, "cogs": 72831242, "kbd": 10373248, "contrib": 16572033, "mo": [3970468, 3331261, 3481048, 2506159, 3283096], "gm": 7.8}, {"b": "HS", "net": 59349589, "ret": 4444925, "cogs": 56100724, "kbd": 11537726, "contrib": 14786592, "mo": [1927545, 2383172, 7286322, 1559747, 1629805], "gm": 5.5}, {"b": "PNTN", "net": 43534013, "ret": 2063686, "cogs": 42433441, "kbd": 8736049, "contrib": 9836621, "mo": [1234923, 2280384, 3480668, 1336219, 1504427], "gm": 2.5}, {"b": "OLAY", "net": 40986444, "ret": 958692, "cogs": 39827569, "kbd": 10633914, "contrib": 11792789, "mo": [1999047, 2646542, 1473835, 1987338, 3686027], "gm": 2.8}, {"b": "ARIEL", "net": 37782970, "ret": 3582558, "cogs": 37216569, "kbd": 5141594, "contrib": 5707996, "mo": [1292832, 993162, 764155, 818504, 1839344], "gm": 1.5}, {"b": "WHSP", "net": 34583086, "ret": 955908, "cogs": 34002635, "kbd": 7339704, "contrib": 7920155, "mo": [1753643, 1492360, 1638844, 1187125, 1848184], "gm": 1.7}, {"b": "HR", "net": 22292102, "ret": 2147027, "cogs": 21749034, "kbd": 4457355, "contrib": 5000423, "mo": [1339676, 1253700, 832099, 1061793, 513155], "gm": 2.4}, {"b": "GLT", "net": 17197596, "ret": 607106, "cogs": 15853568, "kbd": 3002142, "contrib": 4346170, "mo": [1004041, 1605493, 578821, 647494, 510322], "gm": 7.8}, {"b": "LENOR", "net": 17058542, "ret": 2850828, "cogs": 16673311, "kbd": 2309979, "contrib": 2695210, "mo": [851709, 357699, 518805, 347690, 619307], "gm": 2.3}, {"b": "FBRZ", "net": 14479195, "ret": 1917955, "cogs": 14233962, "kbd": 3318135, "contrib": 3563368, "mo": [558827, 417544, 950514, 665758, 970725], "gm": 1.7}, {"b": "BRAUN", "net": 13580464, "ret": 1614945, "cogs": 12311713, "kbd": 4504179, "contrib": 5772930, "mo": [1380167, 1488832, 1114872, 657019, 1132040], "gm": 9.3}, {"b": "CREST", "net": 11542615, "ret": 639899, "cogs": 9817898, "kbd": 3002883, "contrib": 4727600, "mo": [603708, 1084619, 608268, 490306, 1940700], "gm": 14.9}, {"b": "ORALB", "net": 10930482, "ret": 224544, "cogs": 10142955, "kbd": 2839403, "contrib": 3626930, "mo": [815772, 913896, 381673, 701873, 813715], "gm": 7.2}, {"b": "PERT", "net": 9669778, "ret": 584825, "cogs": 9296247, "kbd": 1924092, "contrib": 2297623, "mo": [557820, 427072, 357755, 522752, 432223], "gm": 3.9}, {"b": "BOLD", "net": 855967, "ret": 412893, "cogs": 844856, "kbd": 116670, "contrib": 127782, "mo": [44089, 10442, 8533, 52578, 12140], "gm": 1.3}, {"b": "TIDE", "net": 59873, "ret": 0, "cogs": 60096, "kbd": 8280, "contrib": 8057, "mo": [3099, 2169, 0, 2479, 310], "gm": -0.4}]};
 
 // ── 庫存健康預警（derp_fetch.py 自動更新）────────────────────────────────
 const INV_HEALTH={"light": {"yellow": {"n": 38, "amt": 4387051}, "orange": {"n": 41, "amt": 7728933}, "red": {"n": 135, "amt": 23231245}, "black": {"n": 307, "amt": 119002239}}, "whs": [{"w": "台南", "y": 2018769, "o": 3611010, "r": 11966964, "k": 38731188}, {"w": "康是美倉", "y": 589237, "o": 1099878, "r": 1352443, "k": 42001728}, {"w": "高雄", "y": 1738437, "o": 3010836, "r": 9635768, "k": 32773811}, {"w": "CVS", "y": 40607, "o": 7207, "r": 276068, "k": 5495267}, {"w": "桃園", "y": 0, "o": 0, "r": 0, "k": 242}], "brands": [{"b": "PAMPS", "y": 214531, "o": 2242791, "r": 11654356, "k": 23209451, "exp": 93982, "dmg": 24704}, {"b": "HS", "y": 284705, "o": 643604, "r": 2226866, "k": 18741315, "exp": 33110, "dmg": 5020}, {"b": "ARIEL", "y": 112891, "o": 152662, "r": 1714089, "k": 13007595, "exp": 8938, "dmg": 1363}, {"b": "PNTN", "y": 254026, "o": 1142696, "r": 2667959, "k": 11592788, "exp": 20577, "dmg": 10454}, {"b": "OLAY", "y": 46451, "o": 0, "r": 7543, "k": 10012411, "exp": 235, "dmg": 5859909}, {"b": "WHSP", "y": 316162, "o": 584529, "r": 960454, "k": 7808117, "exp": 14208, "dmg": 29240}, {"b": "HR", "y": 180288, "o": 0, "r": 0, "k": 8160361, "exp": 67592, "dmg": 530}, {"b": "FBRZ", "y": 143859, "o": 311076, "r": 792601, "k": 6560073, "exp": 189741, "dmg": 14629}, {"b": "ORALB", "y": 2066, "o": 0, "r": 35581, "k": 6709775, "exp": 24771, "dmg": 996}, {"b": "GLT", "y": 268428, "o": 435421, "r": 980737, "k": 3938668, "exp": 106377, "dmg": 1329}, {"b": "BRAUN", "y": 250719, "o": 26911, "r": 186702, "k": 4068054, "exp": 440632, "dmg": 1455752}, {"b": "LENOR", "y": 1409867, "o": 788006, "r": 1044381, "k": 2239038, "exp": 29498, "dmg": 50147}, {"b": "CREST", "y": 168220, "o": 160118, "r": 342766, "k": 1623979, "exp": 133566, "dmg": 15089}, {"b": "PERT", "y": 734832, "o": 1149198, "r": 515734, "k": 1330605, "exp": 55025, "dmg": 4327}, {"b": "BOLD", "y": 0, "o": 91915, "r": 101469, "k": 0, "exp": 26482, "dmg": 104}], "expiry_total": 1244742, "damaged_total": 7473600, "dlist": [{"s": "80859031", "n": "ARIEL 4D抗菌洗衣膠囊30顆袋裝-抗菌去漬X10", "b": "ARIEL", "q": 29810, "a": 6541804, "d": 1104, "wh": "康是美倉/高雄", "st": ""}, {"s": "80859032", "n": "ARIEL 4D抗菌洗衣膠囊30顆袋裝-室內晾衣X10", "b": "ARIEL", "q": 20876, "a": 4581238, "d": 835, "wh": "台南/高雄", "st": ""}, {"s": "83902229", "n": "幫寶適一級幫黏貼L 44片", "b": "PAMPS", "q": 7663, "a": 3286660, "d": 187, "wh": "台南/高雄", "st": ""}, {"s": "80840330", "n": "海倫仙度絲去屑洗髮露 薄荷舒爽680G", "b": "HS", "q": 15056, "a": 3024599, "d": 376, "wh": "台南/高雄", "st": ""}, {"s": "80838271", "n": "幫寶適清新幫拉拉褲 加大號XL38X4", "b": "PAMPS", "q": 8461, "a": 2814213, "d": 163, "wh": "台南/高雄", "st": ""}, {"s": "83902234", "n": "幫寶適一級幫散熱拉拉褲L 34片", "b": "PAMPS", "q": 7445, "a": 2381655, "d": 248, "wh": "台南/高雄", "st": ""}, {"s": "83902218", "n": "幫寶適一級幫散熱拉拉褲L 30片", "b": "PAMPS", "q": 6823, "a": 2168827, "d": 213, "wh": "台南/高雄", "st": ""}, {"s": "80840324", "n": "海倫仙度絲去屑洗髮露 清爽控油680G", "b": "HS", "q": 10473, "a": 2103920, "d": 582, "wh": "台南/高雄", "st": ""}, {"s": "80867120", "n": "OLAY胜肽專研緊緻精華30ML", "b": "OLAY", "q": 2052, "a": 1968298, "d": null, "wh": "康是美倉", "st": "無動銷"}, {"s": "80695637", "n": "潘婷乳液修護洗髮乳700G", "b": "PNTN", "q": 10936, "a": 1908222, "d": 1562, "wh": "高雄/台南", "st": ""}, {"s": "80838510", "n": "幫寶適奢寵幫 中號38片裝", "b": "PAMPS", "q": 4628, "a": 1903126, "d": 661, "wh": "台南/高雄", "st": ""}, {"s": "80746543", "n": "歐樂B 50M牙線薄荷微蠟", "b": "ORALB", "q": 28607, "a": 1827129, "d": 817, "wh": "康是美倉/高雄", "st": ""}, {"s": "80746542", "n": "歐樂B 50M牙線無蠟", "b": "ORALB", "q": 28412, "a": 1818652, "d": 1015, "wh": "康是美倉/高雄", "st": ""}, {"s": "83902233", "n": "幫寶適一級幫黏貼XL 34片", "b": "PAMPS", "q": 3952, "a": 1695012, "d": 180, "wh": "台南/高雄", "st": ""}, {"s": "80852633", "n": "好自在經典款液體衛生棉27cm10片", "b": "WHSP", "q": 17257, "a": 1664265, "d": 523, "wh": "CVS/康是美倉", "st": ""}, {"s": "80853465", "n": "海倫仙度絲去屑洗髮露 薄荷舒爽 680G", "b": "HS", "q": 8023, "a": 1611740, "d": 201, "wh": "台南/高雄", "st": ""}, {"s": "80838275", "n": "幫寶適清新幫拉拉褲 加加大號26SX4", "b": "PAMPS", "q": 4815, "a": 1601517, "d": 150, "wh": "台南/高雄", "st": ""}, {"s": "80840332", "n": "海倫仙度絲去屑洗髮露 止癢呵護680G", "b": "HS", "q": 7728, "a": 1552477, "d": 386, "wh": "台南/高雄", "st": ""}, {"s": "80853480", "n": "海倫仙度絲去屑洗髮露清爽控油680G", "b": "HS", "q": 7723, "a": 1551473, "d": 386, "wh": "台南", "st": ""}, {"s": "80840323", "n": "海倫仙度絲舒緩去屑洗髮露 小蒼蘭680G", "b": "HS", "q": 6815, "a": 1369065, "d": 325, "wh": "台南/高雄", "st": ""}, {"s": "80838270", "n": "寶適清新幫拉拉褲 大號42SX4", "b": "PAMPS", "q": 4088, "a": 1359709, "d": 164, "wh": "台南/高雄", "st": ""}, {"s": "80817233", "n": "歐樂-B 經典型牙刷8入組", "b": "ORALB", "q": 16658, "a": 1355628, "d": 5553, "wh": "台南/高雄", "st": ""}, {"s": "80808258", "n": "幫寶適超薄乾爽L號紙尿褲52片裝", "b": "PAMPS", "q": 3824, "a": 1352395, "d": 765, "wh": "台南/高雄", "st": ""}, {"s": "80838272", "n": "幫寶適清新幫拉拉褲 加加加大號22SX4", "b": "PAMPS", "q": 3908, "a": 1299839, "d": 178, "wh": "台南/高雄", "st": ""}, {"s": "80838512", "n": "幫寶適奢寵幫 小號48片裝", "b": "PAMPS", "q": 3052, "a": 1255043, "d": 610, "wh": "台南/高雄", "st": ""}, {"s": "83902259", "n": "幫寶適一級幫散熱拉拉褲XXXL 28片", "b": "PAMPS", "q": 3403, "a": 1254686, "d": 262, "wh": "台南/高雄", "st": ""}, {"s": "80885103", "n": "髮的食譜 柚子清茶蓬鬆水潤洗髮露510G", "b": "HR", "q": 4749, "a": 1248801, "d": 1583, "wh": "康是美倉/高雄", "st": ""}, {"s": "80885108", "n": "髮的食譜 無花果白茶控油蓬鬆洗髮露510G", "b": "HR", "q": 4596, "a": 1219536, "d": 2298, "wh": "康是美倉/高雄", "st": ""}, {"s": "80840322", "n": "海倫仙度絲去屑洗髮露 絲滑柔順 680GX6", "b": "HS", "q": 5881, "a": 1181434, "d": 840, "wh": "台南/高雄", "st": ""}, {"s": "83909893", "n": "風倍清織物除菌消臭噴霧370ml(高效除菌)", "b": "FBRZ", "q": 8911, "a": 1070567, "d": 387, "wh": "康是美倉/高雄", "st": ""}, {"s": "83902223", "n": "幫寶適一級幫黏貼S 56片", "b": "PAMPS", "q": 3009, "a": 1055256, "d": 188, "wh": "台南/高雄", "st": ""}, {"s": "83902252", "n": "幫寶適一級幫散熱拉拉褲XXL 24+4片", "b": "PAMPS", "q": 5266, "a": 996964, "d": 293, "wh": "高雄/台南", "st": ""}, {"s": "80888193", "n": "好自在熊抱安睡褲XL 2片", "b": "WHSP", "q": 21509, "a": 966399, "d": 312, "wh": "CVS/高雄", "st": ""}, {"s": "80840333", "n": "海倫仙度絲去屑洗髮露 薄荷舒爽 400G", "b": "HS", "q": 6763, "a": 951351, "d": 1691, "wh": "CVS/台南", "st": ""}, {"s": "80838514", "n": "幫寶適奢寵幫 大號32片裝", "b": "PAMPS", "q": 2210, "a": 908796, "d": 368, "wh": "台南/高雄", "st": ""}, {"s": "80867123", "n": "OLAY胜肽專研奢護眼霜15G", "b": "OLAY", "q": 1116, "a": 902944, "d": null, "wh": "康是美倉", "st": "無動銷"}, {"s": "80838273", "n": "幫寶適清新幫紙尿褲 大號46SX4", "b": "PAMPS", "q": 2542, "a": 893945, "d": 231, "wh": "台南/高雄", "st": ""}, {"s": "82331706", "n": "歐樂B兒童充電型電動牙刷1刷柄5刷頭", "b": "BRAUN", "q": 588, "a": 887391, "d": 588, "wh": "高雄/台南", "st": ""}, {"s": "80885107", "n": "髮的食譜 玫瑰蜜香茶滋養修護洗髮露510G", "b": "HR", "q": 3391, "a": 868362, "d": 1696, "wh": "康是美倉/高雄", "st": ""}, {"s": "83902220", "n": "幫寶適一級幫黏貼NB 64片", "b": "PAMPS", "q": 2439, "a": 855357, "d": 163, "wh": "高雄/台南", "st": ""}, {"s": "80829582", "n": "海倫仙度絲去屑頭皮護理洗髮露控油蓬鬆350G", "b": "HS", "q": 6017, "a": 841116, "d": 167, "wh": "高雄/CVS", "st": ""}, {"s": "80812702", "n": "吉列ProGlide無感系列刮鬍刀頭(4刀頭)", "b": "GLT", "q": 1890, "a": 833452, "d": 472, "wh": "康是美倉/台南", "st": ""}, {"s": "80838274", "n": "幫寶適清新幫紙尿褲 加大號38SX4", "b": "PAMPS", "q": 2326, "a": 817984, "d": 179, "wh": "台南/高雄", "st": ""}, {"s": "80852163", "n": "風倍清織物除菌消臭噴霧370ml(綠茶清香)", "b": "FBRZ", "q": 6717, "a": 806980, "d": 305, "wh": "台南/高雄", "st": ""}, {"s": "80853476", "n": "海倫仙度絲去屑洗髮露 止癢呵護680G", "b": "HS", "q": 4013, "a": 806171, "d": 174, "wh": "台南/高雄", "st": ""}, {"s": "80840320", "n": "海倫仙度絲去屑洗髮露深層潔淨680G", "b": "HS", "q": 4004, "a": 804363, "d": 222, "wh": "台南/高雄", "st": ""}, {"s": "80873319", "n": "OLAY胜肽專研緊緻滋潤面霜 OLAY MAGIC RICH", "b": "OLAY", "q": 802, "a": 769286, "d": null, "wh": "康是美倉", "st": "無動銷"}, {"s": "80722662", "n": "OLAY新生高效緊緻護膚霜 50G", "b": "OLAY", "q": 1269, "a": 765397, "d": 1269, "wh": "康是美倉/台南", "st": ""}, {"s": "80838509", "n": "幫寶適奢寵幫 拉拉褲加大號 30片裝", "b": "PAMPS", "q": 1632, "a": 750883, "d": 233, "wh": "台南/高雄", "st": ""}, {"s": "83909894", "n": "風倍清織物除菌消臭噴霧370ml(綠茶清香)", "b": "FBRZ", "q": 5931, "a": 712550, "d": 297, "wh": "康是美倉/高雄", "st": ""}, {"s": "80852174", "n": "風倍清織物除菌消臭噴霧370ml(高效除菌)", "b": "FBRZ", "q": 5745, "a": 690204, "d": 198, "wh": "台南/高雄", "st": ""}, {"s": "80888195", "n": "好自在熊抱安睡褲L 2片", "b": "WHSP", "q": 14612, "a": 656517, "d": 332, "wh": "CVS/高雄", "st": ""}, {"s": "80868686", "n": "潘婷3 MINUTE MIRACLE茉莉山茶多效修護洗髮露4", "b": "PNTN", "q": 3706, "a": 656073, "d": 1853, "wh": "康是美倉/高雄", "st": ""}, {"s": "80825803", "n": "風倍清浴廁用防霉防臭劑(柔和花香)7mL", "b": "FBRZ", "q": 4810, "a": 641365, "d": 301, "wh": "康是美倉/高雄", "st": ""}, {"s": "80825804", "n": "風倍清浴廁用防霉防臭劑(清新柑橘)7mL", "b": "FBRZ", "q": 4804, "a": 640565, "d": 300, "wh": "康是美倉/高雄", "st": ""}, {"s": "80814144", "n": "OLAY 大紅瓶精華水乳組X6", "b": "OLAY", "q": 636, "a": 609434, "d": null, "wh": "康是美倉/高雄", "st": "無動銷"}, {"s": "80870681", "n": "幫寶適奢寵幫黏貼型S 12片試用包", "b": "PAMPS", "q": 5024, "a": 608607, "d": 162, "wh": "高雄/台南", "st": ""}, {"s": "80867118", "n": "OLAY胜肽專研緊緻輕潤乳霜50G", "b": "OLAY", "q": 624, "a": 598547, "d": null, "wh": "康是美倉", "st": "無動銷"}, {"s": "80845899", "n": "好自在熊抱安睡褲L 2片", "b": "WHSP", "q": 13192, "a": 592716, "d": 300, "wh": "台南/高雄", "st": ""}, {"s": "80845901", "n": "好自在熊抱安睡褲XL 2片", "b": "WHSP", "q": 13143, "a": 590514, "d": 190, "wh": "台南/高雄", "st": ""}], "expiry_top": [{"n": "D85兒童階段型電動牙刷", "b": "BRAUN", "q": 279, "a": 115985, "wh": "台南即期倉/高雄即期倉"}, {"n": "Crest鑽白音波電動牙刷 (白)", "b": "CREST", "q": 48, "a": 65525, "wh": "台南即期倉/高雄即期倉"}, {"n": "風倍清浴廁用抗菌消臭防臭劑山谷微香 1入裝", "b": "FBRZ", "q": 525, "a": 61687, "wh": "台南即期倉/高雄即期倉"}, {"n": "Oral-B iO2 微震科技電動牙刷_ 霧黑", "b": "BRAUN", "q": 32, "a": 56886, "wh": "TP即期倉/高雄即期倉"}, {"n": "風倍清室內用抗菌消臭防臭劑(清爽皂香)7mLx3", "b": "FBRZ", "q": 151, "a": 52522, "wh": "台南即期倉/高雄即期倉"}, {"n": "EB10-2 兒童迪士尼刷頭-冰雪奇緣(2入)", "b": "BRAUN", "q": 200, "a": 49378, "wh": "台南即期倉/高雄即期倉"}, {"n": "飛柔亮澤修護洗髮露750G", "b": "PERT", "q": 380, "a": 47697, "wh": "TP即期倉"}, {"n": "CREST鑽白音波電動牙刷 (藍)", "b": "CREST", "q": 34, "a": 46413, "wh": "TP即期倉/台南即期倉/高雄即期倉"}, {"n": "Oral-B iO2 微震科技電動牙刷_ 玫瑰粉", "b": "BRAUN", "q": 26, "a": 46220, "wh": "TP即期倉/高雄即期倉"}, {"n": "風倍清室內用抗菌消臭防臭劑(清新白茶)7mLx3", "b": "FBRZ", "q": 87, "a": 30261, "wh": "台南即期倉/高雄即期倉"}, {"n": "吉列Proshield鋒護系列刮鬍刀頭 (8刀頭)", "b": "GLT", "q": 37, "a": 27485, "wh": "台南即期倉"}, {"n": "PRO 1 3D電動牙刷-白色", "b": "BRAUN", "q": 25, "a": 26171, "wh": "高雄即期倉"}], "damaged_top": [{"n": "OLAY 3步水潤亮白組", "b": "OLAY", "q": 2593, "a": 1708449, "wh": "康是美壞品倉"}, {"n": "OLAY 水感透白光曜精華30ML", "b": "OLAY", "q": 2162, "a": 1424476, "wh": "康是美壞品倉/高雄壞品倉"}, {"n": "Oral-B iO3 微震科技電動牙刷_ 冰川藍", "b": "BRAUN", "q": 546, "a": 1295215, "wh": "台南壞品倉/康是美壞品倉"}, {"n": "新生高效緊緻護膚霜 50g", "b": "OLAY", "q": 1229, "a": 677658, "wh": "康是美壞品倉"}, {"n": "OLAY 大紅瓶精華水乳組X6", "b": "OLAY", "q": 296, "a": 283636, "wh": "康是美壞品倉"}, {"n": "OLAY 新生高效緊緻精華乳100MLX12", "b": "OLAY", "q": 338, "a": 243028, "wh": "康是美壞品倉"}, {"n": "OLAY抗皺保濕面膜", "b": "OLAY", "q": 582, "a": 159828, "wh": "康是美壞品倉"}, {"n": "OLAY 新生高效緊緻精華水150MLX12", "b": "OLAY", "q": 257, "a": 144660, "wh": "康是美壞品倉"}, {"n": "OLAY淨白保濕露150ML", "b": "OLAY", "q": 516, "a": 133334, "wh": "台南壞品倉/康是美壞品倉"}, {"n": "OLAY新生高效緊緻精華水150ML", "b": "OLAY", "q": 215, "a": 115848, "wh": "康是美壞品倉"}, {"n": "OLAY 水感透白光曜精華水150ML", "b": "OLAY", "q": 213, "a": 114770, "wh": "台南壞品倉/康是美壞品倉/高雄壞品倉"}, {"n": "OLAY 水感透白光曜精華30ml", "b": "OLAY", "q": 125, "a": 89877, "wh": "康是美壞品倉"}]};
@@ -2064,6 +2107,56 @@ const builds={
       `<button onclick="invSelectWh('${w.k}')" id="invwhtab-${w.k}" style="padding:2px 9px;border-radius:20px;font-size:10px;cursor:pointer;border:1px solid var(--border2);background:${i===0?'#2a4080':'transparent'};color:${i===0?'#a8d0ff':'var(--text2)'};">${w.label}</button>`
     ).join('');
     renderInvTabs(0);
+  },
+
+  brandpl(){
+    const D = BRAND_PL;
+    if(!D || !D.brands){
+      document.getElementById('bpl-kpis').innerHTML='<div class="kpi"><div class="kl">品牌損益</div><div class="kv">資料更新中</div></div>';
+      return;
+    }
+    const tNet = D.brands.reduce((s,x)=>s+x.net,0);
+    const tRet = D.brands.reduce((s,x)=>s+x.ret,0);
+    const tKbd = D.brands.reduce((s,x)=>s+x.kbd,0);
+    const tCon = D.brands.reduce((s,x)=>s+x.contrib,0);
+    const tGm = D.brands.reduce((s,x)=>s+(x.net-x.cogs),0);
+    document.getElementById('bpl-kpis').innerHTML =
+      `<div class="kpi"><div class="kl">淨收入（${D.period}，未稅）</div><div class="kv">${fmt(tNet)}</div><div class="ks">16 品牌 · 退貨 ${fmt(tRet)}</div></div>
+       <div class="kpi"><div class="kl">純價差毛利（不含KBD）</div><div class="kv" style="color:#e0a04f">${fmt(tGm)}</div><div class="ks">僅 ${(tGm/tNet*100).toFixed(1)}% — 出貨價貼著進價</div></div>
+       <div class="kpi"><div class="kl">KBD 分攤</div><div class="kv">${fmt(tKbd)}</div><div class="ks">利潤主要來源 · 按賣出GIV認列</div></div>
+       <div class="kpi"><div class="kl">毛貢獻（含KBD）</div><div class="kv" style="color:#4caf82">${fmt(tCon)}</div><div class="ks">貢獻率 ${Math.round(tCon/tNet*100)}% · 未攤營運成本</div></div>`;
+
+    const tb = document.getElementById('tb-bpl'); tb.innerHTML='';
+    const pctColor = p => p>=35?'#4caf82':p>=22?'var(--text)':p>=18?'#e0a04f':'#e05a4f';
+    D.brands.forEach(x=>{
+      const p = x.net? x.contrib/x.net*100 : 0;
+      const gm = x.gm!==undefined ? x.gm : (x.net? (x.net-x.cogs)/x.net*100 : 0);
+      tb.innerHTML += `<tr><td><strong>${x.b}</strong></td>
+        <td class="mn">${fmt(x.net)}</td>
+        <td class="mn" style="color:#e05a4f">${fmt(-x.ret)}</td>
+        <td class="mn">${fmt(x.cogs)}</td>
+        <td class="mn" style="color:${gm<2?'#e05a4f':gm<5?'#e0a04f':'var(--text)'}">${gm.toFixed(1)}%</td>
+        <td class="mn">${fmt(x.kbd)}</td>
+        <td class="mn" style="font-weight:700">${fmt(x.contrib)}</td>
+        <td class="mn" style="font-weight:700;color:${pctColor(p)}">${p.toFixed(1)}%</td></tr>`;
+    });
+    tb.innerHTML += `<tr style="border-top:1px solid var(--border2)"><td><strong>合計</strong></td>
+      <td class="mn" style="font-weight:700">${fmt(tNet)}</td>
+      <td class="mn" style="font-weight:700;color:#e05a4f">${fmt(-tRet)}</td>
+      <td class="mn" style="font-weight:700">${fmt(D.brands.reduce((s,x)=>s+x.cogs,0))}</td>
+      <td class="mn" style="font-weight:700;color:#e0a04f">${(tGm/tNet*100).toFixed(1)}%</td>
+      <td class="mn" style="font-weight:700">${fmt(tKbd)}</td>
+      <td class="mn" style="font-weight:700;color:#4caf82">${fmt(tCon)}</td>
+      <td class="mn" style="font-weight:700">${Math.round(tCon/tNet*100)}%</td></tr>`;
+
+    document.getElementById('th-bpl-mo').innerHTML =
+      '<tr><th>品牌</th>' + D.months.map(m=>`<th>${m}</th>`).join('') + '<th>合計</th></tr>';
+    const mt = document.getElementById('tb-bpl-mo'); mt.innerHTML='';
+    D.brands.forEach(x=>{
+      mt.innerHTML += `<tr><td><strong>${x.b}</strong></td>` +
+        x.mo.map(v=>`<td class="mn"${v<0?' style="color:#e05a4f"':''}>${fmt(v)}</td>`).join('') +
+        `<td class="mn" style="font-weight:700">${fmt(x.contrib)}</td></tr>`;
+    });
   },
 
   'inv-health'(){
