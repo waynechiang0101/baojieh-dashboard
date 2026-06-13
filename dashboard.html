@@ -413,39 +413,28 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- 品牌損益 Brand P&L -->
     <div class="pg" id="pg-brandpl">
-      <div class="ptitle">品牌損益（Brand P&L v1 保守版）</div>
-      <div class="psub">資料期間 2026年1~5月 · 對數驗證中 · 毛貢獻 = 淨收入 − 銷貨成本 + KBD分攤 · 未含 TFI/QDD/內部營運成本（人事/物流/倉租）</div>
+      <div class="ptitle">品牌損益（Brand P&L）</div>
+      <div class="psub" id="bpl-sub">毛貢獻 = 純價差毛利 + KBD · 未含 TFI / QDD / 人事 / 物流 / 倉租</div>
       <div class="krow" id="bpl-kpis"></div>
       <div class="card" style="margin-bottom:14px">
-        <div class="ct">品牌毛貢獻彙總（1~5月）</div>
-        <div class="cs">按淨收入排序 · 貢獻率 = 毛貢獻 ÷ 淨收入</div>
+        <div class="ct" id="bpl-ct">品牌毛貢獻彙總</div>
+        <div class="cs">按淨收入排序 · 貢獻率 = 毛貢獻 ÷ 淨收入 · 收入未扣退貨（退貨見退貨分析 tab）</div>
         <div style="overflow-x:auto">
-          <table><thead><tr><th>品牌</th><th>淨收入</th><th>退貨</th><th>銷貨成本</th><th>價差毛利%</th><th>KBD分攤</th><th>毛貢獻</th><th>貢獻率</th></tr></thead><tbody id="tb-bpl"></tbody></table>
-        </div>
-      </div>
-      <div class="card" style="margin-bottom:14px">
-        <div class="ct">月度毛貢獻</div>
-        <div class="cs">各品牌逐月毛貢獻金額</div>
-        <div style="overflow-x:auto">
-          <table><thead id="th-bpl-mo"></thead><tbody id="tb-bpl-mo"></tbody></table>
+          <table><thead><tr><th>品牌</th><th>淨收入</th><th>銷貨成本</th><th>價差毛利%</th><th>KBD分攤</th><th>毛貢獻</th><th>貢獻率</th></tr></thead><tbody id="tb-bpl"></tbody></table>
         </div>
       </div>
       <div class="card">
-        <div class="ct">KBD 分攤是怎麼算的（重要：跟 P&G 帳上數字會不同）</div>
-        <div class="cs">口徑說明 · 對數前必讀</div>
+        <div class="ct">毛利結構說明</div>
+        <div class="cs">看懂這張表的前提</div>
         <div style="font-size:12px;line-height:1.9;color:var(--text2)">
-          <p style="margin-bottom:10px"><strong style="color:var(--text)">公式：KBD 分攤 = 當期實際賣出的 GIV（P&G發票面額） × 品類 KBD%</strong></p>
-          <p style="margin-bottom:10px"><strong style="color:var(--text)">舉例</strong>：1月進了 100 箱 ARIEL，進貨額 $100萬，Fabric 品類 KBD 13.4%——</p>
-          <table style="margin-bottom:12px;max-width:560px"><thead><tr><th></th><th>算法</th><th>KBD金額</th></tr></thead><tbody>
-            <tr><td><strong>P&G 帳上</strong></td><td>進貨就全額產生（進 100 箱給 100 箱的）</td><td class="mn">$134,000</td></tr>
-            <tr><td><strong>本表</strong></td><td>當月只賣出 70 箱，只認 70 箱的</td><td class="mn">$93,800</td></tr>
-            <tr><td colspan="2"><strong style="color:#e0a04f">差額（跟著倉庫裡 30 箱躺著）</strong></td><td class="mn" style="color:#e0a04f">$40,200</td></tr>
-          </tbody></table>
-          <p style="margin-bottom:8px"><strong style="color:var(--text)">為什麼只認賣出的部分？</strong>沒賣掉那 30 箱的 KBD 帳面上是收入，但貨還沒變成錢。若那 30 箱最後呆滯打折出清，這筆 KBD 是在填出清的虧損、不是利潤。先認列 = 把還沒賺到的錢當賺到了，正是「多進貨→帳面 KBD 變多→看起來有賺」的塞貨陷阱。</p>
-          <p style="margin-bottom:8px"><strong style="color:var(--text)">對數方法：</strong>不要直接對 KBD 總額（一定對不上，本表必然較小）。對兩個輸入：① 品類費率 ② 賣出量。輸入對，數字就對。</p>
-          <p style="margin-bottom:8px"><strong style="color:var(--text)">附帶指標：</strong>「P&G 帳上 KBD − 本表 KBD」= 躺在庫存裡未兌現的 KBD，數字越大代表塞貨越嚴重。</p>
-          <p style="margin-bottom:8px"><strong style="color:#e0a04f">結構性發現：</strong>純價差毛利僅約 4.6%（出貨價貼著進價賣，價差大多回流到通路），公司利潤幾乎全靠 KBD 撐起。意涵：① KBD 核銷率每掉 1 個百分點，直接吃掉獲利 ② 呆滯庫存拿不到 KBD 分攤，是雙重失血 ③ JBP 談 KBD 透明化不是錦上添花，是命脈。</p>
-          <p style="color:var(--text3);font-size:11px;margin-top:10px">KBD 費率 25/26：BABY 13.66%｜HAIR 19.95%｜SKIN 27.10%｜FEM 20.66%｜B&R(吉列) 18.36%｜Fabric(ARIEL/蘭諾/BOLD) 13.40%｜家清(風倍清) 22.66%｜OCM 27.16%｜OCP(電動) 35.16% · 收入已換算未稅（totalAmt÷1.05）· 銷貨成本以 2026-06-10 進價快照計算，歷史調價會有誤差 · KBD 為理論應得，實際入帳以 P&G 核銷為準</p>
+          <p style="margin-bottom:10px"><strong style="color:var(--text)">毛貢獻 = 純價差毛利 + KBD</strong><br>
+          純價差毛利 = 你賣給客戶的價格 − 你向 P&G 進貨的成本（通常只有 2~5%，薄）<br>
+          KBD = P&G 按你的出貨量補你的折扣：<strong>KBD = GIV(未稅) × 品類費率</strong></p>
+          <p style="margin-bottom:10px"><strong style="color:var(--text)">GIV 是什麼？</strong>GIV（Gross Invoice Value）= P&G 開給寶捷的發票面額。你賣給 T1~T4 客戶的實際售價低於 GIV，這個價差就是你給的折扣。P&G 用 GIV × KBD% 把這筆折扣補回來——不論你賣到哪個 tier，補的都是 GIV 基礎的固定比例。</p>
+          <p style="margin-bottom:10px"><strong style="color:var(--text)">本表只認賣出的 GIV。</strong>進了 100 箱只賣 70 箱，只有 70 箱的 GIV 產生 KBD。剩下 30 箱的 KBD 躺在倉庫裡還沒賺到，呆滯出清的損失也要從那裡補——塞貨讓帳面 KBD 變大但不是利潤，這張表刻意排除這個陷阱。</p>
+          <p style="margin-bottom:8px"><strong style="color:#e0a04f">結構性命題：</strong>純價差幾乎等於零，公司賺的就是 KBD。因此 ① KBD 費率每掉 1 個百分點直接吃掉獲利 ② 呆滯庫存是雙重失血（佔資金 + 拿不到 KBD）③ JBP 上 KBD 透明化是命脈，不是錦上添花。</p>
+          <p style="color:var(--text3);font-size:11px;margin-top:10px">KBD 費率 25/26：BABY 13.66%｜HAIR 19.95%｜SKIN 27.10%｜FEM 20.66%｜B&R(吉列) 18.36%｜Fabric(ARIEL/蘭諾/BOLD) 13.40%｜家清(風倍清) 22.66%｜OCM 27.16%｜OCP(電動) 35.16%<br>
+          KBD = GIV（DERP自動抓）÷ 1.05 × 品類費率 · 銷貨成本以品牌歷史費率估算，每月自動更新 · KBD 為理論應得，實際入帳以 P&G 核銷為準</p>
         </div>
       </div>
     </div>
@@ -2204,10 +2193,12 @@ const builds={
     const tKbd = D.brands.reduce((s,x)=>s+x.kbd,0);
     const tCon = D.brands.reduce((s,x)=>s+x.contrib,0);
     const tGm = D.brands.reduce((s,x)=>s+(x.net-x.cogs),0);
+    document.getElementById('bpl-sub').textContent = `資料期間 ${D.period} · 毛貢獻 = 純價差毛利 + KBD · 未含 TFI / QDD / 人事 / 物流 / 倉租`;
+    document.getElementById('bpl-ct').textContent = `品牌毛貢獻彙總（${D.period}）`;
     document.getElementById('bpl-kpis').innerHTML =
-      `<div class="kpi"><div class="kl">淨收入（${D.period}，未稅）</div><div class="kv">${fmt(tNet)}</div><div class="ks">16 品牌 · 退貨 ${fmt(tRet)}</div></div>
-       <div class="kpi"><div class="kl">純價差毛利（不含KBD）</div><div class="kv" style="color:#e0a04f">${fmt(tGm)}</div><div class="ks">僅 ${(tGm/tNet*100).toFixed(1)}% — 出貨價貼著進價</div></div>
-       <div class="kpi"><div class="kl">KBD 分攤</div><div class="kv">${fmt(tKbd)}</div><div class="ks">利潤主要來源 · 按賣出GIV認列</div></div>
+      `<div class="kpi"><div class="kl">淨收入（${D.period}）</div><div class="kv">${fmt(tNet)}</div><div class="ks">${D.brands.length} 品牌 · 未扣退貨</div></div>
+       <div class="kpi"><div class="kl">純價差毛利</div><div class="kv" style="color:#e0a04f">${fmt(tGm)}</div><div class="ks">僅 ${(tGm/tNet*100).toFixed(1)}% — 出貨價貼著進價</div></div>
+       <div class="kpi"><div class="kl">KBD 分攤</div><div class="kv">${fmt(tKbd)}</div><div class="ks">GIV × 品類費率 · 利潤主要來源</div></div>
        <div class="kpi"><div class="kl">毛貢獻（含KBD）</div><div class="kv" style="color:#4caf82">${fmt(tCon)}</div><div class="ks">貢獻率 ${Math.round(tCon/tNet*100)}% · 未攤營運成本</div></div>`;
 
     const tb = document.getElementById('tb-bpl'); tb.innerHTML='';
@@ -2217,7 +2208,6 @@ const builds={
       const gm = x.gm!==undefined ? x.gm : (x.net? (x.net-x.cogs)/x.net*100 : 0);
       tb.innerHTML += `<tr><td><strong>${x.b}</strong></td>
         <td class="mn">${fmt(x.net)}</td>
-        <td class="mn" style="color:#e05a4f">${fmt(-x.ret)}</td>
         <td class="mn">${fmt(x.cogs)}</td>
         <td class="mn" style="color:${gm<2?'#e05a4f':gm<5?'#e0a04f':'var(--text)'}">${gm.toFixed(1)}%</td>
         <td class="mn">${fmt(x.kbd)}</td>
@@ -2226,21 +2216,11 @@ const builds={
     });
     tb.innerHTML += `<tr style="border-top:1px solid var(--border2)"><td><strong>合計</strong></td>
       <td class="mn" style="font-weight:700">${fmt(tNet)}</td>
-      <td class="mn" style="font-weight:700;color:#e05a4f">${fmt(-tRet)}</td>
       <td class="mn" style="font-weight:700">${fmt(D.brands.reduce((s,x)=>s+x.cogs,0))}</td>
       <td class="mn" style="font-weight:700;color:#e0a04f">${(tGm/tNet*100).toFixed(1)}%</td>
       <td class="mn" style="font-weight:700">${fmt(tKbd)}</td>
       <td class="mn" style="font-weight:700;color:#4caf82">${fmt(tCon)}</td>
       <td class="mn" style="font-weight:700">${Math.round(tCon/tNet*100)}%</td></tr>`;
-
-    document.getElementById('th-bpl-mo').innerHTML =
-      '<tr><th>品牌</th>' + D.months.map(m=>`<th>${m}</th>`).join('') + '<th>合計</th></tr>';
-    const mt = document.getElementById('tb-bpl-mo'); mt.innerHTML='';
-    D.brands.forEach(x=>{
-      mt.innerHTML += `<tr><td><strong>${x.b}</strong></td>` +
-        x.mo.map(v=>`<td class="mn"${v<0?' style="color:#e05a4f"':''}>${fmt(v)}</td>`).join('') +
-        `<td class="mn" style="font-weight:700">${fmt(x.contrib)}</td></tr>`;
-    });
   },
 
   returns(){

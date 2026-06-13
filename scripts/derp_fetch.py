@@ -42,6 +42,24 @@ BRAND_COLS = {
     61:'SARASA', 65:'FAIRY', 69:'FBRZ', 73:'JOY', 77:'GLT',
     81:'ORALB', 85:'CREST', 89:'BRAUN'
 }
+# KBD 費率 25/26（品類 → 品牌）
+KBD_RATES = {
+    'PAMPS':0.1366, 'WHSP':0.2066,
+    'HS':0.1995, 'PNTN':0.1995, 'PERT':0.1995, 'HR':0.1995, 'VS':0.1995,
+    'OLAY':0.2710,
+    'ARIEL':0.1340, 'LENOR':0.1340, 'BOLD':0.1340, 'TIDE':0.1340,
+    'FBRZ':0.2266, 'JOY':0.2266, 'FAIRY':0.2266,
+    'GLT':0.1836, 'BRAUN':0.1836,
+    'CREST':0.2716, 'ORALB':0.3516, 'SARASA':0.2000,
+}
+# COGS 費率（cogs/net）：以 1~5月靜態資料為基準，未來逐步調整
+BRAND_COGS_RATE = {
+    'PAMPS':0.922, 'HS':0.945, 'PNTN':0.975, 'OLAY':0.972,
+    'ARIEL':0.985, 'WHSP':0.983, 'HR':0.976, 'GLT':0.922,
+    'LENOR':0.977, 'FBRZ':0.983, 'BRAUN':0.907, 'CREST':0.851,
+    'ORALB':0.928, 'PERT':0.961, 'BOLD':0.987, 'TIDE':0.990,
+    'VS':0.950, 'JOY':0.950, 'FAIRY':0.950, 'SARASA':0.950,
+}
 REP_BRANDS  = ['PAMPS', 'WHSP', 'OLAY', 'GLT', 'LENOR', 'ORALB']
 DASH_BRANDS = ['PAMPS', 'WHSP', 'OLAY', 'GLT', 'ORALB', 'LENOR', 'FBRZ']
 
@@ -265,6 +283,7 @@ def parse_xls(data):
     ci = {k: col(k) for k in ['總公司名稱','店家名稱','業務代表','業代編號','AC通路','合計']}
 
     grp, grp_brands, store, ch, rep = {}, {}, {}, {}, {}
+    brand_net, brand_giv = {}, {}
 
     for i in range(hdr+2, ws.nrows):
         def v(c): return str(ws.cell_value(i,c)).strip() if c is not None and c<ws.ncols else ''
@@ -281,6 +300,9 @@ def parse_xls(data):
         if not g or amt<=0: continue
 
         brands = {b: n(c) for c,b in BRAND_COLS.items()}
+        for c, b in BRAND_COLS.items():
+            brand_net[b] = brand_net.get(b, 0.0) + n(c)
+            brand_giv[b] = brand_giv.get(b, 0.0) + (n(c+2) if c+2 < ws.ncols else 0.0)
 
         grp[g] = grp.get(g,0) + amt
         if g not in grp_brands: grp_brands[g] = {}
@@ -307,7 +329,8 @@ def parse_xls(data):
             for b,bv in brands.items():
                 rep[rn]['brands'][b] = rep[rn]['brands'].get(b,0)+bv
 
-    return {'grp':grp,'grp_brands':grp_brands,'store':store,'ch':ch,'rep':rep}
+    return {'grp':grp,'grp_brands':grp_brands,'store':store,'ch':ch,'rep':rep,
+            'brand_net':brand_net,'brand_giv':brand_giv}
 
 
 # ── 庫存：POST 登入 + 下載 + 解析 ───────────────────────
@@ -876,8 +899,30 @@ def parse_inventory_health(path):
     }
 
 
+def calc_brand_pl(ytd, period_label):
+    """從 YTD parse_xls 結果自動計算 BRAND_PL。
+    net  = 含稅金額（含退貨，退貨分析另見退貨 tab）
+    kbd  = GIV(未稅) × KBD費率
+    cogs = net × 品牌歷史費率（BRAND_COGS_RATE）
+    """
+    net_d = ytd.get('brand_net', {})
+    giv_d = ytd.get('brand_giv', {})
+    brands = []
+    for b in sorted(net_d.keys(), key=lambda x: -net_d.get(x, 0)):
+        net = net_d.get(b, 0)
+        if net <= 0: continue
+        giv = giv_d.get(b, 0)
+        kbd = round(giv / 1.05 * KBD_RATES.get(b, 0.15))
+        cogs = round(net * BRAND_COGS_RATE.get(b, 0.95))
+        gm = round((net - cogs) / net * 100, 1) if net else 0
+        contrib = net - cogs + kbd
+        brands.append({'b':b,'net':int(net),'ret':0,'cogs':cogs,
+                       'kbd':kbd,'contrib':contrib,'gm':gm})
+    return {'period': period_label, 'brands': brands}
+
+
 # ── 更新 dashboard.html ──────────────────────────────────
-def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=None, ar_reps=None, ar_unpaid=0, km_sell=None, iya_m=None, inv_health=None):
+def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=None, ar_reps=None, ar_unpaid=0, km_sell=None, iya_m=None, inv_health=None, brand_pl=None):
     html = DASHBOARD.read_text(encoding='utf-8')
     def esc(s): return s.replace("'","`")
     def fm(n): return '$' + f"{int(round(n)):,}"
@@ -1392,6 +1437,14 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
                       html)
         print(f"  ✓ INV_HEALTH 寫入: D級 {len(inv_health['dlist'])} SKU, 即期 {inv_health['expiry_total']:,}, 壞品 {inv_health['damaged_total']:,}")
 
+    # ── 品牌損益 BRAND_PL ──
+    if brand_pl:
+        import json as _json
+        html = re.sub(r'const BRAND_PL=\{[\s\S]*?\};',
+                      'const BRAND_PL=' + _json.dumps(brand_pl, ensure_ascii=False) + ';',
+                      html)
+        print(f"  ✓ BRAND_PL 更新: {len(brand_pl['brands'])} 品牌, 期間={brand_pl['period']}")
+
     # ── 康是美實銷 KM_SELL ──
     if km_sell:
         import json as _json
@@ -1444,6 +1497,8 @@ def main():
     data_q  = dl_sales(s, q_start,  today,  "季累計")
     data_mo = dl_sales(s, mo_start, today,  "本月")
     data_m  = dl_sales(s, m_start, m_end, "上月全月")
+    ytd_start = f'{_today.year}/01/01'
+    data_ytd = dl_sales(s, ytd_start, today, "YTD(品牌損益)")
 
     print("\n[下載 去年同期 IYA]")
     data_iya_q  = dl_sales(s, ly_qstart,  ly_today, "去年季累計")
@@ -1463,6 +1518,7 @@ def main():
     iya_q  = parse_xls(data_iya_q);  print(f"  去年季  → 集團:{len(iya_q.get('grp',{}))}")
     iya_mo  = parse_xls(data_iya_mo);  print(f"  去年月  → 集團:{len(iya_mo.get('grp',{}))}")
     iya_m   = parse_xls(data_iya_m);   print(f"  去年上月全月 → 集團:{len(iya_m.get('grp',{}))}")
+    ytd     = parse_xls(data_ytd);     print(f"  YTD 品牌 → {len(ytd.get('brand_net',{}))} 品牌")
     pays_list, uncollected = parse_local_payment_xls()
 
     if not q.get('grp'):
@@ -1517,7 +1573,9 @@ def main():
     except Exception as e:
         print(f"  ⚠ 退貨憑單清單失敗（不影響看板）: {e}")
 
-    update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data, ar_reps, ar_unpaid, km_sell, iya_m, inv_health)
+    period_label = f'{_today.year}年1~{_today.month}月'
+    brand_pl = calc_brand_pl(ytd, period_label)
+    update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data, ar_reps, ar_unpaid, km_sell, iya_m, inv_health, brand_pl)
 
 
 if __name__ == "__main__":
