@@ -899,26 +899,61 @@ def parse_inventory_health(path):
     }
 
 
-def calc_brand_pl(ytd, period_label):
+def _brand_pl_cache_path():
+    return DASHBOARD.parent / 'data' / 'brand_pl_monthly.json'
+
+def load_brand_monthly_cache():
+    import json as _j
+    p = _brand_pl_cache_path()
+    return _j.loads(p.read_text('utf-8')) if p.exists() else {}
+
+def save_brand_monthly_cache(cache):
+    import json as _j
+    p = _brand_pl_cache_path()
+    p.parent.mkdir(exist_ok=True)
+    p.write_text(_j.dumps(cache, ensure_ascii=False), 'utf-8')
+
+def calc_brand_pl(ytd, period_label, monthly_cache=None, year=None):
     """從 YTD parse_xls 結果自動計算 BRAND_PL。
-    net  = 含稅金額（含退貨，退貨分析另見退貨 tab）
-    kbd  = GIV(未稅) × KBD費率
-    cogs = net × 品牌歷史費率（BRAND_COGS_RATE）
+    若傳入 monthly_cache，加上各完成月份的月度毛貢獻欄。
     """
     net_d = ytd.get('brand_net', {})
     giv_d = ytd.get('brand_giv', {})
+
+    # 月度快取 → 各品牌 monthly contrib 陣列
+    mo_labels, mo_by_brand = [], {}
+    if monthly_cache and year:
+        year_data = monthly_cache.get(str(year), {})
+        months = sorted(int(k) for k in year_data)
+        mo_labels = [f'{m}月' for m in months]
+        for b in net_d:
+            mo_by_brand[b] = []
+            for m in months:
+                md = year_data[str(m)]
+                m_net = md.get('brand_net', {}).get(b, 0)
+                m_giv = md.get('brand_giv', {}).get(b, 0)
+                m_kbd  = round(m_giv / 1.05 * KBD_RATES.get(b, 0.15))
+                m_cogs = round(m_net * BRAND_COGS_RATE.get(b, 0.95))
+                mo_by_brand[b].append(m_net - m_cogs + m_kbd)
+
     brands = []
     for b in sorted(net_d.keys(), key=lambda x: -net_d.get(x, 0)):
         net = net_d.get(b, 0)
         if net <= 0: continue
-        giv = giv_d.get(b, 0)
-        kbd = round(giv / 1.05 * KBD_RATES.get(b, 0.15))
+        giv  = giv_d.get(b, 0)
+        kbd  = round(giv / 1.05 * KBD_RATES.get(b, 0.15))
         cogs = round(net * BRAND_COGS_RATE.get(b, 0.95))
-        gm = round((net - cogs) / net * 100, 1) if net else 0
-        contrib = net - cogs + kbd
-        brands.append({'b':b,'net':int(net),'ret':0,'cogs':cogs,
-                       'kbd':kbd,'contrib':contrib,'gm':gm})
-    return {'period': period_label, 'brands': brands}
+        gm   = round((net - cogs) / net * 100, 1) if net else 0
+        entry = {'b':b,'net':int(net),'ret':0,'cogs':cogs,
+                 'kbd':kbd,'contrib':net-cogs+kbd,'gm':gm}
+        if mo_by_brand.get(b):
+            entry['mo'] = mo_by_brand[b]
+        brands.append(entry)
+
+    result = {'period': period_label, 'brands': brands}
+    if mo_labels:
+        result['months'] = mo_labels
+    return result
 
 
 # ── 更新 dashboard.html ──────────────────────────────────
@@ -1573,8 +1608,37 @@ def main():
     except Exception as e:
         print(f"  ⚠ 退貨憑單清單失敗（不影響看板）: {e}")
 
+    # ── 月度品牌損益快取（完成月份只抓一次）──
+    import calendar as _cal
+    print("\n[月度品牌損益快取]")
+    monthly_cache = load_brand_monthly_cache()
+    year_key = str(_today.year)
+    if year_key not in monthly_cache:
+        monthly_cache[year_key] = {}
+
+    for month in range(1, _today.month):  # 1 到上個月（已完成）
+        if str(month) not in monthly_cache[year_key]:
+            m0 = f'{_today.year}/{month:02d}/01'
+            m1_day = _cal.monthrange(_today.year, month)[1]
+            m1 = f'{_today.year}/{month:02d}/{m1_day}'
+            md = parse_xls(dl_sales(s, m0, m1, f'{month}月(快取)'))
+            monthly_cache[year_key][str(month)] = {
+                'brand_net': md.get('brand_net', {}),
+                'brand_giv': md.get('brand_giv', {})
+            }
+            print(f"  ✓ {month}月 新增快取")
+        else:
+            print(f"  · {month}月 已有快取")
+
+    # 當月用已下載的 mo
+    monthly_cache[year_key][str(_today.month)] = {
+        'brand_net': mo.get('brand_net', {}),
+        'brand_giv': mo.get('brand_giv', {})
+    }
+    save_brand_monthly_cache(monthly_cache)
+
     period_label = f'{_today.year}年1~{_today.month}月'
-    brand_pl = calc_brand_pl(ytd, period_label)
+    brand_pl = calc_brand_pl(ytd, period_label, monthly_cache, _today.year)
     update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data, ar_reps, ar_unpaid, km_sell, iya_m, inv_health, brand_pl)
 
 

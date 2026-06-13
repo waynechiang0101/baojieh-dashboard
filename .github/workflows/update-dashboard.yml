@@ -43,6 +43,6 @@ run: python scripts/derp_fetch.py
         run: |
           git config user.name "Dashboard Bot"
           git config user.email "bot@bjworks.com"
-          git add dashboard.html data/sr_pending.json
+          git add dashboard.html data/sr_pending.json data/brand_pl_monthly.json 2>/dev/null || true
           git diff --cached --quiet || git commit -m "📊 自動更新看板 $(date +'%Y-%m-%d %H:%M')"
           git push

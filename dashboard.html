@@ -423,6 +423,13 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <table><thead><tr><th>品牌</th><th>淨收入</th><th>銷貨成本</th><th>價差毛利%</th><th>KBD分攤</th><th>毛貢獻</th><th>貢獻率</th></tr></thead><tbody id="tb-bpl"></tbody></table>
         </div>
       </div>
+      <div class="card" id="bpl-mo-card" style="margin-bottom:14px;display:none">
+        <div class="ct">月度毛貢獻</div>
+        <div class="cs">各品牌逐月毛貢獻金額（含KBD）</div>
+        <div style="overflow-x:auto">
+          <table><thead id="th-bpl-mo"></thead><tbody id="tb-bpl-mo"></tbody></table>
+        </div>
+      </div>
       <div class="card">
         <div class="ct">毛利結構說明</div>
         <div class="cs">看懂這張表的前提</div>
@@ -2221,6 +2228,19 @@ const builds={
       <td class="mn" style="font-weight:700">${fmt(tKbd)}</td>
       <td class="mn" style="font-weight:700;color:#4caf82">${fmt(tCon)}</td>
       <td class="mn" style="font-weight:700">${Math.round(tCon/tNet*100)}%</td></tr>`;
+
+    if(D.months && D.months.length > 0){
+      document.getElementById('bpl-mo-card').style.display='';
+      document.getElementById('th-bpl-mo').innerHTML =
+        '<tr><th>品牌</th>' + D.months.map(m=>`<th>${m}</th>`).join('') + '<th>合計</th></tr>';
+      const mt = document.getElementById('tb-bpl-mo'); mt.innerHTML='';
+      D.brands.forEach(x=>{
+        if(!x.mo) return;
+        mt.innerHTML += `<tr><td><strong>${x.b}</strong></td>` +
+          x.mo.map(v=>`<td class="mn"${v<0?' style="color:#e05a4f"':''}>${fmt(v)}</td>`).join('') +
+          `<td class="mn" style="font-weight:700">${fmt(x.contrib)}</td></tr>`;
+      });
+    }
   },
 
   returns(){
