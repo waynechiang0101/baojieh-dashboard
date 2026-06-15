@@ -913,23 +913,22 @@ def save_brand_monthly_cache(cache):
     p.parent.mkdir(exist_ok=True)
     p.write_text(_j.dumps(cache, ensure_ascii=False), 'utf-8')
 
-def calc_brand_pl(ytd, period_label, monthly_cache=None, year=None):
+def calc_brand_pl(ytd, period_label, monthly_cache=None, fy_month_list=None):
     """從 YTD parse_xls 結果自動計算 BRAND_PL。
-    若傳入 monthly_cache，加上各完成月份的月度毛貢獻欄。
+    fy_month_list: [(year, month), ...] 財年各月順序，用於月度欄。
+    monthly_cache: {'{year}-{mm}': {brand_net, brand_giv}}
     """
     net_d = ytd.get('brand_net', {})
     giv_d = ytd.get('brand_giv', {})
 
     # 月度快取 → 各品牌 monthly contrib 陣列
     mo_labels, mo_by_brand = [], {}
-    if monthly_cache and year:
-        year_data = monthly_cache.get(str(year), {})
-        months = sorted(int(k) for k in year_data)
-        mo_labels = [f'{m}月' for m in months]
+    if monthly_cache and fy_month_list:
+        mo_labels = [f'{cy}/{cm:02d}' for cy, cm in fy_month_list]
         for b in net_d:
             mo_by_brand[b] = []
-            for m in months:
-                md = year_data[str(m)]
+            for cy, cm in fy_month_list:
+                md = monthly_cache.get(f'{cy}-{cm:02d}', {})
                 m_net = md.get('brand_net', {}).get(b, 0)
                 m_giv = md.get('brand_giv', {}).get(b, 0)
                 m_kbd  = round(m_giv / 1.05 * KBD_RATES.get(b, 0.15))
@@ -1532,8 +1531,10 @@ def main():
     data_q  = dl_sales(s, q_start,  today,  "季累計")
     data_mo = dl_sales(s, mo_start, today,  "本月")
     data_m  = dl_sales(s, m_start, m_end, "上月全月")
-    ytd_start = f'{_today.year}/01/01'
-    data_ytd = dl_sales(s, ytd_start, today, "YTD(品牌損益)")
+    # P&G 財年：7 月起，跨兩個日曆年
+    fy_start_year = _today.year if _today.month >= 7 else _today.year - 1
+    ytd_start = f'{fy_start_year}/07/01'
+    data_ytd = dl_sales(s, ytd_start, today, "財年YTD(品牌損益)")
 
     print("\n[下載 去年同期 IYA]")
     data_iya_q  = dl_sales(s, ly_qstart,  ly_today, "去年季累計")
@@ -1608,37 +1609,46 @@ def main():
     except Exception as e:
         print(f"  ⚠ 退貨憑單清單失敗（不影響看板）: {e}")
 
-    # ── 月度品牌損益快取（完成月份只抓一次）──
+    # ── 月度品牌損益快取（財年各月只抓一次）──
     import calendar as _cal
     print("\n[月度品牌損益快取]")
     monthly_cache = load_brand_monthly_cache()
-    year_key = str(_today.year)
-    if year_key not in monthly_cache:
-        monthly_cache[year_key] = {}
 
-    for month in range(1, _today.month):  # 1 到上個月（已完成）
-        if str(month) not in monthly_cache[year_key]:
-            m0 = f'{_today.year}/{month:02d}/01'
-            m1_day = _cal.monthrange(_today.year, month)[1]
-            m1 = f'{_today.year}/{month:02d}/{m1_day}'
-            md = parse_xls(dl_sales(s, m0, m1, f'{month}月(快取)'))
-            monthly_cache[year_key][str(month)] = {
+    # 財年月份序列：[(year, month), ...]，從財年起月到上個月
+    fy_months = []
+    y, mo_idx = fy_start_year, 7
+    while (y, mo_idx) < (_today.year, _today.month):
+        fy_months.append((y, mo_idx))
+        mo_idx += 1
+        if mo_idx > 12:
+            mo_idx = 1; y += 1
+
+    for cy, cm in fy_months:
+        cache_key = f'{cy}-{cm:02d}'
+        if cache_key not in monthly_cache:
+            m0 = f'{cy}/{cm:02d}/01'
+            m1_day = _cal.monthrange(cy, cm)[1]
+            m1 = f'{cy}/{cm:02d}/{m1_day}'
+            md = parse_xls(dl_sales(s, m0, m1, f'{cy}/{cm:02d}(快取)'))
+            monthly_cache[cache_key] = {
                 'brand_net': md.get('brand_net', {}),
                 'brand_giv': md.get('brand_giv', {})
             }
-            print(f"  ✓ {month}月 新增快取")
+            print(f"  ✓ {cy}/{cm:02d} 新增快取")
         else:
-            print(f"  · {month}月 已有快取")
+            print(f"  · {cy}/{cm:02d} 已有快取")
 
     # 當月用已下載的 mo
-    monthly_cache[year_key][str(_today.month)] = {
+    cur_key = f'{_today.year}-{_today.month:02d}'
+    monthly_cache[cur_key] = {
         'brand_net': mo.get('brand_net', {}),
         'brand_giv': mo.get('brand_giv', {})
     }
     save_brand_monthly_cache(monthly_cache)
 
-    period_label = f'{_today.year}年1~{_today.month}月'
-    brand_pl = calc_brand_pl(ytd, period_label, monthly_cache, _today.year)
+    fy_end_year = fy_start_year + 1
+    period_label = f'{fy_start_year}/{fy_end_year % 100:02d} 財年（7月~{_today.month}月）'
+    brand_pl = calc_brand_pl(ytd, period_label, monthly_cache, fy_months + [(_today.year, _today.month)])
     update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data, ar_reps, ar_unpaid, km_sell, iya_m, inv_health, brand_pl)
 
 
