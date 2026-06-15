@@ -1651,6 +1651,14 @@ def main():
     brand_pl = calc_brand_pl(ytd, period_label, monthly_cache, fy_months + [(_today.year, _today.month)])
     update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data, ar_reps, ar_unpaid, km_sell, iya_m, inv_health, brand_pl)
 
+    # iWMS 效期（token 從 Cloudflare KV 取，由 bookmarklet 每日更新）
+    print("\n[iWMS 效期庫存]")
+    try:
+        from fetch_iwms import main as iwms_main
+        iwms_main()
+    except Exception as e:
+        print(f"  ⚠ iWMS 更新失敗（不影響其他指標）: {e}")
+
 
 if __name__ == "__main__":
     main()
