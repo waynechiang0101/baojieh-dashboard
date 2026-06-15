@@ -1,6 +1,16 @@
 // Cloudflare Pages Function — iWMS Token 存取
-// KV binding: IWMS_KV（key: "token"）
-// Secret:     IWMS_SECRET（保護端點）
+// KV binding: IWMS_KV
+// Secret:     IWMS_SECRET
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'content-type',
+};
+
+export async function onRequestOptions() {
+  return new Response(null, { status: 204, headers: CORS });
+}
 
 export async function onRequestPost({ request, env }) {
   const kv = env.IWMS_KV;
@@ -14,7 +24,7 @@ export async function onRequestPost({ request, env }) {
   const token = body.token || '';
   if (!token) return json({ ok: false, error: '無 token' }, 400);
 
-  await kv.put('iwms_token', token, { expirationTtl: 86400 }); // 24小時後自動清除
+  await kv.put('iwms_token', token, { expirationTtl: 86400 });
   return json({ ok: true });
 }
 
@@ -33,5 +43,5 @@ export async function onRequestGet({ request, env }) {
 }
 
 const json = (o, s = 200) => new Response(JSON.stringify(o), {
-  status: s, headers: { 'content-type': 'application/json;charset=utf-8' }
+  status: s, headers: { 'content-type': 'application/json;charset=utf-8', ...CORS }
 });
