@@ -56,6 +56,22 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 
 <div class="wrap" id="app" style="display:none">
   <div class="warn" id="demo-warn">⚠ 後端尚未啟用（D1 未綁定），目前為示範模式——分類只存在這台裝置，不會同步給其他人。</div>
+
+  <!-- 檔案上傳區 -->
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:14px">
+    <div style="font-size:14px;font-weight:700;margin-bottom:4px">上傳資料檔案</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">XLS / XLSX / CSV / PDF，上傳後自動存入 GitHub，Wayne 與 Claude 可直接讀取。上限 20MB。</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input type="file" id="up-file" accept=".xls,.xlsx,.csv,.pdf" style="display:none" onchange="onFileSelect(this)">
+      <button class="ftab" onclick="document.getElementById('up-file').click()">選擇檔案</button>
+      <span id="up-name" style="font-size:12px;color:var(--text2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">未選擇</span>
+      <input class="inp" id="up-label" placeholder="備註說明（選填，例：5月退貨月報）" style="flex:2;min-width:160px;font-size:12px">
+      <button class="gbtn" id="up-btn" onclick="uploadFile()" style="width:auto;padding:7px 18px;font-size:13px" disabled>上傳</button>
+    </div>
+    <div id="up-status" style="font-size:12px;margin-top:8px;display:none"></div>
+    <div id="up-list" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
+  </div>
+
   <div class="note">每張退貨憑單點一個原因即可。<b>店家退貨</b>=門市正常退貨；<b>拒收&劃單</b>=送錯/開錯/拒收；<b>其他</b>=政策性（總倉退貨、換包裝、即期回收等，請寫備註）。資料每日自動從 ERP 帶入（161-00-09 銷貨退回日報表）。</div>
   <div class="bar">
     <button class="ftab on" data-f="pending" onclick="setF(this)">待分類</button>
@@ -184,6 +200,69 @@ function toast(msg){
 // 記住名字
 const savedName = localStorage.getItem('ret_name');
 if(savedName){ document.getElementById('g-name').value = savedName; }
+
+// ── 檔案上傳 ──
+let upFile = null;
+function onFileSelect(input){
+  upFile = input.files[0];
+  document.getElementById('up-name').textContent = upFile ? upFile.name : '未選擇';
+  document.getElementById('up-btn').disabled = !upFile;
+  document.getElementById('up-status').style.display = 'none';
+}
+
+async function uploadFile(){
+  if(!upFile) return;
+  const btn = document.getElementById('up-btn');
+  const st = document.getElementById('up-status');
+  btn.disabled = true; btn.textContent = '上傳中…';
+  st.style.display = 'block'; st.style.color = 'var(--text2)'; st.textContent = '上傳中，請稍候…';
+
+  const fd = new FormData();
+  fd.append('file', upFile);
+  const label = document.getElementById('up-label').value.trim();
+  if(label) fd.append('label', label);
+
+  try {
+    const r = await fetch('api/upload', { method: 'POST', body: fd });
+    const j = await r.json();
+    if(j.ok){
+      st.style.color = 'var(--green)';
+      st.innerHTML = `✓ 上傳成功 → <a href="${j.url}" target="_blank" style="color:var(--accent)">${j.path}</a>`;
+      addUploadRecord(upFile.name, label, j.url);
+      upFile = null;
+      document.getElementById('up-file').value = '';
+      document.getElementById('up-name').textContent = '未選擇';
+      document.getElementById('up-label').value = '';
+    } else {
+      st.style.color = 'var(--red)';
+      st.textContent = '✗ 上傳失敗：' + (j.error || '未知錯誤');
+    }
+  } catch(e) {
+    st.style.color = 'var(--red)';
+    st.textContent = '✗ 網路錯誤：' + e.message;
+  }
+  btn.disabled = false; btn.textContent = '上傳';
+}
+
+function addUploadRecord(name, label, url){
+  const records = JSON.parse(localStorage.getItem('up_records') || '[]');
+  records.unshift({ name, label, url, time: new Date().toLocaleString('zh-TW') });
+  localStorage.setItem('up_records', JSON.stringify(records.slice(0, 20)));
+  renderUploadList();
+}
+
+function renderUploadList(){
+  const records = JSON.parse(localStorage.getItem('up_records') || '[]');
+  const el = document.getElementById('up-list');
+  if(!records.length){ el.textContent = ''; return; }
+  el.innerHTML = '<div style="margin-bottom:4px;color:var(--text3)">本裝置上傳記錄：</div>' +
+    records.map(r => `<div style="margin-bottom:3px">
+      <a href="${r.url}" target="_blank" style="color:var(--accent)">${r.name}</a>
+      ${r.label ? `<span style="color:var(--text3)"> · ${r.label}</span>` : ''}
+      <span style="color:var(--text3)"> · ${r.time}</span>
+    </div>`).join('');
+}
+renderUploadList();
 </script>
 </body>
 </html>
