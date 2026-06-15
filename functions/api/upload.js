@@ -1,5 +1,5 @@
 export async function onRequestPost({ request, env }) {
-  const token = env.GITHUB_TOKEN;
+  const token = env.GH_PAT;
   if (!token) return Response.json({ ok: false, error: 'GITHUB_TOKEN 未設定' }, { status: 500 });
 
   const REPO = 'waynechiang0101/baojieh-dashboard';
