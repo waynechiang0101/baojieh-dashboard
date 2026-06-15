@@ -31,7 +31,7 @@ def get_token():
     url = CF_URL + (f'?secret={secret}' if secret else '')
     req = urllib.request.Request(url, headers={'User-Agent': 'baojieh-bot'})
     try:
-        with urllib.request.urlopen(req, timeout=10) as r:
+        with urllib.request.urlopen(req, timeout=10, context=CTX) as r:
             j = json.loads(r.read())
         if j.get('ok'):
             print(f'  ✓ 取得 iWMS token')
