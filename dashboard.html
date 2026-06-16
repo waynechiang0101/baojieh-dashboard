@@ -545,21 +545,21 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="ct">🔴 90天內到期</div>
         <div class="cs">需立即處理，優先出清或退回</div>
         <div style="overflow-x:auto">
-          <table><thead><tr><th>到期日</th><th>品號</th><th>品名</th><th>數量</th><th>供應商</th><th>倉庫</th></tr></thead><tbody id="tb-iwms-d90"></tbody></table>
+          <table><thead><tr><th>到期日</th><th>貨號</th><th>條碼</th><th>品名</th><th>數量</th><th>倉庫</th></tr></thead><tbody id="tb-iwms-d90"></tbody></table>
         </div>
       </div>
       <div class="card" style="margin-bottom:14px">
         <div class="ct">🟡 180天內到期</div>
         <div class="cs">需列入出清計畫</div>
         <div style="overflow-x:auto">
-          <table><thead><tr><th>到期日</th><th>品號</th><th>品名</th><th>數量</th><th>供應商</th><th>倉庫</th></tr></thead><tbody id="tb-iwms-d180"></tbody></table>
+          <table><thead><tr><th>到期日</th><th>貨號</th><th>條碼</th><th>品名</th><th>數量</th><th>倉庫</th></tr></thead><tbody id="tb-iwms-d180"></tbody></table>
         </div>
       </div>
       <div class="card">
         <div class="ct">⚫ 已過期庫存（Top 30）</div>
         <div class="cs">應立即盤點確認實際狀況</div>
         <div style="overflow-x:auto">
-          <table><thead><tr><th>到期日</th><th>品號</th><th>品名</th><th>數量</th><th>供應商</th><th>倉庫</th></tr></thead><tbody id="tb-iwms-exp"></tbody></table>
+          <table><thead><tr><th>到期日</th><th>貨號</th><th>條碼</th><th>品名</th><th>數量</th><th>倉庫</th></tr></thead><tbody id="tb-iwms-exp"></tbody></table>
         </div>
       </div>
     </div>
@@ -2439,22 +2439,39 @@ const builds={
        <div class="kpi"><div class="kl">🔴 90天內到期</div><div class="kv" style="color:var(--red)">${tot90.toLocaleString()}</div><div class="ks">立即處理</div></div>
        <div class="kpi"><div class="kl">🟡 180天內到期</div><div class="kv" style="color:var(--amber)">${tot180.toLocaleString()}</div><div class="ks">列入出清計畫</div></div>`;
 
-    const row = x => `<tr>
-      <td style="font-family:var(--mono);color:${x.exp<new Date().toISOString().slice(0,10)?'var(--red)':'var(--amber)'}">${x.exp}</td>
-      <td style="font-family:var(--mono);font-size:12px">${x.code}</td>
-      <td>${x.name}</td>
-      <td style="font-family:var(--mono)">${x.qty}</td>
-      <td style="color:var(--text2)">${x.sup}</td>
-      <td style="color:var(--text3);font-size:12px">${x.wh||''}</td></tr>`;
+    const today0 = new Date().toISOString().slice(0,10);
+    const row = g => {
+      const codes = [...new Set(g.map(x=>x.code))].join('<br>');
+      const bcs   = [...new Set(g.map(x=>x.bc).filter(Boolean))].join('<br>');
+      const qty   = g.reduce((s,x)=>s+x.qty, 0);
+      const whs   = [...new Set(g.map(x=>x.wh))].join('／');
+      const color = g[0].exp < today0 ? 'var(--red)' : 'var(--amber)';
+      return `<tr>
+        <td style="font-family:var(--mono);color:${color};white-space:nowrap">${g[0].exp}</td>
+        <td style="font-family:var(--mono);font-size:12px;line-height:1.6">${codes}</td>
+        <td style="font-family:var(--mono);font-size:12px;line-height:1.6;color:var(--text2)">${bcs||'—'}</td>
+        <td>${g[0].name}</td>
+        <td style="font-family:var(--mono)">${qty}</td>
+        <td style="color:var(--text3);font-size:12px">${whs}</td></tr>`;
+    };
 
     ['d90','d180','expired_top'].forEach((key, i) => {
       const tb = document.getElementById(['tb-iwms-d90','tb-iwms-d180','tb-iwms-exp'][i]);
-      let rows = [];
+      let items = [];
       Object.entries(D.warehouses).forEach(([wh, w]) => {
-        (w[key]||[]).forEach(x => rows.push({...x, wh}));
+        (w[key]||[]).forEach(x => items.push({...x, wh}));
       });
-      rows.sort((a,b)=>a.exp.localeCompare(b.exp));
-      tb.innerHTML = rows.slice(0,50).map(row).join('') || '<tr><td colspan="6" style="color:var(--text3);text-align:center">無資料</td></tr>';
+      items.sort((a,b)=>a.exp.localeCompare(b.exp));
+      // 同品名+同到期日 合併為一列
+      const grouped = [];
+      const gmap = {};
+      items.forEach(x => {
+        const k = x.name + '|' + x.exp;
+        if(!gmap[k]){ gmap[k]=[]; grouped.push(gmap[k]); }
+        gmap[k].push(x);
+      });
+      tb.innerHTML = grouped.slice(0,60).map(row).join('') ||
+        '<tr><td colspan="6" style="color:var(--text3);text-align:center">無資料</td></tr>';
     });
   }
 };
