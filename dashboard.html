@@ -2455,7 +2455,7 @@ const builds={
         <td style="color:var(--text3);font-size:12px">${whs}</td></tr>`;
     };
 
-    ['d90','d180','expired_top'].forEach((key, i) => {
+    ['d90_list','d180_list','expired_top'].forEach((key, i) => {
       const tb = document.getElementById(['tb-iwms-d90','tb-iwms-d180','tb-iwms-exp'][i]);
       let items = [];
       Object.entries(D.warehouses).forEach(([wh, w]) => {
