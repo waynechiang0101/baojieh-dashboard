@@ -1664,8 +1664,13 @@ def main():
     fy_end_year = fy_start_year + 1
     period_label = f'{fy_start_year}/{fy_end_year % 100:02d} 財年（7月~{_today.month}月）'
     brand_pl = calc_brand_pl(ytd, period_label, monthly_cache, fy_months + [(_today.year, _today.month)])
+    xls_perf = None
+    try:
+        xls_perf = parse_xls_performance()
+    except Exception as e:
+        print(f"  ⚠ XLS業務目標讀取失敗: {e}")
     today_ship = xls_perf.get('today_ship', 0) if xls_perf else 0
-    if today_ship: print(f"  今日出貨（業績追踨H欄）: {fm(today_ship)}")
+    if today_ship: print(f"  今日出貨（業績追踨H欄）: ${int(round(today_ship)):,}")
     update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data, ar_reps, ar_unpaid, km_sell, iya_m, inv_health, brand_pl, today_ship)
 
     # iWMS 效期（token 從 Cloudflare KV 取，由 bookmarklet 每日更新）
