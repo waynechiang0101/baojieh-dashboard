@@ -44,6 +44,7 @@ def parse_file(path):
         exp_raw = sh.cell(i, col_exp).value
         qty_raw = sh.cell(i, col_qty).value
         if not code or not name: continue
+        if not code.startswith('8'): continue  # 非P&G品號（PB等）略過
 
         # 解析有效日期
         exp_str = ''
@@ -75,18 +76,19 @@ def parse_file(path):
         'd90': len(d90_list),
         'd180': len(d180_list),
         'ok': len(ok),
-        'expired_top': sorted(expired, key=lambda x: x['exp'])[:30],
-        'd90_list':    sorted(d90_list, key=lambda x: x['exp'])[:50],
-        'd180_list':   sorted(d180_list, key=lambda x: x['exp'])[:50],
+        'expired_top': sorted(expired,  key=lambda x: x['exp']),
+        'd90_list':    sorted(d90_list,  key=lambda x: x['exp']),
+        'd180_list':   sorted(d180_list, key=lambda x: x['exp']),
     }
 
 
 def main():
-    # 找檔案
+    print('[iWMS 效期更新]')
+
+    # 找檔案（支援多個路徑）
     if len(sys.argv) > 1:
-        path = sys.argv[1]
+        paths = sys.argv[1:]
     else:
-        # 自動找 Downloads 最新的 iWMS 每日庫存單
         patterns = [
             os.path.expanduser('~/Downloads/每日庫存單*.xlsx'),
             os.path.expanduser('~/Downloads/iwms*.xlsx'),
@@ -97,21 +99,35 @@ def main():
         if not files:
             print('✗ 找不到 iWMS 匯出檔，請手動指定路徑')
             sys.exit(1)
-        path = max(files, key=os.path.getmtime)
+        paths = [max(files, key=os.path.getmtime)]
 
-    print(f'[iWMS 效期更新]\n  來源: {os.path.basename(path)}')
-    result = parse_file(path)
-    if not result:
+    warehouses = {}
+    for path in paths:
+        print(f'  來源: {os.path.basename(path)}')
+        result = parse_file(path)
+        if not result: continue
+        wh_name = (result['expired_top'] or result['d90_list'] or result['d180_list'] or [{}])[0].get('wh', '未知倉庫')
+        # 合計統計
+        tot = result['total']; exp = result['expired']; d9 = result['d90']; d18 = result['d180']
+        print(f'  → {wh_name}: {tot} 筆（過期:{exp} 90天:{d9} 180天:{d18}）')
+        if wh_name in warehouses:
+            # 同倉名（如高雄P&G全庫+即期倉）→ 合併
+            ex = warehouses[wh_name]
+            for k in ['expired_top','d90_list','d180_list']:
+                ex[k] = sorted(ex[k] + result[k], key=lambda x: x['exp'])
+            for k in ['total','expired','d90','d180','ok']:
+                ex[k] = ex.get(k,0) + result.get(k,0)
+        else:
+            warehouses[wh_name] = result
+
+    if not warehouses:
+        print('✗ 沒有任何可用資料')
         sys.exit(1)
 
     today = str(date.today())
-    wh_name = result['expired_top'][0]['wh'] if result['expired_top'] else \
-              result['d90_list'][0]['wh'] if result['d90_list'] else '未知倉庫'
-
     data = {
         'updated': today,
-        'source': os.path.basename(path),
-        'warehouses': {wh_name: result}
+        'warehouses': warehouses,
     }
     js = 'const IWMS_EXPIRY=' + json.dumps(data, ensure_ascii=False) + ';'
 
@@ -121,7 +137,9 @@ def main():
     else:
         html = html.replace('</script>', f'\n{js}\n</script>', 1)
     DASHBOARD.write_text(html, encoding='utf-8')
-    print(f'  ✓ 更新完成（{today}）→ 需 git push 才會上線')
+
+    total_all = sum(w['total'] for w in warehouses.values())
+    print(f'\n  ✅ IWMS_EXPIRY 寫入完成（{today}，{len(warehouses)} 倉，{total_all} 筆）')
 
 
 if __name__ == '__main__':
