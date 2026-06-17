@@ -9,7 +9,13 @@ from datetime import date, timedelta
 from pathlib import Path
 import openpyxl
 
-DASHBOARD = Path(__file__).parent.parent / 'dashboard.html'
+DASHBOARD  = Path(__file__).parent.parent / 'dashboard.html'
+BC_MAP_PATH = Path(__file__).parent.parent / 'data' / 'sku_barcode.json'
+
+# 載入條碼對照表
+_BC_MAP = {}
+if BC_MAP_PATH.exists():
+    _BC_MAP = json.load(open(BC_MAP_PATH, encoding='utf-8'))
 
 def parse_file(path):
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
@@ -60,7 +66,8 @@ def parse_file(path):
         try: qty = float(qty_raw or 0)
         except: pass
 
-        entry = {'code': code, 'name': name[:30], 'exp': exp_str,
+        entry = {'code': code, 'bc': _BC_MAP.get(code, ''),
+                 'name': name[:30], 'exp': exp_str,
                  'qty': qty, 'wh': wh_name}
 
         if   exp < today:   expired.append(entry)
