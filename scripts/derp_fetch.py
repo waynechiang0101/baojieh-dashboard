@@ -956,7 +956,7 @@ def calc_brand_pl(ytd, period_label, monthly_cache=None, fy_month_list=None):
 
 
 # ── 更新 dashboard.html ──────────────────────────────────
-def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=None, ar_reps=None, ar_unpaid=0, km_sell=None, iya_m=None, inv_health=None, brand_pl=None):
+def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=None, ar_reps=None, ar_unpaid=0, km_sell=None, iya_m=None, inv_health=None, brand_pl=None, today_ship=0):
     html = DASHBOARD.read_text(encoding='utf-8')
     def esc(s): return s.replace("'","`")
     def fm(n): return '$' + f"{int(round(n)):,}"
@@ -1078,6 +1078,8 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     sub_kpi('超市業務本月', fm(super_final),  '業務rep · 超市通路')
     sub_kpi('康是美本月',   fm(km_derp),     '直送門市')
     sub_kpi('CVS盤商本月',  fm(cvs_others),  '全家+7-11+萊爾富+OK')
+    if today_ship > 0:
+        sub_kpi('今日出貨', fm(today_ship), '截至今日開單金額')
     print(f"  ✓ DERP 通路KPI: 藥房{pharma_derp//10000}萬 "
           f"超市{super_derp//10000}萬 KM{km_derp//10000}萬")
 
@@ -1536,6 +1538,9 @@ def main():
     ytd_start = f'{fy_start_year}/07/01'
     data_ytd = dl_sales(s, ytd_start, today, "財年YTD(品牌損益)")
 
+    print("\n[下載 今日出貨]")
+    data_today_ship = dl_sales(s, today, today, "今日出貨")
+
     print("\n[下載 去年同期 IYA]")
     data_iya_q  = dl_sales(s, ly_qstart,  ly_today, "去年季累計")
     data_iya_mo  = dl_sales(s, ly_mostart, ly_today, "去年本月")
@@ -1649,7 +1654,10 @@ def main():
     fy_end_year = fy_start_year + 1
     period_label = f'{fy_start_year}/{fy_end_year % 100:02d} 財年（7月~{_today.month}月）'
     brand_pl = calc_brand_pl(ytd, period_label, monthly_cache, fy_months + [(_today.year, _today.month)])
-    update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data, ar_reps, ar_unpaid, km_sell, iya_m, inv_health, brand_pl)
+    today_parsed = parse_xls(data_today_ship)
+    today_ship   = int(sum(today_parsed.get('grp', {}).values()))
+    print(f"  今日出貨: {fm(today_ship)}")
+    update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data, ar_reps, ar_unpaid, km_sell, iya_m, inv_health, brand_pl, today_ship)
 
     # iWMS 效期（token 從 Cloudflare KV 取，由 bookmarklet 每日更新）
     print("\n[iWMS 效期庫存]")
