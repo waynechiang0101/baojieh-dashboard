@@ -199,11 +199,14 @@ def dl_sales(s, d0, d1, label):
         # 每次重新 login
         s = _post_login(user, pwd)
         print(f"  {label} {d0}~{d1}...")
-        r = s.get(f"{BASE_URL}/BizPlan/dsrDailySales",
-                  params=params, verify=False, timeout=120)
+        try:
+            r = s.get(f"{BASE_URL}/BizPlan/dsrDailySales",
+                      params=params, verify=False, timeout=180)
+        except Exception as e:
+            print(f"  ⚠ 連線錯誤（{type(e).__name__}），重試...")
+            continue
         size_kb = len(r.content) // 1024
         print(f"    ✓ {size_kb}KB")
-        # 小於 10KB 幾乎必定是 HTML 錯誤頁
         if size_kb < 10:
             print(f"  ⚠ 回傳太小（{size_kb}KB），可能是 HTML，重試...")
             continue
