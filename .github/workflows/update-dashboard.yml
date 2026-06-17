@@ -38,7 +38,7 @@ jobs:
           DERP_PASS: ${{ secrets.DERP_PASS }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           IWMS_SECRET: ${{ secrets.IWMS_SECRET }}
-run: python scripts/derp_fetch.py
+        run: python scripts/derp_fetch.py
 
       - name: 提交更新
         run: |
