@@ -1,0 +1,26 @@
+name: 驗證 Workflow YAML
+
+on:
+  push:
+    paths:
+      - '.github/workflows/*.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 驗證 YAML 語法
+        run: |
+          python3 -c "
+          import yaml, sys, glob
+          ok = True
+          for f in glob.glob('.github/workflows/*.yml'):
+              try:
+                  yaml.safe_load(open(f))
+                  print(f'✓ {f}')
+              except yaml.YAMLError as e:
+                  print(f'✗ {f}: {e}')
+                  ok = False
+          sys.exit(0 if ok else 1)
+          "
