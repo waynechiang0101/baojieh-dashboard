@@ -654,6 +654,15 @@ def parse_xls_performance():
         if isinstance(tgt_v, (int, float)) and tgt_v > 0:
             rep_tgt[code] = int(tgt_v)
 
+    # 今日出貨：header row (row 1) 找 MMDD 格式的欄位（如 '0617'），讀總計 row
+    today_ship = 0
+    hdr_row = [str(sh0.cell_value(1, c)).strip() for c in range(sh0.ncols)]
+    import re as _re2
+    for ci, h in enumerate(hdr_row):
+        if _re2.fullmatch(r'\d{4}', h):  # MMDD 格式
+            today_ship = int(fv(30, ci))
+            break
+
     return {
         'pg_total':    int(pg_total),
         'pharma':      int(pharma),
@@ -671,6 +680,7 @@ def parse_xls_performance():
         'time_pct':    time_pct,
         'channels':    channels,
         'rep_tgt':     rep_tgt,
+        'today_ship':  today_ship,
     }
 
 
@@ -1538,9 +1548,6 @@ def main():
     ytd_start = f'{fy_start_year}/07/01'
     data_ytd = dl_sales(s, ytd_start, today, "財年YTD(品牌損益)")
 
-    print("\n[下載 今日出貨]")
-    data_today_ship = dl_sales(s, today, today, "今日出貨")
-
     print("\n[下載 去年同期 IYA]")
     data_iya_q  = dl_sales(s, ly_qstart,  ly_today, "去年季累計")
     data_iya_mo  = dl_sales(s, ly_mostart, ly_today, "去年本月")
@@ -1654,9 +1661,8 @@ def main():
     fy_end_year = fy_start_year + 1
     period_label = f'{fy_start_year}/{fy_end_year % 100:02d} 財年（7月~{_today.month}月）'
     brand_pl = calc_brand_pl(ytd, period_label, monthly_cache, fy_months + [(_today.year, _today.month)])
-    today_parsed = parse_xls(data_today_ship)
-    today_ship   = int(sum(today_parsed.get('grp', {}).values()))
-    print(f"  今日出貨: {fm(today_ship)}")
+    today_ship = xls_perf.get('today_ship', 0) if xls_perf else 0
+    if today_ship: print(f"  今日出貨（業績追踨H欄）: {fm(today_ship)}")
     update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data, ar_reps, ar_unpaid, km_sell, iya_m, inv_health, brand_pl, today_ship)
 
     # iWMS 效期（token 從 Cloudflare KV 取，由 bookmarklet 每日更新）
