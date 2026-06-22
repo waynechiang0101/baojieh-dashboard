@@ -1069,12 +1069,18 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     cvs_others   = sum(v for k,v in direct_totals.items() if k != '康是美')
     all_direct   = km_derp + cvs_others
     pharma_derp  = sum(ch_mo_data.get(c, 0) for c in ['小型藥局', '大型藥局'])
-    super_derp   = total_mo - pharma_derp - all_direct
+    super_derp   = ch_mo_data.get('超級市場', 0)
     derp_total   = total_mo
 
-    # KPI cards — 100% DERP，不讀 XLS
+    # KPI cards — 100% DERP
     xls_perf = None
-    pg_total_fin = derp_total
+    pg_total_fin = derp_total   # 全通路（含康是美/CVS直送）
+    xls_perf = None
+    try:
+        xls_perf = parse_xls_performance()
+    except Exception as e:
+        print(f"  ⚠ XLS讀取失敗: {e}")
+    xls_total_fin = xls_perf['pg_total'] if xls_perf else 0  # 業務員口徑
     pharma_final = pharma_derp
     super_final  = super_derp
     chain_fin    = {k: int(chain_totals.get(k, 0)) for k in ['丁丁','啄木鳥','大樹','小北','B&C']}
@@ -1085,7 +1091,9 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         '來來(OK)':   int(direct_totals.get('來來(OK)', 0)),
         '康是美':     int(km_derp),
     }
-    sub_kpi('P&G 本月業績', fm(pg_total_fin))
+    sub_kpi('P&G 本月業績（全通路）', fm(pg_total_fin), '含康是美/CVS直送')
+    if xls_total_fin:
+        sub_kpi('業務通路本月', fm(xls_total_fin), '業務員管轄通路（不含直送）')
     sub_kpi('交易客戶', f'{cust_cnt:,}', f'目標 {cust_cnt:,} 門市')
     sub_kpi('藥房業務本月', fm(pharma_final), '業務rep · 藥局通路')
     sub_kpi('超市業務本月', fm(super_final),  '業務rep · 超市通路')
@@ -1118,7 +1126,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     html = re.sub(r'const XLS_DIRECT=\[[\s\S]*?\];',
                   'const XLS_DIRECT=[\n'+',\n'.join(direct_rows)+'\n];', html)
     html = re.sub(r'const XLS_TOTAL=\d+;',
-                  f'const XLS_TOTAL={pg_total_fin};', html)
+                  f'const XLS_TOTAL={xls_total_fin if xls_total_fin else pg_total_fin};', html)
 
     # ── 集團排行 KPIs（以本月排序）──
     grp_s     = sorted(grp_q.keys(), key=lambda n: -grp_mo.get(n, 0))[:15]
