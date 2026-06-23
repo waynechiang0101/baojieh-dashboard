@@ -125,7 +125,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <!-- 業績總覽 -->
     <div class="pg on" id="pg-overview">
       <div class="ptitle">業績總覽</div>
-      <div class="psub">2026年6月（截至06/22）· 寶捷實業有限公司</div>
+      <div class="psub">數字來源：DERP ERP dsrDailySales · 和清價（寶捷實際收款）· 全通路 · 每日 18:30 自動更新</div>
       <div class="krow5">
         <div class="kpi"><div class="kl">P&G 本月業績</div><div class="kv">$87,648,076</div><div class="ks up">↑ 業務達成 57.1% · 時間 85%</div></div>
         <div class="kpi"><div class="kl">季累計</div><div class="kv">$258,676,470</div><div class="ks up">↑ 季目標 38%</div></div>
@@ -202,7 +202,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <!-- 個別門市（排除康是美/CVS） -->
     <div class="pg" id="pg-cust-store">
       <div class="ptitle">個別門市排行</div>
-      <div class="psub">單點業績排行（已排除康是美/CVS）· 含集團歸屬與業務 · Top 100</div>
+      <div class="psub">數字來源：DERP ERP dsrDailySales · 和清價 · 門市層級明細 · Top 100 依本月業績排序 · 每日 18:30 自動更新</div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <input class="srch" id="store-srch" placeholder="搜尋門市名稱..." oninput="filterStore()">
         <span style="font-size:11px;color:var(--text3)" id="store-cnt">Top 100 門市</span>
@@ -216,7 +216,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <!-- 康是美分點 -->
     <div class="pg" id="pg-cust-km">
       <div class="ptitle">康是美</div>
-      <div class="psub">康是美通路業績 · 真實資料來源：DERP</div>
+      <div class="psub">業績來源：DERP ERP 全通路 · 實銷件數：康是美供應商平台（每週一自動更新）· 估算金額 = 件數 × 康是美進貨價</div>
 
       <!-- 實銷區塊 -->
       <div class="card" style="margin-bottom:14px" id="km-sell-card">
@@ -276,7 +276,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <!-- CVS 門市 -->
     <div class="pg" id="pg-cust-cvs">
       <div class="ptitle">CVS 便利商店門市</div>
-      <div class="psub">便利商店通路業績 · 真實資料</div>
+      <div class="psub">數字來源：DERP ERP dsrDailySales · 含捷盟(7-11)、全台(全家)、萊爾富、來來(OK) · 和清價 · 每日 18:30 自動更新</div>
       <div class="krow">
         <div class="kpi"><div class="kl">CVS本月</div><div class="kv">$3,546,811</div><div class="ks up">↑ +0.1% vs 上月</div></div>
         <div class="kpi"><div class="kl">CVS上月</div><div class="kv">$3,541,627</div><div class="ks">完整月份</div></div>
@@ -294,7 +294,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <!-- 小北各店 -->
     <div class="pg" id="pg-cust-xb">
       <div class="ptitle">小北各分店</div>
-      <div class="psub">小北通路各分店業績 · 真實資料</div>
+      <div class="psub">數字來源：DERP ERP dsrDailySales · 小北各分店明細 · 和清價 · 退步分店 = 本月 < 去年同月 · 每日 18:30 自動更新</div>
       <div class="krow">
         <div class="kpi"><div class="kl">小北本月</div><div class="kv">$3,674,326</div><div class="ks up">↓ -20.2% vs 上月</div></div>
         <div class="kpi"><div class="kl">小北上月</div><div class="kv">$4,605,458</div><div class="ks">完整月份</div></div>
@@ -326,7 +326,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <!-- 通路別 -->
     <div class="pg" id="pg-cust-channel">
       <div class="ptitle">通路別分析</div>
-      <div class="psub">AC 尼爾森通路分類 · 上月 vs 季累計</div>
+      <div class="psub">數字來源：DERP ERP AC通路欄 · 藥房 = 大小型藥局 + 月子中心 + 嬰兒專門店 · 超市 = 超級市場 + 大小型小超（不含盤商）· 每日 18:30 自動更新</div>
       <div class="g2">
         <div class="card"><div class="ct">通路業績排行</div><div class="cs">上月 vs 季累計對比</div><div style="position:relative;height:300px"><canvas id="c-ch" role="img" aria-label="通路排行">通路排行</canvas></div></div>
         <div class="card"><div class="ct">通路業績佔比</div><div class="cs">季累計</div><div style="position:relative;height:300px"><canvas id="c-ch-pie" role="img" aria-label="通路佔比">通路佔比</canvas></div></div>
@@ -338,7 +338,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- 業務排行 -->
     <div class="pg" id="pg-rep">
-      <div class="ptitle">業務排行</div><div class="psub">本月業績達成率 · 品牌明細</div>
+      <div class="ptitle">業務排行</div><div class="psub">數字來源：DERP ERP dsrDailySales 業務代表欄 · 月目標來自 115-06業績追踨-N.xls（助理每日最新版）· 每日 18:30 自動更新</div>
       <div class="g2">
         <div class="card"><div class="ct">業務業績排行</div><div class="cs">今年 vs 去年同期</div><div style="position:relative;height:260px"><canvas id="c-rep" role="img" aria-label="業務排行">業務排行</canvas></div></div>
         <div class="card"><div class="ct">業務達成率</div><div class="cs">月目標達成率 %</div><div style="position:relative;height:260px"><canvas id="c-rpct" role="img" aria-label="業務達成率">達成率</canvas></div></div>
@@ -350,7 +350,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- 品牌排行 -->
     <div class="pg" id="pg-brand">
-      <div class="ptitle">品牌排行</div><div class="psub">P&G 各品牌業績 · 客戶維度 × 業務維度</div>
+      <div class="ptitle">品牌排行</div><div class="psub">數字來源：DERP ERP dsrDailySales 品牌欄 · 和清價 · BRAUN 數字已併入 ORALB · 每日 18:30 自動更新</div>
       <div class="g2">
         <div class="card"><div class="ct">品牌總業績排行</div><div class="cs">上月 / 本月 / 去年上月</div><div style="position:relative;height:260px"><canvas id="c-brand" role="img" aria-label="品牌排行">品牌排行</canvas></div></div>
         <div class="card"><div class="ct">品牌月趨勢</div><div class="cs">近5個月各品牌走勢</div><div style="position:relative;height:260px"><canvas id="c-btrend" role="img" aria-label="品牌趨勢">品牌趨勢</canvas></div></div>
@@ -363,7 +363,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- IYA 對比 -->
     <div class="pg" id="pg-iya">
-      <div class="ptitle">IYA 對比</div><div class="psub">今年 vs 去年同期（Index Year Ago）</div>
+      <div class="ptitle">IYA 對比</div><div class="psub">數字來源：DERP ERP 今年 vs 去年同期 · 注意：去年資料 DERP 偶爾 timeout，IYA 顯示 +0% 時請以業績追踨 XLS 為準</div>
       <div class="krow">
         <div class="kpi"><div class="kl">本月 IYA</div><div class="kv">+0%</div><div class="ks up">去年 $0</div></div>
         <div class="kpi"><div class="kl">季累計 IYA</div><div class="kv">+0%</div><div class="ks up">去年 $0</div></div>
@@ -378,7 +378,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- 收款 -->
     <div class="pg" id="pg-pay">
-      <div class="ptitle">收款狀況</div><div class="psub">6月 MBO 收款目標 vs 實際達成 · 真實資料</div>
+      <div class="ptitle">收款狀況</div><div class="psub">收款來源：115-06收款.xls（助理每日更新，放置 ~/Downloads）· 應收未付：DERP derp-421-14-1.jsp 自動抓取 · 每日 18:30 自動更新</div>
       <!-- MBO 業務收款區塊（業務看）-->
       <div class="krow">
         <div class="kpi"><div class="kl">總收款目標</div><div class="kv">$19,941,871</div><div class="ks">6月 MBO</div></div>
@@ -413,7 +413,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <!-- 公司庫存 -->
     <div class="pg" id="pg-inv">
       <div class="ptitle">公司庫存總覽</div>
-      <div class="psub">327.DMC 庫存 · 排除零庫存 SKU · 依倉庫分：台南 / 高雄 / 桃園 / 康是美 / CVS</div>
+      <div class="psub">數字來源：DERP derp-327-50.jsp 庫存報表（約 46MB）· 庫存天數 = 庫存量 ÷ DERP 日均銷 · 和清價 · 每日 18:30 自動更新</div>
       <div class="krow5">
         <div class="kpi"><div class="kl">總庫存金額</div><div class="kv">$167,465,752</div><div class="ks">16 品牌</div></div>
         <div class="kpi"><div class="kl">台南倉庫存</div><div class="kv">$59,178,521</div><div class="ks">台南出貨倉</div></div>
@@ -445,7 +445,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <!-- 品牌損益 Brand P&L -->
     <div class="pg" id="pg-brandpl">
       <div class="ptitle">品牌損益（Brand P&L）</div>
-      <div class="psub" id="bpl-sub">毛貢獻 = 純價差毛利 + KBD · 未含 TFI / QDD / 人事 / 物流 / 倉租</div>
+      <div class="psub" id="bpl-sub">數字來源：DERP ERP 財年各月業績（7月起累計）· 已結束月份快取不重複抓取 · GIV = P&G 發票面額（非寶捷收款）· 每日 18:30 自動更新</div>
       <div class="krow" id="bpl-kpis"></div>
       <div class="card" style="margin-bottom:14px">
         <div class="ct" id="bpl-ct">品牌毛貢獻彙總</div>
@@ -484,7 +484,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <!-- 退貨分析 -->
     <div class="pg" id="pg-returns">
       <div class="ptitle">退貨分析</div>
-      <div class="psub">口徑：寶捷 ERP 退貨憑單（月報，含稅）· 與 DERP SR 口徑不同 · 分類：店家退貨 / 拒收&劃單 / 其他（含政策性）· 月報更新後自動帶入</div>
+      <div class="psub">數字來源：DERP derp-161-10.jsp 銷貨退回日報（寶捷帳 accountID=22884510 = 財報口徑）· 分類標籤人工登記 · 每日 18:30 自動更新</div>
       <div class="krow" id="ret-kpis"></div>
       <div class="card" style="margin-bottom:14px">
         <div class="ct">月度退貨 2026 vs 2025 vs 2024</div>
@@ -526,7 +526,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <!-- 庫存健康預警 -->
     <div class="pg" id="pg-inv-health">
       <div class="ptitle">庫存健康預警</div>
-      <div class="psub">庫存天數 = 庫存量 ÷ 全公司日均銷量（DERP）＝照目前賣的速度，這批貨還要幾天才賣得完 · 統計範圍：主力倉（台南/高雄/桃園/康是美寄倉/CVS）· 即期倉/壞品倉另列 · 「無動銷」= 完全沒在賣的庫存，「下架品」含換包裝後的舊包裝</div>
+      <div class="psub">數字來源：DERP derp-327-50.jsp 庫存報表 · D級 = 庫存天數 120天+/180天+，或無動銷，或下架品有庫存 · 燈號以主貨倉+出貨倉+康是美倉計算 · 每日 18:30 自動更新</div>
       <div class="krow" id="ih-kpi-lights"></div>
       <div class="krow" id="ih-kpi-buckets" style="grid-template-columns:repeat(2,1fr)"></div>
       <div class="card" style="margin-bottom:14px">
@@ -569,7 +569,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <!-- 效期管理 iWMS -->
     <div class="pg" id="pg-iwms-expiry">
       <div class="ptitle">效期管理（iWMS）</div>
-      <div class="psub" id="iwms-sub">來源：iWMS 倉儲系統 · 高雄倉 + 台南倉 · 需每日點擊書籤更新 Token</div>
+      <div class="psub" id="iwms-sub">數字來源：iWMS 倉儲系統每日庫存單（台南主貨倉 + 高雄即期/壞品/主貨倉）· 每月月初手動上傳更新 · 僅 P&G 品號（8開頭），3M/美德樂等非P&G已濾除</div>
       <div class="krow" id="iwms-kpis"></div>
       <div style="margin-bottom:12px"><button onclick="iwmsDownloadCSV()" style="padding:7px 18px;background:#7c5cbf;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer">⬇ 下載效期清單 CSV</button></div>
       <div class="card" style="margin-bottom:14px">

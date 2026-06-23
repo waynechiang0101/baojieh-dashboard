@@ -590,12 +590,19 @@ def parse_xls_performance():
         print("  ⚠ 找不到業績追踨 XLS，通路 KPI 改用 DERP 資料")
         return None
     def xls_sort_key(p):
-        # 抓檔名裡的月份數字，e.g. 115-06 → 6，115-05 → 5
-        m = _re.search(r'115-(\d+)', os.path.basename(p))
-        seq_m = _re.search(r'\(1\)-(\d+)', os.path.basename(p))
+        base = os.path.basename(p)
+        m = _re.search(r'115-(\d+)', base)
         month = int(m.group(1)) if m else 0
-        seq   = int(seq_m.group(1)) if seq_m else 0
-        return (month, seq)
+        # 助理寄出版：115-06業績追踨-N.xls，N 越大越新，優先選
+        asst = _re.search(r'業績追踨-(\d+)', base)
+        # 草稿版：115-06業績追踨 (1)-N.xls，最低優先
+        draft = _re.search(r'\(1\)-(\d+)', base)
+        if asst:
+            return (month, 2, int(asst.group(1)))   # 助理版優先
+        elif draft:
+            return (month, 0, int(draft.group(1)))  # 草稿最低
+        else:
+            return (month, 1, 0)                    # 原始版居中
     path = sorted(files, key=xls_sort_key)[-1]
     print(f"  讀取業績追踨: {os.path.basename(path)}")
     try:
@@ -1068,21 +1075,27 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     km_derp      = direct_totals.get('康是美', 0)
     cvs_others   = sum(v for k,v in direct_totals.items() if k != '康是美')
     all_direct   = km_derp + cvs_others
-    pharma_derp  = sum(ch_mo_data.get(c, 0) for c in ['小型藥局', '大型藥局'])
-    super_derp   = ch_mo_data.get('超級市場', 0)
+    pharma_derp  = sum(ch_mo_data.get(c, 0) for c in [
+        '小型藥局', '大型藥局', '月子中心', '大型嬰兒專門店', '小型嬰兒專門店'
+    ])
+    super_derp   = sum(ch_mo_data.get(c, 0) for c in [
+        '超級市場', '大型小超', '小型小超'
+    ])
+    pander_derp  = sum(ch_mo_data.get(c, 0) for c in [
+        '盤商:量販/超市/傳統商店', '盤商:專業領域通路(國外)'
+    ])
     derp_total   = total_mo
 
-    # KPI cards — 100% DERP
-    xls_perf = None
-    pg_total_fin = derp_total   # 全通路（含康是美/CVS直送）
+    # KPI cards — 100% DERP，不依賴 XLS
     xls_perf = None
     try:
         xls_perf = parse_xls_performance()
     except Exception as e:
         print(f"  ⚠ XLS讀取失敗: {e}")
-    xls_total_fin = xls_perf['pg_total'] if xls_perf else 0  # 業務員口徑
-    pharma_final = pharma_derp
-    super_final  = super_derp
+    pg_total_fin  = derp_total
+    xls_total_fin = xls_perf['pg_total'] if xls_perf else 0
+    pharma_final  = pharma_derp
+    super_final   = super_derp
     chain_fin    = {k: int(chain_totals.get(k, 0)) for k in ['丁丁','啄木鳥','大樹','小北','B&C']}
     dir_fin      = {
         '全台(全家)': int(direct_totals.get('全台(全家)', 0)),
@@ -1099,6 +1112,8 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     sub_kpi('超市業務本月', fm(super_final),  '業務rep · 超市通路')
     sub_kpi('康是美本月',   fm(km_derp),     '直送門市')
     sub_kpi('CVS盤商本月',  fm(cvs_others),  '全家+7-11+萊爾富+OK')
+    if pander_derp > 0:
+        sub_kpi('盤商本月', fm(int(pander_derp)), '量販/超市/傳統商店盤商')
     if today_ship > 0:
         sub_kpi('今日出貨', fm(today_ship), '截至今日開單金額')
     print(f"  ✓ DERP 通路KPI: 藥房{pharma_derp//10000}萬 "
@@ -1688,6 +1703,15 @@ def main():
         iwms_main()
     except Exception as e:
         print(f"  ⚠ iWMS 更新失敗（不影響其他指標）: {e}")
+
+    # 排錯驗證：比對 XLS 與看板數字
+    print("\n[排錯驗證]")
+    try:
+        import subprocess, sys as _sys
+        _vpath = Path(__file__).parent / 'verify_dashboard.py'
+        subprocess.run([_sys.executable, str(_vpath)], check=False)
+    except Exception as e:
+        print(f"  ⚠ 驗證腳本失敗: {e}")
 
 
 if __name__ == "__main__":
