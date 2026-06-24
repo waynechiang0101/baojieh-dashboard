@@ -33,11 +33,11 @@ def get_xls_values():
         return None
     def key(p):
         m = _re.search(r'115-(\d+)', os.path.basename(p))
-        sq = _re.search(r'\(1\)-(\d+)', os.path.basename(p))
-        has_draft = bool(_re.search(r'\(1\)', os.path.basename(p)))
         month = int(m.group(1)) if m else 0
-        seq = int(sq.group(1)) if sq else (999 if not has_draft else 0)
-        return (month, seq)
+        is_draft = bool(_re.search(r'\(1\)-\d+', os.path.basename(p)))
+        if is_draft:
+            return (month, 0, 0)
+        return (month, 1, int(os.path.getmtime(p)))
     path = sorted(files, key=key)[-1]
     wb = xlrd.open_workbook(path)
     sh = wb.sheet_by_index(0)
@@ -71,6 +71,7 @@ def get_dashboard_values():
         'pharma':        kv('藥房業務本月'),
         'super_':        kv('超市業務本月'),
         'km':            kv('康是美本月'),
+        'pharma_super':  kv('藥房+超市業務本月'),
         'traded':        kv_plain('交易客戶'),
     }
 
@@ -89,9 +90,8 @@ def main():
     print(f'  XLS來源: {xls["file"]}')
 
     checks = [
-        # 業務通路本月 = XLS E48（業務口徑），DERP全通路口徑不同，只做參考不報錯
-        ('藥房業務本月',   dash['pharma'],  xls['pharma'],  '業績追踨G27'),
-        ('超市業務本月',   dash['super_'],  xls['super_'],  '業績追踨G28'),
+        # 業務 rep 加總 vs XLS G27+G28（藥房+超市合計）
+        ('藥房+超市業務本月', dash.get('pharma_super'), xls['pharma'] + xls['super_'], '業績追踨G27+G28'),
     ]
 
     errors = []

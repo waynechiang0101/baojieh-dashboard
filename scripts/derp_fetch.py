@@ -574,7 +574,10 @@ def parse_local_payment_xls():
         total_act += act
 
     uncollected = total_tgt - total_act
-    print(f"  ✓ {len(pays)}人  未收款: ${uncollected/1e6:.1f}M")
+    if uncollected < 0:
+        print(f"  ✓ {len(pays)}人  已超收: ${-uncollected/1e6:.1f}M（超過目標）")
+    else:
+        print(f"  ✓ {len(pays)}人  未收款: ${uncollected/1e6:.1f}M")
     return pays, uncollected
 
 
@@ -593,16 +596,12 @@ def parse_xls_performance():
         base = os.path.basename(p)
         m = _re.search(r'115-(\d+)', base)
         month = int(m.group(1)) if m else 0
-        # 助理寄出版：115-06業績追踨-N.xls，N 越大越新，優先選
-        asst = _re.search(r'業績追踨-(\d+)', base)
-        # 草稿版：115-06業績追踨 (1)-N.xls，最低優先
-        draft = _re.search(r'\(1\)-(\d+)', base)
-        if asst:
-            return (month, 2, int(asst.group(1)))   # 助理版優先
-        elif draft:
-            return (month, 0, int(draft.group(1)))  # 草稿最低
-        else:
-            return (month, 1, 0)                    # 原始版居中
+        # 草稿版：(1)-N 格式，排除
+        is_draft = bool(_re.search(r'\(1\)-\d+', base))
+        if is_draft:
+            return (month, 0, 0)
+        # 非草稿：用 mtime 排序（越新越好）
+        return (month, 1, int(os.path.getmtime(p)))
     path = sorted(files, key=xls_sort_key)[-1]
     print(f"  讀取業績追踨: {os.path.basename(path)}")
     try:
@@ -1084,6 +1083,9 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     pander_derp  = sum(ch_mo_data.get(c, 0) for c in [
         '盤商:量販/超市/傳統商店', '盤商:專業領域通路(國外)'
     ])
+    # 業務通路 = DERP rep 加總（不依 AC通路分類，避免跨組業務造成誤差）
+    rep_mo_data  = mo.get('rep', {})
+    biz_rep_total = int(sum(r.get('amt', 0) for r in rep_mo_data.values()))
     derp_total   = total_mo
 
     # KPI cards — 100% DERP，不依賴 XLS
@@ -1108,8 +1110,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     if xls_total_fin:
         sub_kpi('業務通路本月', fm(xls_total_fin), '業務員管轄通路（不含直送）')
     sub_kpi('交易客戶', f'{cust_cnt:,}', f'目標 {cust_cnt:,} 門市')
-    sub_kpi('藥房業務本月', fm(pharma_final), '業務rep · 藥局通路')
-    sub_kpi('超市業務本月', fm(super_final),  '業務rep · 超市通路')
+    sub_kpi('藥房+超市業務本月', fm(biz_rep_total), '業務 rep 加總（不含KM/CVS直送）')
     sub_kpi('康是美本月',   fm(km_derp),     '直送門市')
     sub_kpi('CVS盤商本月',  fm(cvs_others),  '全家+7-11+萊爾富+OK')
     if pander_derp > 0:
@@ -1121,8 +1122,7 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
 
     # ── 通路明細 JS arrays ──
     biz_rows = [
-        f"  {{n:'藥房業務',v:{pharma_final}}}",
-        f"  {{n:'超市業務',v:{super_final}}}",
+        f"  {{n:'業務通路合計',v:{biz_rep_total}}}",
         f"  {{n:'└ 丁丁',v:{chain_fin.get('丁丁',0)}}}",
         f"  {{n:'└ 啄木鳥',v:{chain_fin.get('啄木鳥',0)}}}",
         f"  {{n:'└ 大樹',v:{chain_fin.get('大樹',0)}}}",
@@ -1136,12 +1136,45 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
         f"  {{n:'來來(OK)',v:{dir_fin['來來(OK)']}}}",
         f"  {{n:'康是美',v:{dir_fin['康是美']}}}",
     ]
+
+    # ── AC通路明細 + 客戶展開（CH_DETAIL）──
+    # 整理 store_mo：依 AC通路分類，每通路列出前20大客戶（含業務）
+    store_mo = mo.get('store', {})
+    ch_detail = {}
+    for st_name, st in store_mo.items():
+        ac = st.get('ch', '其他') or '其他'
+        amt = st.get('amt', 0)
+        if amt <= 0: continue
+        if ac not in ch_detail:
+            ch_detail[ac] = {'v': 0, 'customers': []}
+        ch_detail[ac]['v'] += amt
+        ch_detail[ac]['customers'].append({
+            'n': st_name[:20],
+            'v': int(amt),
+            'r': st.get('rep', '')
+        })
+    # 排序 customers by amt desc, keep top 20
+    ch_detail_js_parts = []
+    for ac, data in sorted(ch_detail.items(), key=lambda x: -x[1]['v']):
+        top_cust = sorted(data['customers'], key=lambda x: -x['v'])[:20]
+        cust_js = ','.join(
+            f"{{n:{repr(c['n'])},v:{c['v']},r:{repr(c['r'])}}}" for c in top_cust
+        )
+        ch_detail_js_parts.append(
+            f"  {{n:{repr(ac)},v:{int(data['v'])},customers:[{cust_js}]}}"
+        )
+    ch_detail_js = 'const CH_DETAIL=[\n' + ',\n'.join(ch_detail_js_parts) + '\n];'
     html = re.sub(r'const XLS_BIZ=\[[\s\S]*?\];',
                   'const XLS_BIZ=[\n'+',\n'.join(biz_rows)+'\n];', html)
     html = re.sub(r'const XLS_DIRECT=\[[\s\S]*?\];',
                   'const XLS_DIRECT=[\n'+',\n'.join(direct_rows)+'\n];', html)
     html = re.sub(r'const XLS_TOTAL=\d+;',
                   f'const XLS_TOTAL={xls_total_fin if xls_total_fin else pg_total_fin};', html)
+    # CH_DETAIL: replace if exists, else inject after XLS_TOTAL
+    if 'const CH_DETAIL=' in html:
+        html = re.sub(r'const CH_DETAIL=\[[\s\S]*?\];', ch_detail_js, html)
+    else:
+        html = html.replace('const XLS_TOTAL=', ch_detail_js + '\nconst XLS_TOTAL=', 1)
 
     # ── 集團排行 KPIs（以本月排序）──
     grp_s     = sorted(grp_q.keys(), key=lambda n: -grp_mo.get(n, 0))[:15]
@@ -1596,7 +1629,11 @@ def main():
     pays_list, uncollected = parse_local_payment_xls()
 
     if not q.get('grp'):
-        print("✗ 解析失敗"); sys.exit(1)
+        if mo.get('grp'):
+            print("⚠ 季累計失敗，以本月資料代替季累計（數字偏低為正常）")
+            q = mo  # 用本月頂替，讓看板能繼續更新
+        else:
+            print("✗ 解析失敗（季累計+本月都空白）"); sys.exit(1)
 
     print("\n[庫存下載]")
     inv_data = None
