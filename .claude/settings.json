@@ -3,7 +3,7 @@
     "Stop": [{
       "hooks": [{
         "type": "command",
-        "command": "echo '\n⚠️  記得更新共同記憶！\n   如果這次 session 有重要決定，請執行：/remember [說明]\n   這樣 Hermes 和 Claude Code 下次都能讀到。' >> /dev/stderr"
+        "command": "echo '\n⚠️  記得更新共同記憶！\n   如果這次 session 有重要決定，請執行：/remember [說明]\n   這樣 Hermes 和 Claude Code 下次都能讀到。' >&2"
       }]
     }]
   }
