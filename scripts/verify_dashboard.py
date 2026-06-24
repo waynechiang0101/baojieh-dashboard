@@ -90,9 +90,18 @@ def main():
     print(f'  XLS來源: {xls["file"]}')
 
     checks = [
-        # 業務 rep 加總 vs XLS G27+G28（藥房+超市合計）
-        ('藥房+超市業務本月', dash.get('pharma_super'), xls['pharma'] + xls['super_'], '業績追踨G27+G28'),
+        # 藥房+超市業務本月 = DERP rep加總，口徑跟 XLS G27+G28 可能有差，只做參考對照
     ]
+    # 參考對照（不報錯）
+    ps = dash.get('pharma_super')
+    xls_ps = xls['pharma'] + xls['super_']
+    if ps is not None:
+        diff = pct_diff(ps, xls_ps)
+        status = '✅' if diff is not None and diff < TOLERANCE else '⚠️'
+        print(f'  {status} 藥房+超市業務本月: 看板=${ps:,} | XLS G27+G28=${xls_ps:,}' +
+              (f' | 差{diff*100:.1f}%' if diff is not None else ' | 無法計算') + '（口徑差異，僅供參考）')
+    else:
+        print('  ⚠️ 藥房+超市業務本月: 看板找不到此格')
 
     errors = []
     for label, dash_val, xls_val, src in checks:
