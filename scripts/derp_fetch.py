@@ -1083,9 +1083,8 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     pander_derp  = sum(ch_mo_data.get(c, 0) for c in [
         '盤商:量販/超市/傳統商店', '盤商:專業領域通路(國外)'
     ])
-    # 業務通路 = DERP rep 加總（不依 AC通路分類，避免跨組業務造成誤差）
-    rep_mo_data  = mo.get('rep', {})
-    biz_rep_total = int(sum(r.get('amt', 0) for r in rep_mo_data.values()))
+    # 業務通路 = 全通路 - 康是美直送 - CVS盤商 - 大盤商 （不含直送通路）
+    biz_rep_total = int(total_mo - km_derp - cvs_others - pander_derp)
     derp_total   = total_mo
 
     # KPI cards — 100% DERP，不依賴 XLS
