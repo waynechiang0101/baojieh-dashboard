@@ -554,13 +554,13 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div style="background:rgba(251,191,36,0.08);border-left:3px solid #fbbf24;border-radius:6px;padding:10px 14px;margin:8px 0;font-size:12px;line-height:1.8;color:#d1d5db;">
         <div style="font-weight:700;color:#fbbf24;margin-bottom:4px;">📌 黑燈庫存 &amp; 持有成本說明</div>
         <div>⚫ <strong style="color:#fff;">黑燈庫存（$125M）</strong>＝庫存天數 180 天以上、或零動銷、或下架品仍有庫存的品項，佔總庫存約 <strong style="color:#f87171;">74%</strong>。放越久越難出清。</div>
-        <div style="margin-top:6px;">💸 <strong style="color:#fff;">持有成本 約3%／月</strong>＝每一塊錢庫存放在倉庫，每個月要花約 3% 的代價：</div>
+        <div style="margin-top:6px;">💸 <strong style="color:#fff;">持有成本 約3.5%／月</strong>＝每一塊錢庫存放在倉庫，每個月要花約 3.5% 的代價：</div>
         <div style="margin-left:14px;color:#9ca3af;font-size:11px;">
-          · 資金成本（公司借款利率）：約 2%+／月<br>
+          · 資金成本（公司借款利率）：約 2.5%／月<br>
           · 倉租 + 管理人員攤提：約 0.5%／月<br>
           · 保險 / 損耗風險：約 0.5%／月
         </div>
-        <div style="margin-top:6px;">📊 <strong style="color:#fbbf24;">實際算法：</strong>$1.25億 × 3% ＝ <strong style="color:#f87171;">每月 NT$375萬</strong>在燒，這還沒算最後出清時的折扣損失。</div>
+        <div style="margin-top:6px;">📊 <strong style="color:#fbbf24;">實際算法：</strong>$1.25億 × 3.5% ＝ <strong style="color:#f87171;">每月 NT$437萬</strong>在燒，這還沒算最後出清時的折扣損失。</div>
         <div style="margin-top:4px;color:#9ca3af;font-size:11px;">▶ 若及早促銷出清黑燈品，可節省大量持有成本；拖越久折扣越大（120天出清虧約 20%，180天以上虧 50% 以上）。</div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;font-size:11px;">
@@ -1371,7 +1371,7 @@ const CH_DETAIL=[
   {n:'電子商務 & 網站',v:76420,customers:[{n:'7-11預購-大智通文化',v:75855,r:'劉暄芸'},{n:'富邦媒體科技股份有限公司',v:565,r:'陳品融'}]},
   {n:'月子中心',v:40660,customers:[{n:'樂沐產後護理之家',v:10577,r:'呂橙菄'},{n:'貝詩特產後護理之家',v:9506,r:'卲穩壬'},{n:'安優昇有限公司-月子中心',v:9506,r:'卲穩壬'},{n:'品御優月子調理中心',v:9506,r:'呂橙菄'},{n:'凱特琳托嬰中心',v:1565,r:'郭玄佳'}]}
 ];
-const XLS_TOTAL=62497905.0;
+const XLS_TOTAL=62497905;
 
 // ── Brand name lookup ─────────────────────────────────────────────────────
 const BN={PAMPS:'幫寶適',WHSP:'好自在',HS:'海倫',PNTN:'潘婷',HR:'髮食譜',OLAY:'歐蕾',
@@ -1430,6 +1430,7 @@ const builds={
     renderXlsChannels();
     // 月業績趨勢 — 數字卡
     (function(){
+      // ⚠️ 注意：12月~3月為概估參考值，4月起為 DERP 真實數字
       const months= ['12月','1月','2月','3月','4月','5月'];
       const thisY= [42100000,35600000,29800000,41200000,66885676,86924821];
       const lastY= [38800000,32900000,27200000,37800000,97562898,76677456];
@@ -1464,17 +1465,16 @@ const builds={
       const total=XLS_TOTAL||1;
       const channels=[
         {name:'康是美',value:XLS_DIRECT.find(d=>d.n==='康是美').v,color:'#4caf82'},
-        {name:'藥房業務',value:XLS_BIZ.find(d=>d.n==='藥房業務').v,color:'#4fa3e0'},
-        {name:'超市業務',value:XLS_BIZ.find(d=>d.n==='超市業務').v,color:'#6cb3e8'},
-        {name:'大樹',value:XLS_BIZ.find(d=>d.n==='└ 大樹').v,color:'#a6d1f5'},
-        {name:'小北',value:XLS_BIZ.find(d=>d.n==='└ 小北').v,color:'#b8daf8'},
-        {name:'全家',value:XLS_DIRECT.find(d=>d.n==='全台(全家)').v,color:'#6dc49a'},
-        {name:'7-11',value:XLS_DIRECT.find(d=>d.n==='捷盟(7-11)').v,color:'#8dd4b1'},
-        {name:'丁丁',value:XLS_BIZ.find(d=>d.n==='└ 丁丁').v,color:'#89c2ef'},
-        {name:'啄木鳥',value:XLS_BIZ.find(d=>d.n==='└ 啄木鳥').v,color:'#c9e3fa'},
-        {name:'萊爾富',value:XLS_DIRECT.find(d=>d.n==='萊爾富').v,color:'#aee3c8'},
-        {name:'B&C',value:XLS_BIZ.find(d=>d.n==='└ B&C').v,color:'#d5eafc'},
-        {name:'OK',value:XLS_DIRECT.find(d=>d.n==='來來(OK)').v,color:'#cef2df'},
+        {name:'藥房+超市業務',value:(XLS_BIZ.find(d=>d.n==='藥房業務')||XLS_BIZ.find(d=>d.n==='業務通路合計')||{v:0}).v,color:'#4fa3e0'},
+        {name:'大樹',value:(XLS_BIZ.find(d=>d.n==='└ 大樹')||{v:0}).v,color:'#a6d1f5'},
+        {name:'小北',value:(XLS_BIZ.find(d=>d.n==='└ 小北')||{v:0}).v,color:'#b8daf8'},
+        {name:'全家',value:(XLS_DIRECT.find(d=>d.n==='全台(全家)')||{v:0}).v,color:'#6dc49a'},
+        {name:'7-11',value:(XLS_DIRECT.find(d=>d.n==='捷盟(7-11)')||{v:0}).v,color:'#8dd4b1'},
+        {name:'丁丁',value:(XLS_BIZ.find(d=>d.n==='└ 丁丁')||{v:0}).v,color:'#89c2ef'},
+        {name:'啄木鳥',value:(XLS_BIZ.find(d=>d.n==='└ 啄木鳥')||{v:0}).v,color:'#c9e3fa'},
+        {name:'萊爾富',value:(XLS_DIRECT.find(d=>d.n==='萊爾富')||{v:0}).v,color:'#aee3c8'},
+        {name:'B&C',value:(XLS_BIZ.find(d=>d.n==='└ B&C')||{v:0}).v,color:'#d5eafc'},
+        {name:'OK',value:(XLS_DIRECT.find(d=>d.n==='來來(OK)')||{v:0}).v,color:'#cef2df'},
       ].sort((a,b)=>b.value-a.value);
       const wrap=document.getElementById('c1-wrap');
       document.getElementById('c1').style.display='none';
