@@ -81,6 +81,31 @@ BRAND_NAMES = {
 }
 SKIP_INV_BRANDS = {'SAMPLE','POSM','OTHER','GIFT','DISPLAY',''}
 
+# ============================================================
+# 業務主管指定排除的客代（用於計算 normal running 日均銷）
+# 格式：{'客代代號': '說明'}  — 資料確認後填入
+# 來源：6/22 業務會議，Speaker 2 待提供清單
+# ============================================================
+EXCLUDED_CUST_CODES: dict[str, str] = {
+    # 盤商
+    # 'C001': '盤商-量販',
+    # 團購特殊客戶
+    # 'C999': '侯太太',
+    # 'C998': '林媽媽',
+    # 'C997': '寶潔團購',
+}
+
+# ============================================================
+# SKU 細項分類對照 (條碼 → 分類)  — 對照表確認後填入
+# 來源：6/22 業務會議，Speaker 2 待提供條碼對照表
+# ============================================================
+SKU_SUBCATEGORY: dict[str, str] = {
+    # 'barcode_001': 'ARIEL液態罐裝',
+    # 'barcode_002': 'ARIEL液態補充包',
+    # 'barcode_003': 'ARIEL洗衣球盒裝',
+    # 'barcode_004': 'ARIEL洗衣球袋裝',
+}
+
 def _wh_group(wh):
     if '台南' in wh: return 'tainan'
     if '高雄' in wh: return 'kaohsiung'
@@ -1167,8 +1192,8 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
                   'const XLS_BIZ=[\n'+',\n'.join(biz_rows)+'\n];', html)
     html = re.sub(r'const XLS_DIRECT=\[[\s\S]*?\];',
                   'const XLS_DIRECT=[\n'+',\n'.join(direct_rows)+'\n];', html)
-    html = re.sub(r'const XLS_TOTAL=\d+;',
-                  f'const XLS_TOTAL={xls_total_fin if xls_total_fin else pg_total_fin};', html)
+    _xls_val = int(xls_total_fin) if xls_total_fin else int(pg_total_fin)
+    html = re.sub(r'const XLS_TOTAL=[\d.]+;', f'const XLS_TOTAL={_xls_val};', html)
     # CH_DETAIL: replace if exists, else inject after XLS_TOTAL
     if 'const CH_DETAIL=' in html:
         html = re.sub(r'const CH_DETAIL=\[[\s\S]*?\];', ch_detail_js, html)
@@ -1578,6 +1603,17 @@ def update_dashboard(q, m, mo, iya_q, iya_mo, pays_list, uncollected, inv_data=N
     html = re.sub(r'\d{4}年\d+月（截至\d+/\d+）', f'{_today.year}年{_today.month}月（截至{mo_lbl}）', html)
     html = re.sub(r'季累計（至\d+/\d+）', f'季累計（至{mo_lbl}）', html)
     html = re.sub(r"'季累計（4/1－[^']*）'", f"'季累計（4/1－{mo_lbl}）'", html)
+
+    # ── inject last-update timestamp ──
+    import datetime
+    _now_tw = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).strftime('%Y-%m-%d %H:%M')
+    html = re.sub(
+        r'const LAST_UPDATE="[^"]*";',
+        f'const LAST_UPDATE="{_now_tw}";',
+        html
+    )
+    if 'const LAST_UPDATE=' not in html:
+        html = html.replace('const GRP=', 'const LAST_UPDATE="' + _now_tw + '";\nconst GRP=', 1)
 
     DASHBOARD.write_text(html, encoding='utf-8')
 

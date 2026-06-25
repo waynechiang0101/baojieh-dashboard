@@ -96,6 +96,17 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <div class="logo">業績儀表板 <span>v4</span></div>
   <div class="dtag">2026/06/24 · 寶捷實業有限公司</div>
 </div>
+<div id="last-update-bar" style="display:flex;align-items:center;gap:10px;font-size:11px;color:#aaa;padding:4px 16px;background:#1a1a2e;border-bottom:1px solid #333;">
+  <span>📊 資料截至：<span id="last-update-ts" style="color:#4ade80;font-weight:600;">載入中…</span></span>
+  <button onclick="location.reload()" style="background:#2563eb;color:#fff;border:none;border-radius:4px;padding:2px 10px;font-size:11px;cursor:pointer;">🔄 重新整理頁面</button>
+  <span style="color:#666;">| 自動更新：每日 18:30</span>
+</div>
+<script>
+(function(){
+  var lu = typeof LAST_UPDATE !== 'undefined' ? LAST_UPDATE : null;
+  if(lu) document.getElementById('last-update-ts').textContent = lu;
+})();
+</script>
 <div class="layout">
   <div class="sidebar">
     <div class="ns">總覽</div>
@@ -418,6 +429,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="pg" id="pg-inv">
       <div class="ptitle">公司庫存總覽</div>
       <div class="psub">數字來源：DERP derp-327-50.jsp 庫存報表（約 46MB）· 庫存天數 = 庫存量 ÷ DERP 日均銷 · 和清價 · 每日 18:30 自動更新</div>
+      <div style="font-size:11px;color:#f59e0b;padding:4px 12px;background:rgba(245,158,11,0.1);border-radius:4px;margin:4px 0;">
+  ⚠️ 日均銷計算：目前包含盤商/團購客代，待業務主管提供排除清單後將更新為 normal running 日均銷
+</div>
       <div class="krow5">
         <div class="kpi"><div class="kl">總庫存金額</div><div class="kv">$172,710,865</div><div class="ks">16 品牌</div></div>
         <div class="kpi"><div class="kl">台南倉庫存</div><div class="kv">$60,272,625</div><div class="ks">台南出貨倉</div></div>
@@ -440,6 +454,12 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="cs" style="margin-bottom:8px">依金額排序 · Top 30 · 點選品牌 / 倉庫切換</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="inv-brand-tabs"></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="inv-wh-tabs"></div>
+        <div style="font-size:11px;color:#a78bfa;padding:6px 12px;background:rgba(167,139,250,0.1);border-radius:6px;margin:8px 0;border-left:3px solid #a78bfa;">
+  💡 跨倉調度建議：當南部庫存高時，優先由南部出貨，避免重複叫貨。點選倉別 tab 可查看各倉庫存天數。
+</div>
+        <div style="font-size:11px;color:#60a5fa;padding:4px 12px;background:rgba(96,165,250,0.1);border-radius:4px;margin:4px 0;">
+  📋 SKU 細項分類（如：洗衣球盒裝/袋裝、液態罐裝/補充包）：條碼對照表確認後啟用
+</div>
         <div style="overflow-x:auto">
           <table><thead><tr><th>#</th><th>SKU</th><th>品名</th><th>數量</th><th>金額(未稅)</th><th>庫存天數</th></tr></thead><tbody id="tb-inv-sku"></tbody></table>
         </div>
@@ -531,6 +551,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="pg" id="pg-inv-health">
       <div class="ptitle">庫存健康預警</div>
       <div class="psub">數字來源：DERP derp-327-50.jsp 庫存報表 · D級 = 庫存天數 120天+/180天+，或無動銷，或下架品有庫存 · 燈號以主貨倉+出貨倉+康是美倉計算 · 每日 18:30 自動更新</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;font-size:11px;">
+  <span style="padding:2px 8px;border-radius:10px;background:rgba(74,222,128,0.15);color:#4ade80;border:1px solid #4ade80;font-weight:600;">✅ 主貨倉（正常庫存）</span>
+  <span style="padding:2px 8px;border-radius:10px;background:rgba(251,146,60,0.15);color:#fb923c;border:1px solid #fb923c;font-weight:600;">⏰ 即期倉（效期警示）</span>
+  <span style="padding:2px 8px;border-radius:10px;background:rgba(248,113,113,0.15);color:#f87171;border:1px solid #f87171;font-weight:600;">🗑 壞品倉（通路退回）</span>
+</div>
       <div class="krow" id="ih-kpi-lights"></div>
       <div class="krow" id="ih-kpi-buckets" style="grid-template-columns:repeat(2,1fr)"></div>
       <div class="card" style="margin-bottom:14px">
@@ -632,6 +657,7 @@ const REPS=[
   {n:'MS007 黃盟傑',area:'',tgt:38814,act:47348,iya:42613,q:179916,qT:0,b:[0, 18368, 0, 9006, 29005, 3660]},
   {n:'陳品融',area:'',tgt:0,act:565,iya:508,q:6039,qT:0,b:[4344, 1695, 0, 0, 0, 0]}
 ];
+const LAST_UPDATE="";
 const GRP=[
   {n:'統一藥品股份有限公司(總公司)',s5:133185450,s4:55363012,s3:50627366,iya:0,iya3:0,br:[{b:'OLAY',v:37651683},{b:'HR',v:15754165},{b:'ARIEL',v:15591218},{b:'PNTN',v:13292721},{b:'WHSP',v:10488346}]},
   {n:'宏鼎',s5:33494128,s4:0,s3:33494128,iya:0,iya3:0,br:[{b:'HS',v:30226677},{b:'PNTN',v:3267451}]},
