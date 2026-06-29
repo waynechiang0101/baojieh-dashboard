@@ -40,6 +40,13 @@ jobs:
           IWMS_SECRET: ${{ secrets.IWMS_SECRET }}
         run: python scripts/derp_fetch.py
 
+      - name: 自動排錯健康檢查
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TG_CHAT_ID: "1094670750"
+        run: python scripts/health_check.py || true
+        # || true 確保健康檢查失敗不阻止 git push（告警已透過 Telegram 發出）
+
       - name: 提交更新
         run: |
           git config user.name "Dashboard Bot"
