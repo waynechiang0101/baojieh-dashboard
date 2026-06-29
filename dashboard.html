@@ -510,6 +510,19 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="ptitle">退貨分析</div>
       <div class="psub">數字來源：DERP derp-161-10.jsp 銷貨退回日報（寶捷帳 accountID=22884510 = 財報口徑）· 分類標籤人工登記 · 每日 18:30 自動更新</div>
       <div class="krow" id="ret-kpis"></div>
+      <div id="ret-policy-warn" style="margin-bottom:8px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        <div class="card">
+          <div class="ct">月退貨金額趨勢</div>
+          <div class="cs">2026（藍）/ 2025（灰）/ 2024（淡橘）</div>
+          <div style="position:relative;height:280px"><canvas id="c-ret-trend" role="img" aria-label="月退貨趨勢">月退貨趨勢</canvas></div>
+        </div>
+        <div class="card">
+          <div class="ct">2026 退貨原因分析</div>
+          <div class="cs">店家退貨（藍）/ 拒收&amp;劃單（橘）/ 其他政策性（灰）</div>
+          <div style="position:relative;height:280px"><canvas id="c-ret-cat" role="img" aria-label="退貨分類">退貨分類</canvas></div>
+        </div>
+      </div>
       <div class="card" style="margin-bottom:14px">
         <div class="ct">月度退貨 2026 vs 2025 vs 2024</div>
         <div class="cs">「其他」含政策性退貨（總倉/換包裝/即期回收）— JBP 塞貨舉證素材</div>
@@ -2489,11 +2502,20 @@ const builds={
     const ytd25 = y25.slice(0,lastM+1).reduce((s,m)=>s+m.total,0);
     const yoy = ytd25? Math.round((ytd26-ytd25)/ytd25*100) : 0;
     const sumK = k => y26.slice(0,lastM+1).reduce((s,m)=>s+m[k],0);
+    const avgMo26 = ytd26 / (lastM+1);
+    const avgMo25 = y25.slice(0,lastM+1).reduce((s,m)=>s+m.total,0) / (lastM+1);
+    const avgMoYoy = avgMo25 ? Math.round((avgMo26-avgMo25)/avgMo25*100) : 0;
+    const MONTHLY_REV = 87648076;
+    const retRate26 = Math.round(ytd26 / (MONTHLY_REV * (lastM+1)) * 100 * 10) / 10;
+    const otherPct = ytd26 ? Math.round(sumK('other')/ytd26*100) : 0;
     document.getElementById('ret-kpis').innerHTML =
       `<div class="kpi"><div class="kl">2026 退貨累計（1~${lastM+1}月）</div><div class="kv" style="color:#e05a4f">${fmt(ytd26)}</div><div class="ks ${yoy<=0?'up':'dn'}">${yoy<=0?'↓':'↑'} ${Math.abs(yoy)}% vs 去年同期 ${fmt(ytd25)}</div></div>
        <div class="kpi"><div class="kl">店家退貨</div><div class="kv">${fmt(sumK('store'))}</div><div class="ks">業務可控部分</div></div>
-       <div class="kpi"><div class="kl">拒收 & 劃單</div><div class="kv">${fmt(sumK('reject'))}</div><div class="ks">作業疏失（劃單責任歸屬月報）</div></div>
-       <div class="kpi"><div class="kl">其他（含政策性）</div><div class="kv" style="color:#e0a04f">${fmt(sumK('other'))}</div><div class="ks">佔 ${Math.round(sumK('other')/ytd26*100)}% — P&G 塞貨/換包裝證據</div></div>`;
+       <div class="kpi"><div class="kl">拒收 &amp; 劃單</div><div class="kv">${fmt(sumK('reject'))}</div><div class="ks">作業疏失（劃單責任歸屬月報）</div></div>
+       <div class="kpi"><div class="kl">其他（含政策性）</div><div class="kv" style="color:#e0a04f">${fmt(sumK('other'))}</div><div class="ks">佔 ${otherPct}% — P&G 塞貨/換包裝證據</div></div>
+       <div class="kpi"><div class="kl">月均退貨（2026）</div><div class="kv" style="color:#e05a4f">${fmt(Math.round(avgMo26))}</div><div class="ks ${avgMoYoy<=0?'up':'dn'}">${avgMoYoy<=0?'↓':'↑'} ${Math.abs(avgMoYoy)}% vs 2025月均 ${fmt(Math.round(avgMo25))}</div></div>
+       <div class="kpi"><div class="kl">退貨率（YTD）</div><div class="kv" style="color:${retRate26>=3?'#e05a4f':retRate26>=2?'#e0a04f':'#4caf82'}">${retRate26}%</div><div class="ks">退貨÷月均業績×月數 · 參考值</div></div>
+       <div class="kpi"><div class="kl">政策性退貨占比</div><div class="kv" style="color:${otherPct>=40?'#e05a4f':'#e0a04f'}">${otherPct}%</div><div class="ks">其他÷退貨總計 · ${otherPct>=40?'⚠️ 偏高，需確認原因':'正常區間'}</div></div>`;
 
     const mt = document.getElementById('tb-ret-mo'); mt.innerHTML='';
     for(let i=0;i<12;i++){
@@ -2541,6 +2563,61 @@ const builds={
         <td class="mn" style="font-weight:700">${fmt(c.a)}</td>
         <td style="font-size:11px;color:var(--text2)">${c.rep}</td></tr>`;
     });
+
+    // Policy warning badges
+    const warnEl = document.getElementById('ret-policy-warn');
+    if(warnEl){
+      const warns = [];
+      for(let i=0;i<=lastM;i++){
+        const m=y26[i];
+        if(m.total>0){
+          const pct=Math.round(m.other/m.total*100);
+          if(pct>=40) warns.push(`<span style="display:inline-block;margin:3px 6px 3px 0;padding:4px 10px;background:rgba(224,90,79,0.12);border:1px solid #e05a4f;border-radius:6px;font-size:11px;color:#e05a4f">&#9888;&#65039; ${i+1}月政策性退貨占比 ${pct}%，請確認是否 P&G 塞貨/換包裝補貼</span>`);
+        }
+      }
+      warnEl.innerHTML = warns.length ? `<div style="padding:4px 0">${warns.join('')}</div>` : '';
+    }
+
+    // Returns charts
+    if(charts.ret) charts.ret.forEach(c=>{try{c.destroy()}catch(e){}});
+    charts.ret=[];
+    const moLabels=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    const trend26=y26.map(m=>m.total>0?m.total:null);
+    const trend25=y25.map(m=>m.total>0?m.total:null);
+    const trend24=y24.map(m=>m.total>0?m.total:null);
+    charts.ret.push(new Chart('c-ret-trend',{type:'line',data:{
+      labels:moLabels,
+      datasets:[
+        {label:'2026',data:trend26,borderColor:'#4a9eff',backgroundColor:'rgba(74,158,255,0.08)',tension:0.3,pointRadius:4,pointHoverRadius:6,spanGaps:false},
+        {label:'2025',data:trend25,borderColor:'#888',backgroundColor:'rgba(136,136,136,0.05)',tension:0.3,pointRadius:3,pointHoverRadius:5,spanGaps:true},
+        {label:'2024',data:trend24,borderColor:'#e0a04f',backgroundColor:'rgba(224,160,79,0.05)',tension:0.3,pointRadius:3,pointHoverRadius:5,spanGaps:true}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'var(--text1)',font:{size:11}}},
+          tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${fmt(ctx.raw||0)}`}}},
+        scales:{
+          x:{ticks:{color:'var(--text2)',font:{size:10}},grid:{color:'rgba(255,255,255,0.06)'}},
+          y:{ticks:{color:'var(--text2)',font:{size:10},callback:v=>v>=1000000?(v/1000000).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'K':v},grid:{color:'rgba(255,255,255,0.06)'}}
+        }
+      }
+    }));
+    const catMonths=y26.reduce((acc,m,i)=>{if(m.total>0)acc.push(i);return acc;},[]);
+    charts.ret.push(new Chart('c-ret-cat',{type:'bar',data:{
+      labels:catMonths.map(i=>moLabels[i]),
+      datasets:[
+        {label:'店家退貨',data:catMonths.map(i=>y26[i].store),backgroundColor:'rgba(74,158,255,0.75)',stack:'s'},
+        {label:'拒收&劃單',data:catMonths.map(i=>y26[i].reject),backgroundColor:'rgba(224,160,79,0.8)',stack:'s'},
+        {label:'其他（政策性）',data:catMonths.map(i=>y26[i].other),backgroundColor:'rgba(136,136,136,0.65)',stack:'s'}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'var(--text1)',font:{size:11}}},
+          tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${fmt(ctx.raw||0)}`}}},
+        scales:{
+          x:{stacked:true,ticks:{color:'var(--text2)',font:{size:10}},grid:{color:'rgba(255,255,255,0.06)'}},
+          y:{stacked:true,ticks:{color:'var(--text2)',font:{size:10},callback:v=>v>=1000000?(v/1000000).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'K':v},grid:{color:'rgba(255,255,255,0.06)'}}
+        }
+      }
+    }));
   },
 
   'inv-health'(){
@@ -2618,6 +2695,52 @@ const builds={
     };
     fill('tb-ih-expiry', H.expiry_top);
     fill('tb-ih-damaged', H.damaged_top);
+    // ── 潛在損失估算 KPI 區塊 ──────────────────────────────────
+    (function(){
+      const H = INV_HEALTH;
+      const L = H.light;
+      // 各燈號折扣損失
+      const risks = [
+        { label:'🟡 黃燈（60-89天）', amt: L.yellow.amt, disc: 0.08,  color:'#eab308', tip:'立即促銷可挽回' },
+        { label:'🟠 橙燈（90-119天）',amt: L.orange.amt, disc: 0.15,  color:'#f97316', tip:'通路折讓' },
+        { label:'🔴 紅燈（120-179天）',amt: L.red.amt,   disc: 0.30,  color:'#ef4444', tip:'緊急出清' },
+        { label:'⚫ 黑燈（180天+）',   amt: L.black.amt,  disc: 0.50,  color:'#6b7280', tip:'虧本出清' },
+        { label:'⏰ 即期倉',           amt: H.expiry_total, disc: 0.50, color:'#d97706', tip:'效期迫近' },
+        { label:'🗑 壞品倉',           amt: H.damaged_total,disc: 0.80, color:'#dc2626', tip:'幾乎報廢' },
+      ];
+      const totalAmt  = risks.reduce((s,r)=>s+r.amt, 0);
+      const totalLoss = risks.reduce((s,r)=>s+Math.round(r.amt*r.disc), 0);
+      const monthlyCost = Math.round((L.black.amt + L.red.amt) * 0.035);
+      const savedIfNow  = Math.round(totalLoss * 0.55); // 及早處理可省約55%損失
+
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'margin:16px 0;';
+      wrap.innerHTML = `
+        <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">💸 潛在損失估算（依現有庫存天數）</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+          ${ risks.map(r=>{
+            const loss = Math.round(r.amt * r.disc);
+            return `<div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+              <div style="font-size:11px;color:var(--text3);margin-bottom:4px">${r.label}</div>
+              <div style="font-size:12px;color:var(--text2);margin-bottom:2px">庫存 ${fmtK(r.amt)}</div>
+              <div style="font-size:14px;font-weight:700;color:${r.color}">損失 ${fmtK(loss)}</div>
+              <div style="font-size:10px;color:var(--text3)">${r.tip}（-${Math.round(r.disc*100)}%）</div>
+            </div>`;
+          }).join('') }
+        </div>
+        <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;padding:12px 16px;display:flex;gap:24px;flex-wrap:wrap;align-items:center">
+          <div><div style="font-size:10px;color:var(--text3)">📊 潛在總損失（若不處理）</div><div style="font-size:20px;font-weight:700;color:#ef4444">${fmtK(totalLoss)}</div></div>
+          <div><div style="font-size:10px;color:var(--text3)">⏱ 黑燈+紅燈每月持有成本（3.5%）</div><div style="font-size:20px;font-weight:700;color:#f97316">${fmtK(monthlyCost)}/月</div></div>
+          <div><div style="font-size:10px;color:var(--text3)">✅ 及早處理可挽回（估）</div><div style="font-size:20px;font-weight:700;color:#22c55e">${fmtK(savedIfNow)}</div></div>
+        </div>
+      `;
+      // inject after ih-kpi-lights
+      const anchor = document.getElementById('ih-kpi-lights');
+      if(anchor && anchor.nextSibling) anchor.parentNode.insertBefore(wrap, anchor.nextSibling);
+      else if(anchor) anchor.parentNode.appendChild(wrap);
+
+      function fmtK(v){ return v>=1e8?'$'+(v/1e8).toFixed(1)+'億':v>=1e4?'$'+Math.round(v/1e4)+'萬':'$'+v.toLocaleString(); }
+    })();
   },
 
   'iwms-expiry'(){
