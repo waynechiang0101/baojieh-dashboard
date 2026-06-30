@@ -1651,6 +1651,103 @@ const builds={
       });
       wrap.parentElement.appendChild(info);
     })();
+
+    // ── Phase 4: 月中達標預估 ─────────────────────────────────────────────
+    (function(){
+      const now=new Date();
+      const y=now.getFullYear(),mo=now.getMonth();
+      function isWk(d){const w=new Date(y,mo,d).getDay();return w>0&&w<6;}
+      let wkP=0,wkT=0;
+      const dim=new Date(y,mo+1,0).getDate();
+      for(let d=1;d<=dim;d++){if(isWk(d))wkT++;if(d<=now.getDate()&&isWk(d))wkP++;}
+      const timePct=Math.round(wkP/wkT*100);
+
+      const repTgt=REPS.filter(r=>r.tgt>0).reduce((s,r)=>s+r.tgt,0);
+      const repAct=REPS.filter(r=>r.tgt>0).reduce((s,r)=>s+r.act,0);
+      const repAch=repTgt>0?Math.round(repAct/repTgt*100):0;
+      const repFcst=wkP>0?Math.round(repAct/wkP*wkT):repAct;
+      const repGap=repFcst-repTgt;
+      const remain=wkT-wkP;
+
+      function fK(v){if(!v)return'$0';return v>=1e8?'$'+(v/1e8).toFixed(1)+'億':v>=1e4?'$'+Math.round(v/1e4)+'萬':'$'+v.toLocaleString();}
+      function ac(p){return p>=100?'#22c55e':p>=80?'#eab308':'#ef4444';}
+
+      const card=document.createElement('div');
+      card.className='card';card.style.marginBottom='14px';
+      card.innerHTML=`
+        <div class="ct">📈 月中達標預估</div>
+        <div class="cs">工作日進度 ${wkP}/${wkT} 天（${timePct}%）· 線性推算至月底 · 資料來源：REPS</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px">
+          <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:12px">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">業務口徑達成率</div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:6px">目標 ${fK(repTgt)} · 現在 ${fK(repAct)}</div>
+            <div style="font-size:28px;font-weight:700;color:${ac(repAch)}">${repAch}%</div>
+            <div style="font-size:12px;margin-top:4px;color:var(--text2)">預估月底 <span style="font-weight:700;color:${ac(Math.round(repFcst/repTgt*100))}">${fK(repFcst)}</span></div>
+            <div style="font-size:11px;margin-top:2px;color:${repGap>=0?'#22c55e':'#ef4444'}">${repGap>=0?'超標 +':'缺口 '}${fK(Math.abs(repGap))}</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:12px">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">時間進度 vs 業績進度</div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:6px">時間 ${timePct}% · 業績 ${repAch}%</div>
+            <div style="font-size:28px;font-weight:700;color:${repAch>=timePct?'#22c55e':'#ef4444'}">${repAch>=timePct?'⬆ 超前':'⬇ 落後'}</div>
+            <div style="font-size:12px;margin-top:4px;color:var(--text2)">差距 ${repAch>=timePct?'+':''}${repAch-timePct}pp vs 時間</div>
+            <div style="font-size:11px;margin-top:2px;color:var(--text3)">月底剩 ${remain} 工作日</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:12px">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">每日需衝量（達標）</div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:6px">剩餘缺口 / 剩餘工作日</div>
+            <div style="font-size:28px;font-weight:700;color:${repGap>=0?'#22c55e':'#ef4444'}">
+              ${repGap>=0?'已達標':fK(Math.round(Math.abs(repGap)/(remain||1)))}
+            </div>
+            <div style="font-size:11px;margin-top:4px;color:var(--text3)">${repGap>=0?'🎉 預估超標 '+fK(repGap):'每日需衝量'}</div>
+          </div>
+        </div>`;
+      // 插在最後一個 krow5 之後
+      const krows=document.querySelectorAll('#pg-overview .krow5');
+      const tgt=krows[krows.length-1];
+      if(tgt&&tgt.nextSibling)tgt.parentNode.insertBefore(card,tgt.nextSibling);
+      else if(tgt)tgt.parentNode.appendChild(card);
+    })();
+
+    // ── Phase 4: 業務缺口分析 ─────────────────────────────────────────────
+    (function(){
+      const repData=REPS.filter(r=>r.tgt>0).map(r=>({
+        n:r.n,area:r.area||'',tgt:r.tgt,act:r.act,
+        ach:Math.round(r.act/r.tgt*100),gap:r.act-r.tgt
+      })).sort((a,b)=>a.ach-b.ach);
+
+      function fK(v){return v>=1e4?'$'+Math.round(Math.abs(v)/1e4)+'萬':'$'+Math.abs(v).toLocaleString();}
+
+      const card2=document.createElement('div');
+      card2.className='card';card2.style.marginBottom='14px';
+      card2.innerHTML=`
+        <div class="ct">📊 業務缺口分析</div>
+        <div class="cs">各業務員月目標達成率 · 由低至高 · 紅 &lt;80% / 黃 80-99% / 綠 ≥100%</div>
+        <div style="margin-top:10px">
+          ${repData.map(r=>{
+            const barW=Math.min(100,r.ach);
+            const col=r.ach>=100?'#22c55e':r.ach>=80?'#eab308':'#ef4444';
+            const gapHtml=r.gap>=0
+              ?`<span style="color:#22c55e">+${fK(r.gap)}</span>`
+              :`<span style="color:#ef4444">-${fK(Math.abs(r.gap))}</span>`;
+            return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+              <div style="width:68px;font-size:11px;color:var(--text1);flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.n}">${r.n}</div>
+              <div style="flex:1;background:rgba(255,255,255,0.05);border-radius:3px;height:13px;overflow:hidden">
+                <div style="width:${barW}%;height:100%;background:${col}"></div>
+              </div>
+              <div style="width:38px;font-size:12px;font-weight:700;color:${col};text-align:right;flex-shrink:0">${r.ach}%</div>
+              <div style="width:68px;font-size:10px;text-align:right;flex-shrink:0">${gapHtml}</div>
+            </div>`;
+          }).join('')}
+        </div>`;
+      // 插在 forecast card 後面
+      const krows=document.querySelectorAll('#pg-overview .krow5');
+      const tgt=krows[krows.length-1];
+      if(tgt){
+        const fc=tgt.nextSibling;
+        if(fc&&fc.nextSibling)fc.parentNode.insertBefore(card2,fc.nextSibling);
+        else if(fc)fc.parentNode.appendChild(card2);
+      }
+    })();
   },
 
   'cust-group'(){
